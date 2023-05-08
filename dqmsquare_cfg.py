@@ -376,6 +376,9 @@ class DQM2MirrorDB:
     self.db_meta.reflect()
 
   def create_tables(self):
+    """
+    Initialize the databases
+    """
     self.log.debug( "DQM2MirrorDB.create_tables()" )
     with self.engine.connect() as cur:
       session = self.Session(bind=cur)
@@ -389,10 +392,14 @@ class DQM2MirrorDB:
         self.log.error("Error occurred: ", e)
         session.rollback()
 
-  ### fill table with graph data
-  def fill_graph(self, header, document):
+  def fill_graph(self, header, document) -> int:
+    """ 
+    Fill table with graph data
+    """
     extra = document.get("extra", None)
-    if not extra : return
+    if not extra:
+      self.log.debug("No 'extra' found in document")
+      return
 
     id  = header.get("_id")
     run = header.get("run", None)
@@ -430,19 +437,22 @@ class DQM2MirrorDB:
 
     return 0
 
-  def get_graphs_data(self, run):
+  def get_graphs_data(self, run) -> list:
     self.log.debug( "DQM2MirrorDB.get_graphs_data() - " + str(run) )
     with self.engine.connect() as cur:
       answer = cur.execute("SELECT * FROM " + self.TB_NAME_GRAPHS + " WHERE CAST(run as INTEGER) = " + str(run) + ";" ).all()
-    if not len( answer ) : return "[]"
+    if not len( answer ):
+      return []
     answer = list( answer[0] )
     if answer[-2]:
       answer[-2] = eval( answer[-2] )
     # print( answer )
     return answer
 
-  ### fill 'runs' table with clients data
-  def fill(self, header, document):
+  def fill(self, header, document) -> int:
+    """
+    fill 'runs' table with clients data
+    """
     id = header.get("_id")
     client = header.get("tag", "")
     run    = header.get("run", -1)
@@ -459,18 +469,25 @@ class DQM2MirrorDB:
       for item in document.get("cmdline"):
         if "runkey" in item:
           runkey = item
-    except: pass
+    except:
+      pass
     fi_state     = document.get("fi_state", "")
     timestamp    = header.get("timestamp", datetime.datetime(2012, 3, 3, 10, 10, 10))
-
+    
+    # TODO: Check if needed, seems we get StatementError: SQLite DateTime type only accepts Python datetime and date objects as input.')
+    if isinstance(timestamp, float):
+      timestamp=datetime.datetime.fromtimestamp(timestamp)
+      
+    
     extra = document.get( "extra", {} )
     ps_info = extra.get( "ps_info", {} )
     VmRSS        = ps_info.get( "VmRSS", "" )
+
     stdlog_start = str(extra.get( "stdlog_start", "" ))
     stdlog_end   = str(extra.get( "stdlog_end", "" ))
 
     values = (id , client , run , rev , hostname , exit_code , events_total , events_rate , cmssw_run , cmssw_lumi , client_path , runkey , fi_state, timestamp, VmRSS, stdlog_start, stdlog_end )
-    self.log.debug( "DQM2MirrorDB.fill() - " + str(values) )
+    self.log.debug( f"DQM2MirrorDB.fill() - {str(values[:-2])}, {str(values[-2][:10])}..{str(values[-2][-10:])}, {str(values[-1][:10])}..{str(values[-1][-10:])}")
     values_dic = {}
     for val, name in zip( values, self.DESCRIPTION_SHORT ):
       values_dic[ name ] = val
@@ -483,12 +500,14 @@ class DQM2MirrorDB:
         session.execute( sqlalchemy.insert( self.db_meta.tables[ self.TB_NAME ] ).values( values_dic ) )
         session.commit()
       except Exception as e:
-        self.log.error("Error occurred: ", e)
+        self.log.error(f"Error when inserting into '{self.engine.url}': {repr(e)}")
         session.rollback()
         return 1
 
     ### 
-    if not run : return 0
+    if not run: 
+      return 0
+
     old_min_max = [999999999, -1]
     with self.engine.connect() as cur:
       answer = cur.execute( "SELECT data FROM " + self.TB_NAME_META + " WHERE name = 'min_max_runs';" ).all()
@@ -506,8 +525,10 @@ class DQM2MirrorDB:
 
     return 0
 
-  ### get data from 'runs' table with clients data
   def get(self, run_start, run_end, bad_only=False, with_ls_only=False):
+    """
+    get data from 'runs' table with client's data
+    """
     self.log.debug( "DQM2MirrorDB.get() - " + str(run_start) + " " + str(run_end) )
     with self.engine.connect() as cur:
       postfix = ";"
@@ -519,8 +540,7 @@ class DQM2MirrorDB:
         answer = cur.execute("SELECT " + self.DESCRIPTION_SHORT_NOLOGS + " FROM " + self.TB_NAME + " WHERE run = " + str(run_start) + " ORDER BY client, id" + postfix ).all()
       else : 
         answer = cur.execute("SELECT " + self.DESCRIPTION_SHORT_NOLOGS + " FROM " + self.TB_NAME + " WHERE run BETWEEN " + str(run_start) + " AND " + str(run_end) + postfix ).all()
-    #self.log.debug( "return " + str(answer) )
-    #print( answer )
+    self.log.debug( f"Read DB for runs {run_start}-{run_end}: " + str(answer) )
     return answer
 
   def make_mirror_entry( self, data ):
@@ -535,8 +555,12 @@ class DQM2MirrorDB:
     cmssw_lumi  = data[9]
     client_path  = data[10]
     runkey  = data[11]
-    fi_state  = data[12]
+    # fi_state  = data[12]  # Not needed here
     timestamp = data[13]
+    if isinstance(timestamp, str):
+      # TODO: this was not needed before
+      timestamp = datetime.datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f").timestamp()
+      
     VmRSS     = data[14]
 
     client = self.get_short_client_name( client )
@@ -571,7 +595,7 @@ class DQM2MirrorDB:
     hostname  = data[4]
     exit_code  = data[5]
     events_total  = data[6]
-    events_rate = data[7]
+    # events_rate = data[7]
     cmssw_run  = data[8]
     cmssw_lumi  = data[9]
     client_path  = data[10]
@@ -601,7 +625,12 @@ class DQM2MirrorDB:
     if name == "__init__" : return False
     return True
 
-  def get_mirror_data(self, run_number):
+  def get_mirror_data(self, run_number:int) -> tuple:
+    """
+    Gets information for a specific run from the DB.
+
+    Returns a tuple: global_data and clients_data (???)
+    """
     runs = self.get(run_number, run_number)
     runs_out = [ self.make_mirror_entry( run ) for run in runs ]
     clients_data = [ run[ 0 ] for run in runs_out ]
@@ -675,7 +704,7 @@ class DQM2MirrorDB:
   def get_rev(self, machine):
     self.log.debug( "DQM2MirrorDB.get_rev()" )
     if ".cms" in machine : machine = machine[:-len(".cms")]
-
+  
     with self.engine.connect() as cur:
       if "fu" in machine :
         answer = cur.execute( "SELECT MAX(rev) FROM " + self.TB_NAME + " WHERE hostname = '" + str(machine) + "';" ).all()
