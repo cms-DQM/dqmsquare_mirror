@@ -46,7 +46,7 @@ COPY . /dqmsquare_mirror
 WORKDIR dqmsquare_mirror
 
 RUN python3 -m pip install -U pip \
-  && python3 -m pip install -r requirements \
+  && python3 -m pip install -r requirements.txt \
   && mkdir -p /dqmsquare_mirror/log
 
 # Add bottle
