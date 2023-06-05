@@ -1,5 +1,6 @@
 
-#### DQM^2 Mirror Page
+## DQM^2 Mirror
+
 This is a system to grab the information about DQM jobs from DQM^2 site, 
 parse it, removing sensitive information, and show selections outside the P5 are.
 
@@ -25,7 +26,10 @@ Folders:
 * `tmp` - folder to put output from dqmsquare_robber and dqmsquare_parser
 The RPM post-install script will create this folders. They are also hardcoded in the `dqmsquare_server.py`.
 
-#### Deployment with RPM, Python 2.7
+### Deployment 
+
+#### RPM, Python 2.7
+
 Download repo to your local linux machine. 
 Check `dqmsquare_deploy.sh` to download extra dependencies and create executables.
 Several options:
@@ -50,15 +54,22 @@ Tested with:
 For the creation of RPM:
 * rpm-build  
 
-#### Deployment with Docker, K8, Python 3.6
-We are using cmsweb k8 cluster to host our pods: server, parser and two grabbers. They are packed into single Docker image.
-Server available to world-wide-web through cmsweb frontiend proxy. Grabber also connected to P5 through cmsweb frontiend proxy.
-Cmsweb frontiend is required by default autentification using cern grid certificate, we are using one provided by cmsweb team to k8 cluster.
-Also, by default Firefox do not know which certificate to use with cmsweb.cern.ch. We define rules in the Firefox profile locally and then pack profile into Docker image.
-The connection at P5 to DQM^2 is closed without autentification cookie defined in DQM^2 backend (`fff_web.py`). 
-Cookie autentification value is transfered to k8 cluster using Opaque Secret defined in `k8_secret.yaml`. 
-To store `log` and `tmp` we mount CephFS. Claim for CephFS is defined in `k8_claim_testbed.yaml` for testbed cluster. In production and preproduction cluster CephFS volume is created by cmsweb team.
-Also, they are requested Docker image to be defined to use not root user. Docker source image is python:3.9, cmsweb images not work well with firefox & geckodriver.
+#### Docker, k8s, Python 3.6
+
+We are using the cmsweb k8s cluster to host our pods:
+- server
+- parser (TODO: is this still used?)
+- two grabbers 
+
+They are packed into a single Docker image.
+
+The server is available to world-wide-web through the cmsweb frontend proxy. The grabber is also connected to P5 through the cmsweb frontend proxy.
+Cmsweb frontend requires by default authentication using a CERN grid certificate, so we are using one provided by cmsweb team to k8 cluster.
+Also, by default, Firefox does not know which certificate to use with `cmsweb.cern.ch`. For this reason, we need to define rules in a Firefox profile locally and then pack the profile into the Docker image (**TODO: Provide instructions**).
+The connection at P5 to DQM^2 is closed without authentication cookie defined in DQM^2 backend (`fff_web.py`). 
+Cookie authentication value is transfered to k8 cluster using Opaque Secret defined in `k8_secret.yaml`. 
+To store `log` and `tmp`, we mount CephFS. The claim for CephFS is defined in `k8_claim_testbed.yaml` for the testbed cluster. In production and preproduction cluster, the CephFS volume is created by the cmsweb team.
+Also, they requested that the Docker image created does not use the `root` user. The Docker source image is `python:3.9`, cmsweb images not work well with firefox & geckodriver.
 In general, source image and selenium, firefox, geckodriver versions are carefully selected to be able to work together with available code.
 
 1. `docker build -t registry.cern.ch/cmsweb/dqmsquare_mirror:v1.1.0 dqmsquare_mirror` 
@@ -67,22 +78,26 @@ In general, source image and selenium, firefox, geckodriver versions are careful
 2. `docker login registry.cern.ch   `
 3. `docker push registry.cern.ch/cmsweb/dqmsquare_mirror:v1.1.0`
 
-For the `testbed` cmsweb k8 cluster:
+##### For the testbed cmsweb k8 cluster:
+
 * update k8 config yaml (`k8_config_testbed.yaml`) to use `registry.cern.ch/cmsweb/dqmsquare_mirror:v1.1.0`
 * Log into `lxplus8` and run:
 ```bash
   export KUBECONFIG=/afs/cern.ch/user/m/mimran/public/cmsweb-k8s/config.cmsweb-test4
-  kubectl apply -f k8_claim_testbed.yaml # (once if PVC not available)
+  kubectl apply -f k8_claim_testbed.yaml # (once if PVC(??) not available)
   kubectl apply -f k8_config_testbed.yaml
 ```
 to login into a pod :   
 ```bash
-  kubectl exec -it dqm-square-mirror-robber-74d5458fb-924j2 bash -n dqm 
+  kubectl get pods -n dqm
+  # find the pod name which looks like dqm-square-mirror-server-<something> 
+  kubectl exec <pod name> -it -n dqm -- bash
 ```
-While Service claim with port definition is avalable in testbed yaml maifest file it is not supported by cmsweb.
+While Service claim with port definition is avalable in testbed yaml maifest file, it is not supported by cmsweb.
 
-For preproduction cmsweb k8 cluster:
-* get config from https://cms-http-group.docs.cern.ch/k8s_cluster/cmsweb_testbed_cluster_doc/ 
+##### For the preproduction cmsweb k8s cluster:
+
+* Get config from https://cms-http-group.docs.cern.ch/k8s_cluster/cmsweb_testbed_cluster_doc/ 
    and follow https://cms-http-group.docs.cern.ch/k8s_cluster/deploy-srv/ for deployment.
    We store yaml manifests at https://github.com/dmwm/CMSKubernetes:  
 ```bash
@@ -116,18 +131,20 @@ Tested with:
 * Python: 3.6  
 * Bottle: 0.12.19  
 * Geckodriver: 0.30.0  
-* beautifulsoup4==4.10.0  
 * selenium==3.141.0  
 * Firefox 91.2.0esr  
 
-#### DQM^2 Mirror Control Room (CR)
+### DQM^2 Mirror Control Room (CR)
+
 CR is a place to simplify the operations of DQM services. It send requests to DQM^2 on one of the playback machine at P5 where requests are executed.
 Secrets and versions of DQM^2 need to match DQM^2 Mirror requirements, please check for more info https://github.com/cms-DQM/fff_dqmtools
 
-##### Scripts
+#### Scripts
+
 1. `dqmsquare_cert.sh` imports `.pem` certificates provided by cmsweb k8 cluster into `.p12` format and then into NSS sql DB used by firefox without master password.
 
 #### Useful extras
+
 * `bottle`'s built-in default server is not for a heavy server load, just for 3-5 shifters
 * Number of logs created by `dqmsquare_robber.py`/`dqmsquare_robber_oldruns.py`/`dqmsquare_parser.py`/`dqmsquare_server.py`/`dqmsquare_server_flash.py` is limited by `TimedRotatingFileHandler`
 * `dqmsquare_robber.py` spawns lot of firefox subprocesses. In case of the `dqmsquare_robber.py` process is killed they may persist, requiring the manual killing to free the resources.

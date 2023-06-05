@@ -1,6 +1,6 @@
 # Dockerfile for creating containers running dqmsquare_mirror instances.
 
-FROM python:3.9
+FROM python:3.9.16
 
 RUN apt update \
     &&  apt upgrade -y \
@@ -9,7 +9,6 @@ RUN apt update \
 # && apt -y autoremove \
 # && apt install -y firefox-esr \ 
     && apt-get update --fix-missing \
-    # TODO: Is postgres needed?
     && apt install -y libgtk-3-0 iputils-ping sqlite3 sudo nano postgresql python3-psycopg2
 
 # setup postgres db
@@ -32,10 +31,9 @@ RUN set -x \
   && tar -jxf firefox-* \
   && mv firefox /opt/ \
   && chmod 755 /opt/firefox \
-  && chmod 755 /opt/firefox/firefox
-  
-# Add geckodriver
-RUN set -x \
+  && chmod 755 /opt/firefox/firefox \ 
+  # Add geckodriver
+  && set -x \ 
   && curl -sSLO https://github.com/mozilla/geckodriver/releases/download/${GECKODRIVER_VER}/geckodriver-${GECKODRIVER_VER}-linux64.tar.gz \
   && tar zxf geckodriver-*.tar.gz \
   && mv geckodriver /usr/bin/
@@ -44,24 +42,12 @@ RUN set -x \
 
 RUN mkdir -p /cephfs/testbed/dqmsquare_mirror/
 
-ADD . /dqmsquare_mirror
+COPY . /dqmsquare_mirror
 WORKDIR dqmsquare_mirror
-RUN python3 -m pip install -r requirements
-RUN mkdir -p /dqmsquare_mirror/log
 
-# Modify the cfg file for Docker
-# Default is to create the DBs above /dqmsquare_mirror which is /, requiring sudo.
-# Maybe it's better to create them inside the dqmsquare_mirror directory.
-# Also replace the path for the key & cert, which should be the one mapped to the container when running it.
-RUN sed -i -e 's/^grabber_db_playback_path.*$/grabber_db_playback_path = sqlite:\/\/\/dqm2m.db\?check_same_thread=False/' dqmsquare_mirror.cfg \
-    && sed -i -e 's/^grabber_db_production_path.*$/grabber_db_production_path = sqlite:\/\/\/dqm2m_production.db\?check_same_thread=False/' dqmsquare_mirror.cfg \
-    && sed -i -e 's/^server_grid_cert_path.*$/server_grid_cert_path = \/certs_path\/usercert.pem/' dqmsquare_mirror.cfg \
-    && sed -i -e 's/^server_grid_key_path.*$/server_grid_key_path = \/certs_path\/userkey.pem/' dqmsquare_mirror.cfg \
-    && sed -i -e 's/^robber_debug.*$/robber_debug = True/' dqmsquare_mirror.cfg \
-    && sed -i -e 's/^robber_geckodriver_path.*$/robber_geckodriver_path = \/usr\/bin\/geckodriver/' dqmsquare_mirror.cfg \
-    && sed -i -e 's/^robber_firefox_path.*$/robber_firefox_path = \/opt\/firefox\/firefox/' dqmsquare_mirror.cfg \
-    && sed -i -e 's/^robber_firefox_profile_path.*$/robber_firefox_profile_path = \/firefox_profile_path/' dqmsquare_mirror.cfg
-
+RUN python3 -m pip install -U pip \
+  && python3 -m pip install -r requirements \
+  && mkdir -p /dqmsquare_mirror/log
 
 # Add bottle
 # RUN set -x \
@@ -76,12 +62,12 @@ ENV TZ="Europe/Zurich"
 RUN date
 
 # add new user, add user to sudoers file, switch to user
-RUN useradd dqm
-RUN echo "%dqm ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-RUN mkdir -p /home/dqm/
-RUN chmod 777 /home/dqm/
-RUN find /dqmsquare_mirror -type d -exec chmod 777 {} \; 
-RUN find /dqmsquare_mirror -type f -exec chmod 777 {} \;
+RUN useradd dqm \
+    && echo "%dqm ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+    && mkdir -p /home/dqm/ \
+    && chmod 777 /home/dqm/ \
+    && find /dqmsquare_mirror -type d -exec chmod 777 {} \; \ 
+    && find /dqmsquare_mirror -type f -exec chmod 777 {} \; 
 USER dqm
  
 CMD ["/bin/bash"]
