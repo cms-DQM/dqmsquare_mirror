@@ -53,7 +53,7 @@ def load_cfg() -> dict:
         if cfg["ENV"] != "development"
         else "api?what=get_playback"
     )
-    cfg["SERVER_RELOAD_TIME"] = 5000  # msec, int
+    cfg["FRONTEND_API_QUERY_INTERVAL"] = 5000  # msec, int
     cfg["SERVER_LOG_PATH"] = (
         os.path.join(mount_path, "log", "server.log")
         if cfg["ENV"] != "development"

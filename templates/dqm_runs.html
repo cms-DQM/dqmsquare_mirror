@@ -29,7 +29,7 @@
 
 <script>
   // DQM RUNS PAGE //
-  const reload_time = 5000
+  const reload_time = Number("{{ FRONTEND_API_QUERY_INTERVAL }}")
   let static_headers = ["Timestamp", "Time Diff", "Hostname", "State", "Tag", "LS", "RSS", "Total Ev.", "LOGS"];
 
   // console.log( window.location.href ); // like http://0.0.0.0:8887/dqm/dqm-square-k8/runs?run=501450
@@ -140,7 +140,7 @@
 
   function update_graph(data) {
     const LUMI = 23.310893056;
-    if (data.lenght < 6) return;
+    if (data.length < 6) { return };
     let stream_datas = data[5];
     let global_start = data[4];
 
@@ -149,7 +149,7 @@
     const data_points_array_1 = [];
     const data_points_array_2 = [];
 
-    if (typeof stream_datas === 'undefined') return;
+    if (typeof stream_datas === 'undefined') { return };
 
     for (const [stream, stream_data] of Object.entries(stream_datas)) {
       // console.log(stream, stream_data);
