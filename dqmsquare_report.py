@@ -14,14 +14,14 @@ from collections import defaultdict
 
 log = logging.getLogger(__name__)
 if __name__ == "__main__":
-    cfg = dqmsquare_cfg.load_cfg("dqmsquare_mirror.cfg")
+    cfg = dqmsquare_cfg.load_cfg()
     path_out = "tmp"
 
     mode = ["p7"]
 
     ### DQM^2-MIRROR DB
-    db_playback = DQM2MirrorDB(log, cfg["GRABBER_DB_PLAYBACK_PATH"], server=True)
-    db_production = DQM2MirrorDB(log, cfg["GRABBER_DB_PRODUCTION_PATH"], server=True)
+    DB_PLAYBACK_URI = DQM2MirrorDB(log, cfg["DB_PLAYBACK_URI"], server=True)
+    db_production = DQM2MirrorDB(log, cfg["DB_PRODUCTION_URI"], server=True)
 
     ###
     db = db_production

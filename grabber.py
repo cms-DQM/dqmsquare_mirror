@@ -1,4 +1,5 @@
 # P.S.~Mandrik, IHEP, https://github.com/pmandrik
+import os
 import sys
 import json
 import time, sys
@@ -7,6 +8,7 @@ import urllib3
 import logging
 import traceback
 import dqmsquare_cfg
+from custom_logger import set_log_handler
 from db import DQM2MirrorDB
 
 
@@ -15,10 +17,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 log = logging.getLogger(__name__)
 
 if __name__ == "__main__":
-    NAME = "dqmsquare_grabber.py:"
-    cfg = dqmsquare_cfg.load_cfg("dqmsquare_mirror.cfg")
-    is_k8 = bool(cfg["ROBBER_K8"])
-
+    cfg = dqmsquare_cfg.load_cfg()
     # for local tests ...
     run_modes = ["playback", "production"]
     playback = [
@@ -37,7 +36,7 @@ if __name__ == "__main__":
     ]
 
     if len(sys.argv) > 1 and sys.argv[1] == "playback":
-        dqmsquare_cfg.set_log_handler(
+        set_log_handler(
             log,
             cfg["ROBBER_OLDRUNS_LOG_PATH"],
             cfg["LOGGER_ROTATION_TIME"],
@@ -46,7 +45,7 @@ if __name__ == "__main__":
         )
         run_modes = ["playback"]
     elif len(sys.argv) > 1 and sys.argv[1] == "production":
-        dqmsquare_cfg.set_log_handler(
+        set_log_handler(
             log,
             cfg["ROBBER_LOG_PATH"],
             cfg["LOGGER_ROTATION_TIME"],
@@ -55,7 +54,7 @@ if __name__ == "__main__":
         )
         run_modes = ["production"]
     else:
-        dqmsquare_cfg.set_log_handler(
+        set_log_handler(
             log,
             cfg["GRABBER_LOG_PATH"],
             cfg["LOGGER_ROTATION_TIME"],
@@ -63,49 +62,38 @@ if __name__ == "__main__":
             cfg["GRABBER_DEBUG"],
         )
 
-    if not is_k8:
+    if cfg["ENV"] == "development":
         formatter = logging.Formatter(
             fmt="%(asctime)s %(levelname)-8s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
         handler2 = logging.StreamHandler(sys.stdout)
         handler2.setFormatter(formatter)
-        handler2.setLevel(logging.DEBUG if cfg["GRABBER_DEBUG"] else logging.INFO)
+        level = logging.DEBUG if cfg["GRABBER_DEBUG"] else logging.INFO
+        handler2.setLevel(level=level)
         log.addHandler(handler2)
-        playback = [
-            "bu-c2f11-13-01",
-            "fu-c2f11-15-04",
-            "fu-c2f11-15-01",
-            "fu-c2f11-15-02",
-            "fu-c2f11-15-03",
-        ]
-        production = [
-            "bu-c2f11-09-01",
-            "fu-c2f11-11-01",
-            "fu-c2f11-11-02",
-            "fu-c2f11-11-03",
-            "fu-c2f11-11-04",
-        ]
+        log.debug(f"Configured logger for grabber, level={level}")
 
     ### global variables and auth cookies
     cr_path = cfg["SERVER_FFF_CR_PATH"]
     cert_path = [cfg["SERVER_GRID_CERT_PATH"], cfg["SERVER_GRID_KEY_PATH"]]
-    selenium_secret = "changeme"
-    env_secret = dqmsquare_cfg.get_env_secret(log, "DQM_PASSWORD")
+    fff_secret = "changeme"
+
+    env_secret = os.environ.get("DQM_FFF_SECRET")
     if env_secret:
-        selenium_secret = env_secret
+        fff_secret = env_secret
         log.debug("Found secret in environmental variables")
     else:
-        log.debug("No secret found in environmental variables")
+        log.warning("No secret found in environmental variables")
 
     # Trailing whitespace in secret leads to crashes, strip it
-    cookies = {str(cfg["FFF_SECRET_NAME"]): selenium_secret.strip()}
+    cookies = {str(cfg["FFF_SECRET_NAME"]): fff_secret.strip()}
 
     ### DQM^2-MIRROR DB CONNECTION
-    db_playback, db_production = None, None
+    DB_PLAYBACK_URI, db_production = None, None
     if "playback" in run_modes:
-        db_playback = DQM2MirrorDB(log, cfg["GRABBER_DB_PLAYBACK_PATH"])
+        DB_PLAYBACK_URI = DQM2MirrorDB(log, cfg["DB_PLAYBACK_URI"])
     if "production" in run_modes:
-        db_production = DQM2MirrorDB(log, cfg["GRABBER_DB_PRODUCTION_PATH"])
+        db_production = DQM2MirrorDB(log, cfg["DB_PRODUCTION_URI"])
 
     def get_documents_from_fff(dqm_machine, dqm_port=cfg["FFF_PORT"], runs_ids=[]):
         """
@@ -137,6 +125,7 @@ if __name__ == "__main__":
             timeout=30,
         )
         log.debug(f"Got {len(r.content)} byte response.")
+        log.debug(json.loads(r.content))
 
         return r.content
 
@@ -229,9 +218,9 @@ if __name__ == "__main__":
             if "playback" in run_modes:
                 for host in playback:
                     log.debug(f"Getting latest rev for {host} from DB.")
-                    rev = db_playback.get_rev(host)
+                    rev = DB_PLAYBACK_URI.get_rev(host)
                     log.debug(f"Latest rev = {rev}.")
-                    update_db(db_playback, host, rev)
+                    update_db(DB_PLAYBACK_URI, host, rev)
             if "production" in run_modes:
                 for host in production:
                     log.debug(f"Getting latest rev for {host} from DB.")
@@ -245,7 +234,7 @@ if __name__ == "__main__":
             log.warning(f"Traceback: {traceback.format_exc()}")
             continue
 
-        if is_k8:
+        if cfg["ENV"] != "development":
             log.debug("z-Z-z until next iteration")
             time.sleep(int(cfg["SLEEP_TIME"]))
 

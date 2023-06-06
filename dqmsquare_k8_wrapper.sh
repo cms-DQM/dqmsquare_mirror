@@ -25,10 +25,10 @@ if [[ $service ]] && [[ $service = "server" ]] ; then
   sudo service postgresql start
   # DB 'postgres' is created by default, create  'postgres_production' database too
   sudo -u dqm createdb postgres_production 
-  python3 dqmsquare_grabber.py production & 
-  python3 dqmsquare_grabber.py playback & 
+  python3 grabber.py production & 
+  python3 grabber.py playback & 
 
-  gunicorn -w 4 -b 0.0.0.0:8084 'dqmsquare_server_flask:gunicorn_app'
+  gunicorn -w 4 -b 0.0.0.0:8084 'server:gunicorn_app'
 fi
 
 if [[ $service ]] && [[ $service = "dummy" ]] ; then

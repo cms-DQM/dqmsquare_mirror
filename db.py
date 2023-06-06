@@ -181,7 +181,12 @@ class DQM2MirrorDB:
             pass
         fi_state = document.get("fi_state", "")
         timestamp = header.get("timestamp", datetime(2012, 3, 3, 10, 10, 10))
-
+        try:
+            timestamp = datetime.fromtimestamp(timestamp)
+        except Exception as e:
+            self.log.warn(
+                f"Timestamp {timestamp} could not be cast to datetime: {repr(e)}"
+            )
         extra = document.get("extra", {})
         ps_info = extra.get("ps_info", {})
         VmRSS = ps_info.get("VmRSS", "")
