@@ -28,6 +28,16 @@ def create_app(cfg):
         True,
     )
 
+    ## Read in CR credentials from env var
+    try:
+        username, password = os.environ.get("DQM_CR_USERNAMES").split(":")
+        cr_usernames = {username: password}
+    except Exception as e:
+        log.error(
+            f"No Control Room credentials configured! Please set the DQM_CR_USERNAMES env var: {repr}"
+        )
+        raise e
+
     # Path to the Cinder mount, for permanent storage
     SERVER_DATA_PATH = cfg["SERVER_DATA_PATH"]
 
@@ -52,7 +62,7 @@ def create_app(cfg):
             **{
                 "PREFIX": cfg["SERVER_URL_PREFIX"],
                 "FRONTEND_API_QUERY_INTERVAL": cfg["FRONTEND_API_QUERY_INTERVAL"],
-            }
+            },
         )
 
     if cfg["ENV"] != "development":
@@ -175,13 +185,14 @@ def create_app(cfg):
             **{
                 "PREFIX": cfg["SERVER_URL_PREFIX"],
                 "FRONTEND_API_QUERY_INTERVAL": cfg["FRONTEND_API_QUERY_INTERVAL"],
-            }
+            },
         )
 
     ### CR ###
-    cr_usernames = os.environ.get("DQM_CR_USERNAMES")
 
     def check_login(username, password, cookie=False):
+        if not username:
+            return False
         if username not in cr_usernames:
             return False
         if cookie:
@@ -195,13 +206,14 @@ def create_app(cfg):
     def do_login():
         username = flask.request.form.get("username")
         password = flask.request.form.get("password")
+        print(f"u: {username}, p: {password}")
         log.info("login result " + str(check_login(username, password)))
         if check_login(username, password):
-            resp = flask.make_response(flask.redirect("/dqm/dqm-square-k8/cr"))
-            if cfg["ENV"] != "development":
-                resp = flask.make_response(
-                    flask.redirect("https://cmsweb.cern.ch/dqm/dqm-square-k8/cr")
-                )
+            resp = flask.make_response(flask.redirect(f"{cfg['SERVER_URL_PREFIX']}/cr"))
+            # if cfg["ENV"] != "development":
+            #     resp = flask.make_response(
+            #         flask.redirect("https://cmsweb.cern.ch/dqm/dqm-square-k8/cr")
+            #     )
             resp.set_cookie(
                 "dqmsquare-mirror-cr-account",
                 username,
@@ -219,11 +231,11 @@ def create_app(cfg):
     )  # https://cmsweb.cern.ch/dqm/dqm-square-k8/
     def do_logout():
         log.info("logout")
-        resp = flask.make_response(flask.redirect("/"))
-        if cfg["ENV"] != "development":
-            resp = flask.make_response(
-                flask.redirect("https://cmsweb.cern.ch/dqm/dqm-square-k8/")
-            )
+        resp = flask.make_response(flask.redirect(f"{cfg['SERVER_URL_PREFIX']}/"))
+        # if cfg["ENV"] != "development":
+        #     resp = flask.make_response(
+        #         flask.redirect("https://cmsweb.cern.ch/dqm/dqm-square-k8/")
+        #     )
         resp.set_cookie(
             "dqmsquare-mirror-cr-account", "random", path="/", httponly=True
         )
@@ -239,14 +251,9 @@ def create_app(cfg):
                 username = flask.request.cookies.get("dqmsquare-mirror-cr-account")
                 if not check_login(username, None, True):
                     if redirect:
-                        if cfg["ENV"] != "development":
-                            return flask.redirect(
-                                "https://cmsweb.cern.ch/dqm/dqm-square-k8/cr/login"
-                            )
-                        else:
-                            return flask.redirect(
-                                os.path.join(cfg["SERVER_URL_PREFIX"], "/cr/login")
-                            )
+                        return flask.redirect(
+                            os.path.join(cfg["SERVER_URL_PREFIX"], "/cr/login")
+                        )
                     else:
                         return "Please login ..."
                 else:
@@ -267,7 +274,7 @@ def create_app(cfg):
             "dqm_cr.html",
             **{
                 "PREFIX": cfg["SERVER_URL_PREFIX"],
-            }
+            },
         )
 
     @app.route("/cr/login", methods=["GET"])

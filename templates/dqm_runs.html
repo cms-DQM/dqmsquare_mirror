@@ -92,7 +92,7 @@
     let state_R = 0;
     for (let client_data of clients_data) { // (timestamp, td, hostname, fi_state, client, cmssw_lumi, VmRSS, events_total, id, events_rate)
       tr = document.createElement("tr");
-      client_data[0] = new Date(client_data[0] * 1000).toLocaleString('en-GB', { hour12: false, timeZone: 'Europe/Zurich' });
+      client_data[0] = new Date(client_data[0]).toLocaleString('en-GB', { hour12: false, timeZone: 'Europe/Zurich' });
       // console.log(client_data)
       if (client_data[9] < 0) client_data[9] = 0
       client_data[7] = client_data[7] + " (" + client_data[9].toFixed(1) + " ev/s)"

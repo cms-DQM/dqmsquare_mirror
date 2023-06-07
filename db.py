@@ -100,14 +100,21 @@ class DQM2MirrorDB:
             return
 
         rev = header.get("_rev", -1)
-        timestamp = extra.get("timestamp", datetime(2012, 3, 3, 10, 10, 10, 0))
-        global_start = extra.get("global_start", datetime(2012, 3, 3, 10, 10, 10, 0))
+        timestamp = extra.get(
+            "timestamp", datetime(2012, 3, 3, 10, 10, 10, 0).timestamp()
+        )
+        global_start = extra.get(
+            "global_start", datetime(2012, 3, 3, 10, 10, 10, 0).timestamp()
+        )
 
         stream_data = str(extra.get("streams", ""))
         hostname = header.get("hostname", "")
 
         if not isinstance(global_start, datetime):
             global_start = datetime.fromtimestamp(global_start)
+
+        if not isinstance(timestamp, datetime):
+            timestamp = datetime.fromtimestamp(timestamp)
         values = [run, rev, id, timestamp, global_start, stream_data, hostname]
         values_dic = {}
         for val, name in zip(values, self.DESCRIPTION_SHORT_GRAPHS):
@@ -154,6 +161,7 @@ class DQM2MirrorDB:
         answer = list(answer[0])
         if answer[-2]:
             answer[-2] = eval(answer[-2])  # TODO: Not secure!!!!!!
+        print("!!!", answer[3], answer[4])
         answer[3] = answer[3].isoformat()
         answer[4] = answer[4].isoformat()
 
@@ -182,7 +190,9 @@ class DQM2MirrorDB:
         except:
             pass
         fi_state = document.get("fi_state", "")
-        timestamp = header.get("timestamp", datetime(2012, 3, 3, 10, 10, 10, 0))
+        timestamp = header.get(
+            "timestamp", datetime(2012, 3, 3, 10, 10, 10, 0).timestamp()
+        )
         try:
             timestamp = datetime.fromtimestamp(timestamp)
         except Exception as e:
@@ -396,7 +406,14 @@ class DQM2MirrorDB:
         answer = [
             run,
             client,
-            (hostname, events_total, cmssw_lumi, fi_state, exit_code, timestamp),
+            (
+                hostname,
+                events_total,
+                cmssw_lumi,
+                fi_state,
+                exit_code,
+                timestamp.isoformat(),
+            ),
             (cmssw_run, runkey, cmssw_v),
         ]
         return answer

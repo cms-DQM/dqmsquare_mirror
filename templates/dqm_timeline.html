@@ -184,7 +184,7 @@
             else { r_runs += 1; }
 
             let_max_events = Math.max(let_max_events, client_data[jj][1]);
-            let date = new Date(client_data[jj][5] * 1000).toLocaleString('en-GB', { hour12: false, timeZone: 'Europe/Zurich' });
+            let date = new Date(client_data[jj][5]).toLocaleString('en-GB', { hour12: false, timeZone: 'Europe/Zurich' });
             span_text += date + ", ";
             span_text += client_data[jj][1] + " events, ";
             span_text += client_data[jj][2] + " lumis, ";
