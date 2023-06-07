@@ -121,8 +121,6 @@ def create_app(cfg):
             db_ = dbs.get(db_name, db)
             run_data = db_.get_mirror_data(run)
             runs_around = db_.get_runs_arounds(run)
-            print(run_data)
-            print(runs_around)
             return json.dumps([runs_around, run_data])
         if what == "get_graph":
             run = flask.request.args.get("run", default=0)
@@ -246,7 +244,9 @@ def create_app(cfg):
                                 "https://cmsweb.cern.ch/dqm/dqm-square-k8/cr/login"
                             )
                         else:
-                            return flask.redirect("/dqm/dqm-square-k8/cr/login")
+                            return flask.redirect(
+                                os.path.join(cfg["SERVER_URL_PREFIX"], "/cr/login")
+                            )
                     else:
                         return "Please login ..."
                 else:
@@ -429,6 +429,7 @@ def create_app(cfg):
 
 
 if __name__ == "__main__":
+    # Local development entrypoint
     cfg = dqmsquare_cfg.load_cfg()
     create_app = create_app(cfg)
     create_app.run(
@@ -437,5 +438,6 @@ if __name__ == "__main__":
         debug=bool(cfg["SERVER_DEBUG"]),
     )
 else:
+    # gunicorn entrypoint
     cfg = dqmsquare_cfg.load_cfg()
     gunicorn_app = create_app(cfg)

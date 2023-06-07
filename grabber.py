@@ -125,7 +125,6 @@ if __name__ == "__main__":
             timeout=30,
         )
         log.debug(f"Got {len(r.content)} byte response.")
-        log.debug(json.loads(r.content))
 
         return r.content
 
