@@ -65,41 +65,30 @@ def create_app(cfg):
             },
         )
 
-    if cfg["ENV"] != "development":
+    @app.route(f"/{os.path.join(cfg['SERVER_URL_PREFIX'], '/static/<path:name>')}")
+    def get_static(name):
+        return flask.send_from_directory("static", name)
 
-        @app.route("/dqm/dqm-square-k8/static/<path:name>")
-        def get_static(name):
-            return flask.send_from_directory("static", name)
+    @app.route(
+        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/<path:name>")}'
+    )
+    @app.route(
+        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/tmp/<path:name>")}'
+    )
+    def get_tmp(name):
+        return flask.send_from_directory(
+            os.path.join("/", SERVER_DATA_PATH, "tmp/"), name
+        )
 
-        @app.route("/dqm/dqm-square-k8" + SERVER_DATA_PATH + "tmp/<path:name>")
-        @app.route("/dqm/dqm-square-k8" + SERVER_DATA_PATH + "tmp/tmp/<path:name>")
-        def get_tmp(name):
-            return flask.send_from_directory(SERVER_DATA_PATH + "tmp/", name)
-
-        @app.route("/dqm/dqm-square-k8" + SERVER_DATA_PATH + "log/<path:name>")
-        @app.route("/dqm/dqm-square-k8" + SERVER_DATA_PATH + "tmp/log/<path:name>")
-        def get_log(name):
-            content = flask.send_from_directory(SERVER_DATA_PATH + "log/", name)
-            return content
-
-    else:
-
-        @app.route("/static/<path:name>")
-        @app.route("/dqm/dqm-square-k8/static/<path:name>")
-        def get_static(name):
-            return flask.send_from_directory("static", name)
-
-        @app.route("/tmp/<path:name>")
-        @app.route("/tmp/tmp/<path:name>")
-        def get_tmp(name):
-            content = flask.send_from_directory("./tmp/", name)
-            return content
-
-        @app.route("/log/<path:name>")
-        @app.route("/tmp/log/<path:name>")
-        def get_log(name):
-            content = flask.send_from_directory("./log/", name)
-            return content
+    @app.route(
+        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "log/<path:name>")}'
+    )
+    @app.route(
+        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/log/<path:name>")}'
+    )
+    def get_log(name):
+        content = flask.send_from_directory(SERVER_DATA_PATH + "log/", name)
+        return content
 
     ### global variables and auth cookies
     cr_path = cfg["SERVER_FFF_CR_PATH"]
@@ -209,11 +198,10 @@ def create_app(cfg):
         print(f"u: {username}, p: {password}")
         log.info("login result " + str(check_login(username, password)))
         if check_login(username, password):
-            resp = flask.make_response(flask.redirect(f"{cfg['SERVER_URL_PREFIX']}/cr"))
-            # if cfg["ENV"] != "development":
-            #     resp = flask.make_response(
-            #         flask.redirect("https://cmsweb.cern.ch/dqm/dqm-square-k8/cr")
-            #     )
+            resp = flask.make_response(
+                flask.redirect(f"{os.path.join(cfg['SERVER_URL_PREFIX'], 'cr')}")
+            )
+
             resp.set_cookie(
                 "dqmsquare-mirror-cr-account",
                 username,
@@ -226,16 +214,11 @@ def create_app(cfg):
             return "<p>Login failed.</p>"
 
     @app.route("/cr/logout")
-    @app.route(
-        "/dqm/dqm-square-k8/cr/logout"
-    )  # https://cmsweb.cern.ch/dqm/dqm-square-k8/
+    @app.route("/dqm/dqm-square-k8/cr/logout")
     def do_logout():
         log.info("logout")
-        resp = flask.make_response(flask.redirect(f"{cfg['SERVER_URL_PREFIX']}/"))
-        # if cfg["ENV"] != "development":
-        #     resp = flask.make_response(
-        #         flask.redirect("https://cmsweb.cern.ch/dqm/dqm-square-k8/")
-        #     )
+        resp = flask.make_response(flask.redirect(f"{cfg['SERVER_URL_PREFIX']}"))
+
         resp.set_cookie(
             "dqmsquare-mirror-cr-account", "random", path="/", httponly=True
         )

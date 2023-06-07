@@ -2,9 +2,7 @@
 Original Author: ~Mandrik, IHEP, https://github.com/pmandrik
 
 Python file responsible for generating configuration data, depending on the
-environment.
-
-Can load or dump the configuration to a .cfg file.
+environment specified in environmental vars (or an .env file)
 """
 
 import os
@@ -59,7 +57,12 @@ def load_cfg() -> dict:
         if cfg["ENV"] != "development"
         else os.path.join("/", "log", "server.log")
     )
-    cfg["SERVER_DATA_PATH"] = mount_path if cfg["ENV"] != "development" else "/"
+    cfg["SERVER_DATA_PATH"] = mount_path if cfg["ENV"] != "development" else ""
+    cfg["SERVER_URL_PREFIX"] = (
+        os.path.join("/", "dqm", "dqm-square-k8")
+        if cfg["ENV"] != "development"
+        else "/"
+    )
     cfg["SERVER_FFF_CR_PATH"] = (
         "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin"
         if cfg["ENV"] == "testbed"
@@ -71,6 +74,8 @@ def load_cfg() -> dict:
     )
 
     # FFF simulator machine
+    # This is the machine that the grabber will try to acces
+    # through SERVER_FFF_CR_PATH
     cfg["SERVER_FFF_MACHINE"] = "bu-c2f11-13-01"
 
     cfg["SERVER_GRID_CERT_PATH"] = (
@@ -88,9 +93,6 @@ def load_cfg() -> dict:
         )
     )
     cfg["SERVER_SIMULATOR_RUN_KEYS"] = "cosmic_run,pp_run,commisioning_run"
-    cfg["SERVER_URL_PREFIX"] = (
-        os.path.join("/", "dqm", "dqm-square-k8") if cfg["ENV"] != "development" else ""
-    )
 
     cfg["ROBBER_LOG_PATH"] = (
         os.path.join(mount_path, "log/robber1.log")
