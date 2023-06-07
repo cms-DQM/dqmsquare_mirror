@@ -76,9 +76,7 @@ def create_app(cfg):
         f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/tmp/<path:name>")}'
     )
     def get_tmp(name):
-        return flask.send_from_directory(
-            os.path.join("/", SERVER_DATA_PATH, "tmp/"), name
-        )
+        return flask.send_from_directory(os.path.join(SERVER_DATA_PATH, "tmp"), name)
 
     @app.route(
         f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "log/<path:name>")}'
@@ -87,7 +85,7 @@ def create_app(cfg):
         f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/log/<path:name>")}'
     )
     def get_log(name):
-        content = flask.send_from_directory(SERVER_DATA_PATH + "log/", name)
+        content = flask.send_from_directory(os.path.join(SERVER_DATA_PATH, "log"), name)
         return content
 
     ### global variables and auth cookies
