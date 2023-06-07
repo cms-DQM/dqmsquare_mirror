@@ -9,6 +9,7 @@ import dqmsquare_cfg
 from flask import Flask, render_template
 from dotenv import load_dotenv
 from db import DQM2MirrorDB
+from decorators import check_login
 from custom_logger import set_log_handler
 
 load_dotenv()  # Load environmental variables from .env file, if present
@@ -57,7 +58,7 @@ def create_app(cfg):
     @app.route("/dqm/dqm-square-k8")
     @app.route("/dqm/dqm-square-k8/")
     def greet(name="Stranger"):
-        return flask.render_template(
+        return render_template(
             "dqm_runs.html",
             **{
                 "PREFIX": cfg["SERVER_URL_PREFIX"],
@@ -167,7 +168,7 @@ def create_app(cfg):
     @app.route("/dqm/dqm-square-k8/timeline")
     @app.route("/dqm/dqm-square-k8/timeline/")
     def get_timeline(name="Stranger"):
-        return flask.render_template(
+        return render_template(
             "dqm_timeline.html",
             **{
                 "PREFIX": cfg["SERVER_URL_PREFIX"],
@@ -176,17 +177,6 @@ def create_app(cfg):
         )
 
     ### CR ###
-
-    def check_login(username, password, cookie=False):
-        if not username:
-            return False
-        if username not in cr_usernames:
-            return False
-        if cookie:
-            return True
-        if password != cr_usernames[username]:
-            return False
-        return True
 
     @app.route("/cr/login", methods=["POST"])
     @app.route("/dqm/dqm-square-k8/cr/login", methods=["POST"])
@@ -251,7 +241,7 @@ def create_app(cfg):
     @app.route("/dqm/dqm-square-k8/cr/")
     @check_auth()
     def get_cr(name="Stranger"):
-        return flask.render_template(
+        return render_template(
             "dqm_cr.html",
             **{
                 "PREFIX": cfg["SERVER_URL_PREFIX"],
