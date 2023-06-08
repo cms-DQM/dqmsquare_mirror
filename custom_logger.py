@@ -1,6 +1,12 @@
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
+custom_formatter = logging.Formatter(
+    "{asctime} {levelname:<8} - ({funcName:20.20}) {message}",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    style="{",
+)
+
 
 ### get logger ===>
 def dummy_log():
@@ -23,9 +29,7 @@ def dummy_log():
 def set_log_handler(logger, path, interval, nlogs, debug_level):
     try:
         # add a rotating handler
-        formatter = logging.Formatter(
-            fmt="%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-        )
+        formatter = custom_formatter
         handler = TimedRotatingFileHandler(
             path, when="h", interval=int(interval), backupCount=int(nlogs)
         )
@@ -36,5 +40,4 @@ def set_log_handler(logger, path, interval, nlogs, debug_level):
         logger.addHandler(handler)
         logger.info(f"Logging started in '{path}'")
     except Exception as e:
-        # print("!!!", repr(e))
         return dummy_log()

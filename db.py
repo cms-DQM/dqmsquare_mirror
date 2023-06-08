@@ -31,6 +31,9 @@ class DQM2MirrorDB:
     DESCRIPTION_META = "( name TEXT PRIMARY KEY NOT NULL, data TEXT )"
     DESCRIPTION_SHORT_META = "( name, data )"
 
+    def __str__(self):
+        return f"{self.__class__.__name__}: {self.db_str}"
+
     def __init__(self, log, db=None, server=False):
         """
         The server flag will determine if table creation will take place or not, upon

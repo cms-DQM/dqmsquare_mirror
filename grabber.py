@@ -8,7 +8,7 @@ import urllib3
 import logging
 import traceback
 import dqmsquare_cfg
-from custom_logger import set_log_handler
+from custom_logger import custom_formatter, set_log_handler
 from db import DQM2MirrorDB
 
 
@@ -63,9 +63,7 @@ if __name__ == "__main__":
         )
 
     if cfg["ENV"] == "development":
-        formatter = logging.Formatter(
-            fmt="%(asctime)s %(levelname)-8s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-        )
+        formatter = custom_formatter
         handler2 = logging.StreamHandler(sys.stdout)
         handler2.setFormatter(formatter)
         level = logging.DEBUG if cfg["GRABBER_DEBUG"] else logging.INFO

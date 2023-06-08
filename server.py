@@ -17,10 +17,10 @@ load_dotenv()  # Load environmental variables from .env file, if present
 log = logging.getLogger(__name__)
 
 log.info("start_server() call ... ")
-app = Flask(__name__)
 
 
 def create_app(cfg):
+    app = Flask(__name__)
     set_log_handler(
         log,
         cfg["SERVER_LOG_PATH"],
@@ -28,7 +28,7 @@ def create_app(cfg):
         cfg["LOGGER_MAX_N_LOG_FILES"],
         True,
     )
-
+    cr_usernames = {}
     ## Read in CR credentials from env var
     try:
         username, password = os.environ.get("DQM_CR_USERNAMES").split(":")
@@ -183,9 +183,15 @@ def create_app(cfg):
     def do_login():
         username = flask.request.form.get("username")
         password = flask.request.form.get("password")
-        print(f"u: {username}, p: {password}")
-        log.info("login result " + str(check_login(username, password)))
-        if check_login(username, password):
+        log.info(
+            "login result "
+            + str(
+                check_login(
+                    username=username, password=password, cr_usernames=cr_usernames
+                )
+            )
+        )
+        if check_login(username, password, cr_usernames):
             resp = flask.make_response(
                 flask.redirect(f"{os.path.join(cfg['SERVER_URL_PREFIX'], 'cr')}")
             )
@@ -220,7 +226,7 @@ def create_app(cfg):
         def check_auth_(fn):
             def check_auth__(*args, **kwargs):
                 username = flask.request.cookies.get("dqmsquare-mirror-cr-account")
-                if not check_login(username, None, True):
+                if not check_login(username, None, cr_usernames, True):
                     if redirect:
                         return flask.redirect(
                             os.path.join(cfg["SERVER_URL_PREFIX"], "/cr/login")
@@ -398,7 +404,7 @@ def create_app(cfg):
             return str(fnames)
 
         # default answer
-        log.warning("cr_exe() : No actions defined for that request : " + repr(what))
+        log.warning(f"cr_exe() : No actions defined for request: '{repr(what)}'")
         return "No actions defined for that request"
 
     # log.info("make_dqm_mirror_page() call ... ")
@@ -415,7 +421,7 @@ if __name__ == "__main__":
         port=int(cfg["SERVER_PORT"]),
         debug=bool(cfg["SERVER_DEBUG"]),
     )
-else:
-    # gunicorn entrypoint
-    cfg = dqmsquare_cfg.load_cfg()
-    gunicorn_app = create_app(cfg)
+# else:
+#     # gunicorn entrypoint
+#     cfg = dqmsquare_cfg.load_cfg()
+#     gunicorn_app = create_app(cfg)

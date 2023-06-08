@@ -14,34 +14,55 @@ from custom_logger import dummy_log
 from dqmsquare_cfg import format_db_uri, load_cfg
 
 
-@pytest.fixture
-def testing_database():
-    cfg = load_cfg()
-    db_uri = format_db_uri(
-        env=cfg["ENV"],
-        username=os.environ.get("POSTGRES_USERNAME_TEST", "postgres"),
-        password=os.environ.get("POSTGRES_PASSWORD_TEST", "postgres"),
-        host=os.environ.get("POSTGRES_HOST_TEST", "127.0.0.1"),
-        port=os.environ.get("POSTGRES_PORT_TEST", 5432),
-        db_name=os.environ.get("POSTGRES_PLAYBACK_DB_NAME_TEST", "postgres_test"),
-    )
-
+def get_or_create_db(db_uri: str):
     engine = create_engine(db_uri)
     if not database_exists(engine.url):
         create_database(db_uri)
-
-    db = DQM2MirrorDB(
+    return DQM2MirrorDB(
         log=dummy_log(),
         db=db_uri,
         server=False,
     )
-    yield db
-    drop_database(db_uri)
 
 
 @pytest.fixture
-def app(testing_database):
-    app = server.gunicorn_app
+def cfg():
+    yield load_cfg()
+
+
+@pytest.fixture
+def testing_databases(cfg):
+    db_uri_prod = format_db_uri(
+        env=cfg["ENV"],
+        username=os.environ.get("POSTGRES_USERNAME", "postgres"),
+        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
+        port=os.environ.get("POSTGRES_PORT", 5432),
+        db_name=os.environ.get("POSTGRES_PRODUCTION_DB_NAME") + "_test",
+    )
+    db_uri_playback = format_db_uri(
+        env=cfg["ENV"],
+        username=os.environ.get("POSTGRES_USERNAME", "postgres"),
+        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
+        port=os.environ.get("POSTGRES_PORT", 5432),
+        db_name=os.environ.get("POSTGRES_PLAYBACK_DB_NAME") + "_test",
+    )
+
+    yield get_or_create_db(db_uri_prod), get_or_create_db(db_uri_playback)
+    drop_database(db_uri_prod)
+    drop_database(db_uri_playback)
+
+
+@pytest.fixture
+def app(cfg, testing_databases):
+    cfg_test = cfg
+    # Override databases for the test
+    cfg_test["DB_PRODUCTION_URI"] = testing_databases[0].db_str
+    cfg_test["DB_PLAYBACK_URI"] = testing_databases[1].db_str
+    print(cfg_test["DB_PRODUCTION_URI"], cfg_test["DB_PLAYBACK_URI"])
+
+    app = server.create_app(cfg_test)
     app.config.update(
         {
             "TESTING": True,
@@ -52,7 +73,11 @@ def app(testing_database):
 
 @pytest.fixture
 def client(app):
-    return app.test_client()
+    """A Flask test client. An instance of :class:`flask.testing.TestClient`
+    by default.
+    """
+    with app.test_client() as client:
+        yield client
 
 
 def test_server_1(client):

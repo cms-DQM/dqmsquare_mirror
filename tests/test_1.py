@@ -19,11 +19,11 @@ def testing_database():
     cfg = load_cfg()
     db_uri = format_db_uri(
         env=cfg["ENV"],
-        username=os.environ.get("POSTGRES_USERNAME_TEST", "postgres"),
-        password=os.environ.get("POSTGRES_PASSWORD_TEST", "postgres"),
-        host=os.environ.get("POSTGRES_HOST_TEST", "127.0.0.1"),
-        port=os.environ.get("POSTGRES_PORT_TEST", 5432),
-        db_name=os.environ.get("POSTGRES_PLAYBACK_DB_NAME_TEST", "postgres_test"),
+        username=os.environ.get("POSTGRES_USERNAME", "postgres"),
+        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
+        port=os.environ.get("POSTGRES_PORT", 5432),
+        db_name=os.environ.get("POSTGRES_PLAYBACK_DB_NAME", "postgres_test"),
     )
 
     engine = create_engine(db_uri)
@@ -35,6 +35,7 @@ def testing_database():
         db=db_uri,
         server=False,
     )
+    # TODO: add fixtures.
     yield db
     drop_database(db_uri)
 
@@ -107,6 +108,7 @@ def test_db_3(testing_database):
     answers = []
     for truth, id in zip(truth_answers, test_ids):
         logs = testing_database.get_logs(id)
+        print(logs)
         x = truth == (logs[0][-50:] + logs[1][-50:])
         answers += [x]
     assert all(answers)

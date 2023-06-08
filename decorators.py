@@ -1,4 +1,6 @@
-def check_login(username: str, password: str, cr_usernames: dict, cookie=False):
+def check_login(
+    username: str, password: str, cr_usernames: dict[str:str], cookie=False
+):
     if not username:
         return False
     if username not in cr_usernames:

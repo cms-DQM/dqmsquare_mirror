@@ -28,7 +28,7 @@ if [[ $service ]] && [[ $service = "server" ]] ; then
   python3 grabber.py production & 
   python3 grabber.py playback & 
 
-  gunicorn -w 4 -b 0.0.0.0:8084 'server:gunicorn_app'
+  gunicorn -w 4 -b 0.0.0.0:8084 'wsgi:flask_app'
 fi
 
 if [[ $service ]] && [[ $service = "dummy" ]] ; then
@@ -37,6 +37,3 @@ if [[ $service ]] && [[ $service = "dummy" ]] ; then
 	  sleep 60
   done
 fi
-
-
-
