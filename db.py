@@ -1,8 +1,12 @@
 ### DQM^2 Mirror DB === >
 import sqlite3
+import psycopg2
 import sqlalchemy
+from sqlalchemy_utils import database_exists
+from sqlalchemy.orm import sessionmaker
 from collections import defaultdict
 from datetime import datetime
+from exceptions import DatabaseNotFoundError
 
 
 class DQM2MirrorDB:
@@ -28,6 +32,10 @@ class DQM2MirrorDB:
     DESCRIPTION_SHORT_META = "( name, data )"
 
     def __init__(self, log, db=None, server=False):
+        """
+        The server flag will determine if table creation will take place or not, upon
+        initialization.
+        """
         self.log = log
         self.log.info("\n\n DQM2MirrorDB ===== init ")
         self.db_str = db
@@ -41,7 +49,10 @@ class DQM2MirrorDB:
             pool_size=20,
             max_overflow=0,
         )
-        from sqlalchemy.orm import sessionmaker
+        if not database_exists(self.engine.url):
+            raise DatabaseNotFoundError(
+                f"Database name was not found when connecting to '{self.db_str}'"
+            )
 
         self.Session = sessionmaker(bind=self.engine)
 
@@ -78,13 +89,13 @@ class DQM2MirrorDB:
                     + self.DESCRIPTION_META
                 )
                 session.commit()
-            except sqlite3.IntegrityError as e:
+            except (sqlite3.IntegrityError, psycopg2.IntegrityError) as e:
                 self.log.error("Error occurred: ", e)
                 session.rollback()
 
     def fill_graph(self, header, document) -> int:
         """
-        Fill table with graph data
+        Fill DB graph data from an FFF document
         """
         extra = document.get("extra", None)
         if not extra:
@@ -125,11 +136,7 @@ class DQM2MirrorDB:
             try:
                 # cur.execute("INSERT OR REPLACE INTO " + self.TB_NAME_GRAPHS + " " + self.DESCRIPTION_SHORT_GRAPHS + " VALUES " + template, values)
                 session.execute(
-                    "DELETE FROM "
-                    + self.TB_NAME_GRAPHS
-                    + " WHERE id = '"
-                    + str(id)
-                    + "'"
+                    f"DELETE FROM {self.TB_NAME_GRAPHS} WHERE id = '{str(id)}';"
                 )
                 # cur.execute("INSERT INTO " + self.TB_NAME_GRAPHS + " " + self.DESCRIPTION_SHORT_GRAPHS + " VALUES " + template % values )
                 # cur.execute( sqlalchemy.insert( self.TB_NAME_GRAPHS ).values( values_dic )
@@ -150,18 +157,13 @@ class DQM2MirrorDB:
         self.log.debug("DQM2MirrorDB.get_graphs_data() - " + str(run))
         with self.engine.connect() as cur:
             answer = cur.execute(
-                "SELECT * FROM "
-                + self.TB_NAME_GRAPHS
-                + " WHERE CAST(run as INTEGER) = "
-                + str(run)
-                + ";"
+                f"SELECT * FROM {self.TB_NAME_GRAPHS} WHERE CAST(run as INTEGER) = {str(run)};"
             ).all()
         if not len(answer):
             return []
         answer = list(answer[0])
         if answer[-2]:
             answer[-2] = eval(answer[-2])  # TODO: Not secure!!!!!!
-        print("!!!", answer[3], answer[4])
         answer[3] = answer[3].isoformat()
         answer[4] = answer[4].isoformat()
 
@@ -585,19 +587,12 @@ class DQM2MirrorDB:
         return answer
 
     # get next run and prev run, unordered
-    def get_runs_arounds(self, run):
-        self.log.debug("DQM2MirrorDB.get_runs_arounds()")
+    def get_runs_around(self, run) -> list:
+        answer = []
+        self.log.debug("DQM2MirrorDB.get_runs_around()")
         with self.engine.connect() as cur:
             answer = cur.execute(
-                "SELECT min(run) from "
-                + self.TB_NAME
-                + " where run > "
-                + str(run)
-                + " union SELECT max(run) FROM "
-                + self.TB_NAME
-                + " WHERE run < "
-                + str(run)
-                + ";"
+                f"SELECT min(run) FROM {self.TB_NAME} WHERE run > {run} union SELECT max(run) FROM {self.TB_NAME} WHERE run < {run};"
             ).all()
             # answer1 = cur.execute( "SELECT min(run) from " + self.TB_NAME + " where run > " + str(run) + ";" ).all()
             # answer2 = cur.execute( "SELECT max(run) FROM " + self.TB_NAME + " WHERE run < " + str(run) + ";" ).all()

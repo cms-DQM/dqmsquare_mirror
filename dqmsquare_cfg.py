@@ -10,6 +10,24 @@ import tempfile
 from dotenv import load_dotenv
 
 
+def format_db_uri(
+    env: str = "production",
+    username: str = "postgres",
+    password: str = "postgres",
+    host: str = "postgres",
+    port: int = 5432,
+    db_name="postgres",
+) -> str:
+    """
+    Helper function to format the DB URI for SQLAclhemy
+    """
+    return (
+        f"postgresql:///{db_name}"
+        if env != "development"
+        else f"postgresql://{username}:{password}@{host}:{port}/{db_name}"
+    )
+
+
 def load_cfg() -> dict:
     """
     Prepare configuration, using .env file
@@ -112,20 +130,21 @@ def load_cfg() -> dict:
     )
     cfg["GRABBER_DEBUG"] = os.environ.get("GRABBER_DEBUG", False)
 
-    cfg["DB_PLAYBACK_URI"] = (
-        "postgresql:///postgres"
-        if cfg["ENV"] != "development"
-        else os.environ.get(
-            "DB_PLAYBACK_URI", "sqlite:///../dqm2m.db?check_same_thread=False"
-        )
+    cfg["DB_PLAYBACK_URI"] = format_db_uri(
+        env=cfg["ENV"],
+        username=os.environ.get("POSTGRES_USERNAME", "postgres"),
+        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
+        port=os.environ.get("POSTGRES_PORT", 5432),
+        db_name=os.environ.get("POSTGRES_PLAYBACK_DB_NAME", "postgres"),
     )
-    cfg["DB_PRODUCTION_URI"] = (
-        "postgresql:///postgres_production"
-        if cfg["ENV"] != "development"
-        else os.environ.get(
-            "DB_PRODUCTION_URI",
-            "sqlite:///../dqm2m_production.db?check_same_thread=False",
-        )
+    cfg["DB_PRODUCTION_URI"] = format_db_uri(
+        env=cfg["ENV"],
+        username=os.environ.get("POSTGRES_USERNAME", "postgres"),
+        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
+        port=os.environ.get("POSTGRES_PORT", 5432),
+        db_name=os.environ.get("POSTGRES_PRODUCTION_DB_NAME", "postgres_production"),
     )
 
     return cfg

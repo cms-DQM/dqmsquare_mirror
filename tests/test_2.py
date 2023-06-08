@@ -1,13 +1,17 @@
 # tests to check Flask server
-import pytest
-import dqmsquare_server_flask
-
 # TODO create tests using testing DB
+import os
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
+import pytest
+import server
 
 
 @pytest.fixture()
 def app():
-    app = dqmsquare_server_flask.gunicorn_app
+    app = server.gunicorn_app
     app.config.update(
         {
             "TESTING": True,

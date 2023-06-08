@@ -118,7 +118,7 @@ def create_app(cfg):
             db_name = flask.request.args.get("db", default="")
             db_ = dbs.get(db_name, db)
             run_data = db_.get_mirror_data(run)
-            runs_around = db_.get_runs_arounds(run)
+            runs_around = db_.get_runs_around(run)
             return json.dumps([runs_around, run_data])
         if what == "get_graph":
             run = flask.request.args.get("run", default=0)
