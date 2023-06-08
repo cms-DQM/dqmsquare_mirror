@@ -54,4 +54,5 @@ jobs:
           POSTGRES_HOST_TEST: postgres
           POSTGRES_PASSWORD_TEST: postgres
           POSTGRES_PORT_TEST: 5432
+          DQM_CR_USERNAMES: "user:password"
     - run: echo "🍏 This job's status is ${{ job.status }}."
