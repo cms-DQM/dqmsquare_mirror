@@ -5,7 +5,7 @@ FROM python:3.9
 RUN apt update \
     &&  apt upgrade -y \
     && apt-get update --fix-missing \
-    && apt install -y libgtk-3-0 iputils-ping sqlite3 sudo nano postgresql python3-psycopg2
+    && apt install -y libgtk-3-0 iputils-ping sudo nano postgresql python3-psycopg2
 
 # setup postgres db
 RUN echo "local   all             all                                     trust" >> /etc/postgresql/13/main/pg_hba.conf \

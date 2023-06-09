@@ -407,8 +407,6 @@ def create_app(cfg):
         log.warning(f"cr_exe() : No actions defined for request: '{repr(what)}'")
         return "No actions defined for that request"
 
-    # log.info("make_dqm_mirror_page() call ... ")
-    # make_dqm_mirror_page(cfg)
     return app
 
 
@@ -421,7 +419,3 @@ if __name__ == "__main__":
         port=int(cfg["SERVER_PORT"]),
         debug=bool(cfg["SERVER_DEBUG"]),
     )
-# else:
-#     # gunicorn entrypoint
-#     cfg = dqmsquare_cfg.load_cfg()
-#     gunicorn_app = create_app(cfg)

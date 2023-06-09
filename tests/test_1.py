@@ -1,17 +1,31 @@
 # tests to check DB
 import os
 import sys
+import json
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-
+import pickle
 import pytest
-import hashlib
+from truth_values import TEST_DB_7_TRUTH, TEST_DB_9_TRUTH
 from datetime import datetime
 from db import DQM2MirrorDB
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, insert
 from sqlalchemy_utils import create_database, database_exists, drop_database
 from custom_logger import dummy_log
 from dqmsquare_cfg import format_db_uri, load_cfg
+
+
+def format_entry_to_db_entry(graph_entry: list, datetime_cols: list):
+    return_value = ""
+    for i, col in enumerate(graph_entry):
+        if i in datetime_cols:
+            return_value += f"'{col.isoformat()}', "
+        else:
+            return_value += (
+                f"""{"'" + str(col).replace("'", "''") + "'" if col else 'NULL'}, """
+            )
+
+    return return_value[:-2]
 
 
 @pytest.fixture
@@ -23,19 +37,51 @@ def testing_database():
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
         host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
         port=os.environ.get("POSTGRES_PORT", 5432),
-        db_name=os.environ.get("POSTGRES_PLAYBACK_DB_NAME", "postgres_test"),
+        db_name="postgres_test",
     )
 
     engine = create_engine(db_uri)
     if not database_exists(engine.url):
         create_database(db_uri)
-
     db = DQM2MirrorDB(
         log=dummy_log(),
         db=db_uri,
         server=False,
     )
-    # TODO: add fixtures.
+
+    runs = []
+    graphs = []
+    with open(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "runs_data.pkl"), "rb"
+    ) as f:
+        runs = pickle.load(f)
+    with open(
+        os.path.join(os.path.dirname(os.path.realpath(__file__)), "graphs_data.pkl"),
+        "rb",
+    ) as f:
+        graphs = pickle.load(f)
+
+    with db.engine.connect() as cur:
+        session = db.Session(bind=cur)
+        for run in runs:
+            try:
+                session.execute(
+                    f"""INSERT into runs ({str(db.TB_DESCRIPTION_RUNS_SHORT).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(run, [13])})"""
+                )
+                session.commit()
+            except Exception as e:
+                print("Error when creating run fixture:", e)
+                session.rollback()
+
+        for graph in graphs:
+            try:
+                session.execute(
+                    f"""INSERT into graphs ({str(db.TB_DESCRIPTION_GRAPHS_SHORT).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(graph, [3, 4])})"""
+                )
+                session.commit()
+            except Exception as e:
+                print("Error when creating graph fixture:", e)
+                session.rollback()
     yield db
     drop_database(db_uri)
 
@@ -81,7 +127,6 @@ def test_db_2(testing_database):
     for truth, run in zip(truth_answers, test_runs):
         around = testing_database.get_runs_around(run)
         answer = sorted(around, key=lambda x: 0 if not x else x)
-        print("!!!", truth, run, around, answer)
         x = (truth[0] == answer[0]) and (truth[1] == answer[1])
         answers += [x]
     assert all(answers)
@@ -99,19 +144,15 @@ def test_db_3(testing_database):
         "/run358788_ls0009_streamDQM_sm-c2a11-43-01.jsn\\n']11-04_pid00041551\\n', '\\n-- process exit: 0 --\\n']",
         "g message count 0\\n', '\\n-- process exit: 0 --\\n']g message count 0\\n', '\\n-- process exit: 0 --\\n']",
         "ls0013_streamDQMCalibration_sm-c2a11-43-01.jsn\\n']_ls0465_streamDQMHistograms_sm-c2a11-43-01.jsn\\n']",
-        "",
+        None,
     ]
-    # for id in test_ids :
-    #  logs = testing_database.get_logs( id )
-    #  print( logs[0][-50:] + logs[1][-50:] )
-    #  answer += [ logs[0][-50:] + logs[1][-50:] ]
-    answers = []
+
     for truth, id in zip(truth_answers, test_ids):
         logs = testing_database.get_logs(id)
-        print(logs)
-        x = truth == (logs[0][-50:] + logs[1][-50:])
-        answers += [x]
-    assert all(answers)
+        if logs[0] and logs[1]:
+            assert truth == (logs[0][-50:] + logs[1][-50:])
+        else:
+            assert logs[0] == truth and logs[1] == truth
 
 
 def test_db_4(testing_database):
@@ -170,15 +211,14 @@ def test_db_6(testing_database):
 
 def test_db_7(testing_database):
     print("Check DQM2MirrorDB.get_timeline_data()")
-    truth = "''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''((((((((((((((((((((((((((((((((())))))))))))))))))))))))))))))))),,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,---------.............................................................................................00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000011111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111122222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222223333333333333333333333333333333333333333333333333333333333333334444444444444444444444444444444444444444444444444444444444444444444444444444444444455555555555555555555555555566666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666777777777777777777777777888888888888888888888888888888888899999999999999999999999999999::::::::::::::::::::::::::::::::::<>BIP[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]___________aaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbccccccccccccccccccccccccddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeffffffffffffffffffffffffffffffffffgggggghhhhhhhiiiiiiiiiiiiiiiiiiiiiiiiiiikllllllllllllllllllllllllllllllmmmmmmmmmmmmmnnnnnnnnnnnnnnooooooooooopppppppppppqrrrrrrrrssssssssssssssssttttttttttttttttttttttttuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuvvvvvxxxzz{{{}}}"
-    answer = testing_database.get_timeline_data(358791, 358791)
-    answer = ("".join(sorted(str(answer)))).strip()
+    truth = TEST_DB_7_TRUTH
+    answer = json.dumps(testing_database.get_timeline_data(358791, 358791))
     assert truth == answer
 
 
 def test_db_8(testing_database):
     print("Check DQM2MirrorDB.get_mirror_data()")
-    truth = "''''(),11112223333333334445566899999________ccimnorsu"
+    truth = "''''(),11112223333333334445566899999________ccimnorsu"  # Literally WTF
     answer = testing_database.get_mirror_data(358788)[0]
     answer = ("".join(sorted(str(answer)))).strip()
     assert truth == answer
@@ -186,11 +226,8 @@ def test_db_8(testing_database):
 
 def test_db_9(testing_database):
     print("Check DQM2MirrorDB.get_graphs_data()")
-    truth = 44645389
-
-    answer = testing_database.get_graphs_data(358792)
-    answer = ("".join(sorted(str(answer)))).strip()
-    answer = int(hashlib.sha1(answer.encode("utf-8")).hexdigest(), 16) % (10**8)
+    truth = TEST_DB_9_TRUTH
+    answer = json.dumps(testing_database.get_graphs_data(358792))
     assert truth == answer
 
 
@@ -240,7 +277,7 @@ def test_db_11(testing_database):
         session = testing_database.Session(bind=cur)
         session.execute(
             "DELETE FROM "
-            + testing_database.TB_NAME
+            + testing_database.TB_NAME_RUNS
             + " WHERE run = "
             + str(123456)
             + ""

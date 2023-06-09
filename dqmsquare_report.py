@@ -55,12 +55,12 @@ if __name__ == "__main__":
 
     df = pandas.read_sql_query(
         "SELECT client_path, id, client , run , hostname , exit_code , events_total , events_rate , cmssw_run , cmssw_lumi , runkey , fi_state, timestamp, vmrss FROM "
-        + db.TB_NAME
+        + db.TB_NAME_RUNS
         + " WHERE run > %s AND run < %s;" % (start_run, end_run),
         cur,
     )
 
-    # df_x = pandas.read_sql_query( "SELECT client , run , events_total , events_rate FROM " + db.TB_NAME + " WHERE client = 'hlt_dqm_clientPB-live' AND events_total > 0;", cur )
+    # df_x = pandas.read_sql_query( "SELECT client , run , events_total , events_rate FROM " + db.TB_NAME_RUNS + " WHERE client = 'hlt_dqm_clientPB-live' AND events_total > 0;", cur )
     # print( df_x )
     # exit()
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
             for run, client in zip(error_clients["run"], error_clients["id"]):
                 answer = cur.execute(
                     "SELECT stdlog_end FROM "
-                    + db.TB_NAME
+                    + db.TB_NAME_RUNS
                     + " WHERE id = '%s';" % (client)
                 ).all()[0]
                 answer = "".join(eval(answer[0]))
@@ -165,7 +165,7 @@ if __name__ == "__main__":
 
                 answer = cur.execute(
                     "SELECT stdlog_end FROM "
-                    + db.TB_NAME
+                    + db.TB_NAME_RUNS
                     + " WHERE id = '%s';" % (client)
                 ).all()[0]
                 answer = "".join(eval(answer[0]))
@@ -267,7 +267,7 @@ if __name__ == "__main__":
 
                 answer = cur.execute(
                     "SELECT stdlog_end FROM "
-                    + db.TB_NAME
+                    + db.TB_NAME_RUNS
                     + " WHERE id = '%s';" % (client)
                 ).all()[0]
                 answer = "".join(eval(answer[0]))
@@ -500,7 +500,7 @@ if __name__ == "__main__":
 
         answer = cur.execute(
             "SELECT client , run , exit_code , events_rate , stdlog_start, stdlog_end FROM "
-            + db.TB_NAME
+            + db.TB_NAME_RUNS
             + " WHERE run > %s AND run < %s;" % (start_run, end_run)
         ).all()
         for row in answer:
