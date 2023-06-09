@@ -129,10 +129,20 @@ class DQM2MirrorDB:
         hostname = header.get("hostname", "")
 
         if not isinstance(global_start, datetime):
-            global_start = datetime.fromtimestamp(global_start)
+            try:
+                global_start = datetime.fromtimestamp(global_start)
+            except Exception as e:
+                self.log.warning(
+                    f"Could not parse {global_start} as a timestamp. Error: '{repr(e)}'"
+                )
 
         if not isinstance(timestamp, datetime):
-            timestamp = datetime.fromtimestamp(timestamp)
+            try:
+                timestamp = datetime.fromtimestamp(timestamp)
+            except Exception as e:
+                self.log.warning(
+                    f"Could not parse {timestamp} as a timestamp. Error: '{repr(e)}'"
+                )
         values = [run, rev, id, timestamp, global_start, stream_data, hostname]
         values_dic = {}
         for val, name in zip(values, self.TB_DESCRIPTION_GRAPHS_SHORT):
