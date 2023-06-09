@@ -2,7 +2,7 @@
 <html>
 
 <head>
-  <link rel="stylesheet" href="{{ PREFIX }}/static/dqm_style.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
 </head>
 
 <body onload="">
@@ -30,7 +30,7 @@
   <table id="runTable" style="text-align:center;margin-top:1px;margin-bottom:10px" border=1 frame=hsides rules=rows>
   </table>
 
-  <script src="{{ PREFIX }}/static/canvasslider.js"></script>
+  <script src="{{ url_for('static', filename='canvasslider.js') }}"></script>
   <script>
     // DQM TIMELINE PAGE //
     const url_param = new URLSearchParams(window.location.search);

@@ -228,9 +228,7 @@ def create_app(cfg):
                 username = flask.request.cookies.get("dqmsquare-mirror-cr-account")
                 if not check_login(username, None, cr_usernames, True):
                     if redirect:
-                        return flask.redirect(
-                            os.path.join(cfg["SERVER_URL_PREFIX"], "/cr/login")
-                        )
+                        return flask.redirect(f"{cfg['SERVER_URL_PREFIX']}/cr/login")
                     else:
                         return "Please login ..."
                 else:
