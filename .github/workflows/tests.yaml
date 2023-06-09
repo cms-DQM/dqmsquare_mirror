@@ -1,4 +1,4 @@
-name: Python package
+name: DQM^2 Mirror tests
 
 on:
   push:
@@ -17,10 +17,14 @@ jobs:
       # Label used to access the service container
       postgres:
         # Docker Hub image
-        image: postgres
+        image: postgres:latest
         # Provide the password for postgres
         env:
           POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
         # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
@@ -51,10 +55,10 @@ jobs:
       env:
           # Env vars for pytest
           POSTGRES_USERNAME: postgres
-          POSTGRES_HOST: postgres
+          POSTGRES_HOST: localhost
           POSTGRES_PASSWORD: postgres
           POSTGRES_PRODUCTION_DB_NAME: postgres_production_test
           POSTGRES_PLAYBACK_DB_NAME: postgres_playback_test
-          POSTGRES_PORT_TEST: 5432
+          POSTGRES_PORT: 5432
           DQM_CR_USERNAMES: "user:password"
     - run: echo "🍏 This job's status is ${{ job.status }}."
