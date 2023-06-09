@@ -60,12 +60,13 @@ def create_app(cfg):
     @app.route("/dqm/dqm-square-k8")
     @app.route("/dqm/dqm-square-k8/")
     def greet(name="Stranger"):
+        prefix = os.path.join("/", cfg["SERVER_URL_PREFIX"])
+        if not prefix.endswith("/"):
+            prefix += "/"
         return render_template(
             "dqm_runs.html",
-            **{
-                "PREFIX": os.path.join(cfg["SERVER_URL_PREFIX"]),
-                "FRONTEND_API_QUERY_INTERVAL": cfg["FRONTEND_API_QUERY_INTERVAL"],
-            },
+            PREFIX=prefix,
+            FRONTEND_API_QUERY_INTERVAL=cfg["FRONTEND_API_QUERY_INTERVAL"],
         )
 
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "static/<path:name>"))
@@ -73,23 +74,23 @@ def create_app(cfg):
         return flask.send_from_directory("static", name)
 
     @app.route(
-        os.path.join(
-            "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/<path:name>"
-        )
+        os.path.join("/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/<path:name>")
     )
     @app.route(
         os.path.join(
-            "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/tmp/<path:name>"
+            "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/tmp/<path:name>"
         )
     )
     def get_tmp(name):
         return flask.send_from_directory(os.path.join(SERVER_DATA_PATH, "tmp"), name)
 
     @app.route(
-        os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/log/<path:name>")
+        os.path.join("/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "log/<path:name>")
     )
     @app.route(
-        os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/log/<path:name>")
+        os.path.join(
+            "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/log/<path:name>"
+        )
     )
     def get_log(name):
         content = flask.send_from_directory(os.path.join(SERVER_DATA_PATH, "log"), name)
@@ -174,12 +175,13 @@ def create_app(cfg):
     @app.route("/dqm/dqm-square-k8/timeline")
     @app.route("/dqm/dqm-square-k8/timeline/")
     def get_timeline(name="Stranger"):
+        prefix = os.path.join("/", cfg["SERVER_URL_PREFIX"])
+        if not prefix.endswith("/"):
+            prefix += "/"
         return render_template(
             "dqm_timeline.html",
-            **{
-                "PREFIX": os.path.join(cfg["SERVER_URL_PREFIX"]),
-                "FRONTEND_API_QUERY_INTERVAL": cfg["FRONTEND_API_QUERY_INTERVAL"],
-            },
+            PREFIX=prefix,
+            FRONTEND_API_QUERY_INTERVAL=cfg["FRONTEND_API_QUERY_INTERVAL"],
         )
 
     ### CR ###
@@ -255,12 +257,10 @@ def create_app(cfg):
     @app.route("/dqm/dqm-square-k8/cr/")
     @check_auth()
     def get_cr(name="Stranger"):
-        return render_template(
-            "dqm_cr.html",
-            **{
-                "PREFIX": os.path.join(cfg["SERVER_URL_PREFIX"]),
-            },
-        )
+        prefix = os.path.join("/", cfg["SERVER_URL_PREFIX"])
+        if not prefix.endswith("/"):
+            prefix += "/"
+        return render_template("dqm_cr.html", PREFIX=prefix)
 
     @app.route("/cr/login", methods=["GET"])
     @app.route("/dqm/dqm-square-k8/cr/login", methods=["GET"])

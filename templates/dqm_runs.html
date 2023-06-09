@@ -10,8 +10,8 @@
   DQM <sup>2</sup> &#x25A0; Mirror
   <button class="btn" id="btn_production" onclick="init_load_production()">production</button>
   <button class="btn" id="btn_playback" onclick="init_load_playback()">playback</button>
-  &#x25A0; <a href="/{{ PREFIX }}cr/" class="mlink">Control Room</a>
-  &#x25A0; <a href="/{{ PREFIX }}timeline/" class="mlink">Timeline</a>
+  &#x25A0; <a href="{{ PREFIX }}cr/" class="mlink">Control Room</a>
+  &#x25A0; <a href="{{ PREFIX }}timeline/" class="mlink">Timeline</a>
 </div>
 
 <p style="clear:both;margin-bottom:25px"></p>
@@ -61,9 +61,9 @@
       }
     };
 
-    if (other_runs[0] != null) { p_content += '<a href="/{{ PREFIX }}?run=' + other_runs[0] + "&db=" + db + '"><-' + other_runs[0] + '</a> &nbsp;'; }
-    p_content += '<a href="/{{ PREFIX }}?run=' + run_id + "&db=" + db + '"><strong>' + run_id + '</strong></a> &nbsp;';
-    if (other_runs[1] != null) { p_content += '<a href="/{{ PREFIX }}?run=' + other_runs[1] + "&db=" + db + '">' + other_runs[1] + '-></a> &nbsp;'; }
+    if (other_runs[0] != null) { p_content += '<a href="{{ PREFIX }}?run=' + other_runs[0] + "&db=" + db + '"><-' + other_runs[0] + '</a> &nbsp;'; }
+    p_content += '<a href="{{ PREFIX }}?run=' + run_id + "&db=" + db + '"><strong>' + run_id + '</strong></a> &nbsp;';
+    if (other_runs[1] != null) { p_content += '<a href="{{ PREFIX }}?run=' + other_runs[1] + "&db=" + db + '">' + other_runs[1] + '-></a> &nbsp;'; }
     p_runnext.innerHTML = p_content;
 
     // Table
@@ -120,7 +120,7 @@
 
       let td = document.createElement("td");
       td.className = "jtc2 " + style;
-      let log_link = "/{{ PREFIX }}api?what=get_logs&id=" + id + "&db=" + db;
+      let log_link = "{{ PREFIX }}api?what=get_logs&id=" + id + "&db=" + db;
       td.innerHTML = "<a href=" + log_link + " target=\"_blank\"> -> </a>"; // /dqm/dqm-square-k8/logs?id=
       tr.appendChild(td);
 
@@ -264,7 +264,7 @@
 
   function update_table_req(run_id, db) {
     var xhttp_start = new XMLHttpRequest();
-    xhttp_start.open("GET", "/{{ PREFIX }}api?what=get_run&run=" + run_id + "&db=" + db, true);
+    xhttp_start.open("GET", "{{ PREFIX }}api?what=get_run&run=" + run_id + "&db=" + db, true);
     xhttp_start.send();
     xhttp_start.onreadystatechange = function () {
       if (this.readyState == 4 && this.status != 200) { }
@@ -277,7 +277,7 @@
 
   function update_graph_req(run_id, db) {
     var xhttp_start = new XMLHttpRequest();
-    xhttp_start.open("GET", "/{{ PREFIX }}api?what=get_graph&run=" + run_id + "&db=" + db, true);
+    xhttp_start.open("GET", "{{ PREFIX }}api?what=get_graph&run=" + run_id + "&db=" + db, true);
     xhttp_start.send();
     xhttp_start.onreadystatechange = function () {
       if (this.readyState == 4 && this.status != 200) { }
@@ -303,7 +303,7 @@
   }
 
   if (start_run) {
-    fetch("/{{ PREFIX }}api?what=get_info" + "&db=" + db, { method: 'GET' }).then(response => response.json()).then((data) => start_live(String(data[1]) === start_run)).catch(error => console.error('error:', error));
+    fetch("{{ PREFIX }}api?what=get_info" + "&db=" + db, { method: 'GET' }).then(response => response.json()).then((data) => start_live(String(data[1]) === start_run)).catch(error => console.error('error:', error));
     update_tables(start_run);
   } else {
     start_live(true);
@@ -311,14 +311,14 @@
 
   async function load_production() {
     db = "production";
-    await fetch("/{{ PREFIX }}api?what=get_info" + "&db=" + db, { method: 'GET' }).then(response => response.json()).then((data) => update_tables(data[1])).catch(error => console.error('error:', error));
+    await fetch("{{ PREFIX }}api?what=get_info" + "&db=" + db, { method: 'GET' }).then(response => response.json()).then((data) => update_tables(data[1])).catch(error => console.error('error:', error));
     window.timer_load_production = setTimeout(load_production, reload_time);
     document.getElementById("btn_production").classList.add('active');
   };
 
   async function load_playback() {
     db = "playback";
-    await fetch("/{{ PREFIX }}api?what=get_info" + "&db=" + db, { method: 'GET' }).then(response => response.json()).then((data) => update_tables(data[1])).catch(error => console.error('error:', error));
+    await fetch("{{ PREFIX }}api?what=get_info" + "&db=" + db, { method: 'GET' }).then(response => response.json()).then((data) => update_tables(data[1])).catch(error => console.error('error:', error));
     window.timer_load_playback = setTimeout(load_playback, reload_time);
     document.getElementById("btn_playback").classList.add('active');
   };
@@ -338,11 +338,11 @@
   }
 
   function init_load_playback() {
-    window.location = '/{{ PREFIX }}?db=playback';
+    window.location = '{{ PREFIX }}?db=playback';
   }
 
   function init_load_production() {
-    window.location = '/{{ PREFIX }}?db=production';
+    window.location = '{{ PREFIX }}?db=production';
   }
 
 </script>
