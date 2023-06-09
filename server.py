@@ -44,10 +44,6 @@ def create_app(cfg):
     # Path to the Cinder mount, for permanent storage
     SERVER_DATA_PATH = cfg["SERVER_DATA_PATH"]
 
-    # URL prefix when deploying; will be "/dqm/dqm-square-k8"
-    # on CMSWEB, "/" locally.
-    SERVER_URL_PREFIX = cfg["SERVER_URL_PREFIX"]
-
     log.info(
         "\n\n\n =============================================================================== "
     )
@@ -60,6 +56,12 @@ def create_app(cfg):
     @app.route("/dqm/dqm-square-k8")
     @app.route("/dqm/dqm-square-k8/")
     def greet(name="Stranger"):
+        log.warn(f"!!!")
+        log.warn(
+            os.path.join(
+                "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/<path:name>"
+            )
+        )
         prefix = os.path.join("/", cfg["SERVER_URL_PREFIX"])
         if not prefix.endswith("/"):
             prefix += "/"
@@ -93,7 +95,9 @@ def create_app(cfg):
         )
     )
     def get_log(name):
-        content = flask.send_from_directory(os.path.join(SERVER_DATA_PATH, "log"), name)
+        content = flask.send_from_directory(
+            os.path.join("/", SERVER_DATA_PATH, "log"), name
+        )
         return content
 
     ### global variables and auth cookies
@@ -397,13 +401,23 @@ def create_app(cfg):
                 log.warning(repr(error_log))
                 return repr(error_log), 400
 
-            fnames = []
+            file_urls = []
             for item in data:
                 if not len(item):
                     continue
                 try:
+                    # Dirty machete code for now. The problem is that the SERVER_DATA_PATH is also used for a
+                    # file path and a URL. This means that for os.path.join to work, the path must NOT have a
+                    # leading "/". This means that we do not know explicitly if the path is relative or absolute.
+                    # For development, we store the file locally, so consider the path relative.
+                    # For non-development, the SERVER_DATA_PATH is considered an absolute path.
                     fname = dqmsquare_cfg.dump_tmp_file(
-                        item, SERVER_DATA_PATH + "tmp/", what, ".txt"
+                        data=item,
+                        path=os.path.join(SERVER_DATA_PATH, "tmp")
+                        if cfg["ENV"] == "development"
+                        else os.path.join("/", SERVER_DATA_PATH, "tmp"),
+                        prefix=what,
+                        postfix=".txt",
                     )
                 except Exception as error_log:
                     log.warning(
@@ -411,10 +425,13 @@ def create_app(cfg):
                     )
                     log.warning(repr(error_log))
                     continue
-                fnames += [
-                    os.path.join("/", SERVER_URL_PREFIX, SERVER_DATA_PATH, "tmp", fname)
+                file_urls += [
+                    os.path.join(
+                        "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp", fname
+                    )
                 ]
-            return str(fnames)
+            log.debug(f"tmp Filenames: {file_urls}")
+            return str(file_urls)
 
         # default answer
         log.warning(f"cr_exe() : No actions defined for request: '{repr(what)}'")

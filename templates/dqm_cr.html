@@ -13,7 +13,7 @@
   <br>
   <div>
     <strong>Output:</strong>
-    <div id="console" class="techtext"> </div>
+    <pre id="console" class="techtext"> </pre>
 
     <div id="myProgress">
       <div id="myBar"></div>
@@ -135,7 +135,7 @@
     function push_to_console(string) {
       const lines = string.split(/\r?\n/);
       console_content = console_content.concat(lines);
-      console_content.push(" . . . ")
+      console_content.push(". . .")
       console_content = console_content.slice(-MAX_CONSOLE_SIZE, -1)
       var content = "";
       console_content.forEach(function (item, index, array) {
@@ -145,7 +145,7 @@
       console.innerHTML = content;
       console.scrollTop = console.scrollHeight - console.clientHeight;
     }
-    push_to_console(" . . . ");
+    push_to_console(". . .");
 
     // definition of default buttons
     function set_cr_button(xhttp, element_name) {
@@ -201,7 +201,7 @@
     function process_cr_button(xhttp, url, element_name, req = "GET") {
       var element = document.getElementById(element_name);
       if (element.style.color == "") {
-        push_to_console("Process ... " + url);
+        push_to_console("Processing ... " + url);
         xhttp.open(req, url, true);
         xhttp.send();
         element.style.color = "red";
@@ -335,7 +335,7 @@
       const machine = words[1];
       const client = words[2];
 
-      push_to_console("Process ... " + machine + " " + client + " to " + String(checkbox.checked));
+      push_to_console("Processing ... " + machine + " " + client + " to " + String(checkbox.checked));
       checkbox.disabled = true;
 
       let checked = checkbox.checked ? 1 : 0;

@@ -69,7 +69,7 @@ if __name__ == "__main__":
         level = logging.DEBUG if cfg["GRABBER_DEBUG"] else logging.INFO
         handler2.setLevel(level=level)
         log.addHandler(handler2)
-        log.debug(f"Configured logger for grabber, level={level}")
+        log.info(f"Configured logger for grabber, level={level}")
 
     ### global variables and auth cookies
     cmsweb_proxy_url = cfg["CMSWEB_FRONTEND_PROXY_URL"]

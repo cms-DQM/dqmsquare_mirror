@@ -34,7 +34,7 @@ def load_cfg() -> dict:
     """
 
     load_dotenv()
-    mount_path_cinder = os.path.join("/", "cinder", "dqmsquare")
+    mount_path_cinder = os.path.join("cinder", "dqmsquare")
     mount_path = mount_path_cinder
 
     ### default values === >
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
 
 ### Other
-def dump_tmp_file(data, path, prefix, postfix):
+def dump_tmp_file(data: any, path: str, prefix: str, postfix: str) -> str:
     f = tempfile.NamedTemporaryFile(
         mode="w", prefix=prefix, suffix=postfix, dir=path, delete=False
     )
