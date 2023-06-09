@@ -77,9 +77,7 @@ def load_cfg() -> dict:
     )
     cfg["SERVER_DATA_PATH"] = mount_path if cfg["ENV"] != "development" else ""
     cfg["SERVER_URL_PREFIX"] = (
-        os.path.join("/", "dqm", "dqm-square-k8")
-        if cfg["ENV"] != "development"
-        else "/"
+        os.path.join("/", "dqm", "dqm-square-k8") if cfg["ENV"] != "development" else ""
     )
     cfg["SERVER_FFF_CR_PATH"] = (
         "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin"

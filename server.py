@@ -71,19 +71,19 @@ def create_app(cfg):
         return flask.send_from_directory("static", name)
 
     @app.route(
-        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/<path:name>")}'
+        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/<path:name>")}'
     )
     @app.route(
-        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/tmp/<path:name>")}'
+        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/tmp/<path:name>")}'
     )
     def get_tmp(name):
         return flask.send_from_directory(os.path.join(SERVER_DATA_PATH, "tmp"), name)
 
     @app.route(
-        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "log/<path:name>")}'
+        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/log/<path:name>")}'
     )
     @app.route(
-        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/log/<path:name>")}'
+        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/log/<path:name>")}'
     )
     def get_log(name):
         content = flask.send_from_directory(os.path.join(SERVER_DATA_PATH, "log"), name)
@@ -193,7 +193,7 @@ def create_app(cfg):
         )
         if check_login(username, password, cr_usernames):
             resp = flask.make_response(
-                flask.redirect(f"{os.path.join(cfg['SERVER_URL_PREFIX'], 'cr')}")
+                flask.redirect(f"{os.path.join(cfg['SERVER_URL_PREFIX'], '/cr')}")
             )
 
             resp.set_cookie(
@@ -211,7 +211,7 @@ def create_app(cfg):
     @app.route("/dqm/dqm-square-k8/cr/logout")
     def do_logout():
         log.info("logout")
-        resp = flask.make_response(flask.redirect(f"{cfg['SERVER_URL_PREFIX']}"))
+        resp = flask.make_response(flask.redirect(f"{cfg['SERVER_URL_PREFIX']}/"))
 
         resp.set_cookie(
             "dqmsquare-mirror-cr-account", "random", path="/", httponly=True
