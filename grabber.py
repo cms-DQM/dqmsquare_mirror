@@ -72,7 +72,7 @@ if __name__ == "__main__":
         log.debug(f"Configured logger for grabber, level={level}")
 
     ### global variables and auth cookies
-    cr_path = cfg["SERVER_FFF_CR_PATH"]
+    cmsweb_proxy_url = cfg["CMSWEB_FRONTEND_PROXY_URL"]
     cert_path = [cfg["SERVER_GRID_CERT_PATH"], cfg["SERVER_GRID_KEY_PATH"]]
     fff_secret = "changeme"
 
@@ -101,14 +101,14 @@ if __name__ == "__main__":
         documents == clients logs and other information
         """
         url = (
-            cfg["SERVER_FFF_CR_PATH"]
+            cfg["CMSWEB_FRONTEND_PROXY_URL"]
             + "/redirect?path="
             + dqm_machine
             + "&port="
             + str(dqm_port)
         )
         if dqm_machine == cfg["SERVER_FFF_MACHINE"]:
-            url = cfg["SERVER_FFF_CR_PATH"] + "/sync_proxy"
+            url = cfg["CMSWEB_FRONTEND_PROXY_URL"] + "/sync_proxy"
 
         jsn = {"event": "request_documents", "ids": runs_ids}
         data = json.dumps({"messages": [json.dumps(jsn)]})
@@ -128,14 +128,14 @@ if __name__ == "__main__":
 
     def get_headers_from_fff(dqm_machine, dqm_port=cfg["FFF_PORT"], revision=0):
         url = (
-            cfg["SERVER_FFF_CR_PATH"]
+            cfg["CMSWEB_FRONTEND_PROXY_URL"]
             + "/redirect?path="
             + dqm_machine
             + "&port="
             + str(dqm_port)
         )
         if dqm_machine == cfg["SERVER_FFF_MACHINE"]:
-            url = cfg["SERVER_FFF_CR_PATH"] + "/sync_proxy"
+            url = cfg["CMSWEB_FRONTEND_PROXY_URL"] + "/sync_proxy"
 
         jsn = {"event": "sync_request", "known_rev": str(revision)}
         data = json.dumps({"messages": [json.dumps(jsn)]})

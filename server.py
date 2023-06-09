@@ -20,7 +20,9 @@ log.info("start_server() call ... ")
 
 
 def create_app(cfg):
-    app = Flask(__name__)
+    app = Flask(
+        __name__, static_url_path=os.path.join("/", cfg["SERVER_URL_PREFIX"], "static")
+    )
     set_log_handler(
         log,
         cfg["SERVER_LOG_PATH"],
@@ -61,36 +63,40 @@ def create_app(cfg):
         return render_template(
             "dqm_runs.html",
             **{
-                "PREFIX": cfg["SERVER_URL_PREFIX"],
+                "PREFIX": os.path.join(cfg["SERVER_URL_PREFIX"]),
                 "FRONTEND_API_QUERY_INTERVAL": cfg["FRONTEND_API_QUERY_INTERVAL"],
             },
         )
 
-    @app.route(f"/{os.path.join(cfg['SERVER_URL_PREFIX'], '/static/<path:name>')}")
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "static/<path:name>"))
     def get_static(name):
         return flask.send_from_directory("static", name)
 
     @app.route(
-        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/<path:name>")}'
+        os.path.join(
+            "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/<path:name>"
+        )
     )
     @app.route(
-        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/tmp/<path:name>")}'
+        os.path.join(
+            "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/tmp/<path:name>"
+        )
     )
     def get_tmp(name):
         return flask.send_from_directory(os.path.join(SERVER_DATA_PATH, "tmp"), name)
 
     @app.route(
-        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/log/<path:name>")}'
+        os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/log/<path:name>")
     )
     @app.route(
-        f'{os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/log/<path:name>")}'
+        os.path.join(cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "/tmp/log/<path:name>")
     )
     def get_log(name):
         content = flask.send_from_directory(os.path.join(SERVER_DATA_PATH, "log"), name)
         return content
 
     ### global variables and auth cookies
-    cr_path = cfg["SERVER_FFF_CR_PATH"]
+    cmsweb_proxy_url = cfg["CMSWEB_FRONTEND_PROXY_URL"]
     cert_path = [cfg["SERVER_GRID_CERT_PATH"], cfg["SERVER_GRID_KEY_PATH"]]
     fff_secret = "changeme"  # This will be overriden by the one in env vars
 
@@ -171,7 +177,7 @@ def create_app(cfg):
         return render_template(
             "dqm_timeline.html",
             **{
-                "PREFIX": cfg["SERVER_URL_PREFIX"],
+                "PREFIX": os.path.join(cfg["SERVER_URL_PREFIX"]),
                 "FRONTEND_API_QUERY_INTERVAL": cfg["FRONTEND_API_QUERY_INTERVAL"],
             },
         )
@@ -193,7 +199,7 @@ def create_app(cfg):
         )
         if check_login(username, password, cr_usernames):
             resp = flask.make_response(
-                flask.redirect(f"{os.path.join(cfg['SERVER_URL_PREFIX'], '/cr')}")
+                flask.redirect(os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr"))
             )
 
             resp.set_cookie(
@@ -211,7 +217,9 @@ def create_app(cfg):
     @app.route("/dqm/dqm-square-k8/cr/logout")
     def do_logout():
         log.info("logout")
-        resp = flask.make_response(flask.redirect(f"{cfg['SERVER_URL_PREFIX']}/"))
+        resp = flask.make_response(
+            flask.redirect(os.path.join("/", cfg["SERVER_URL_PREFIX"]))
+        )
 
         resp.set_cookie(
             "dqmsquare-mirror-cr-account", "random", path="/", httponly=True
@@ -228,7 +236,9 @@ def create_app(cfg):
                 username = flask.request.cookies.get("dqmsquare-mirror-cr-account")
                 if not check_login(username, None, cr_usernames, True):
                     if redirect:
-                        return flask.redirect(f"{cfg['SERVER_URL_PREFIX']}/cr/login")
+                        return flask.redirect(
+                            os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/login")
+                        )
                     else:
                         return "Please login ..."
                 else:
@@ -248,7 +258,7 @@ def create_app(cfg):
         return render_template(
             "dqm_cr.html",
             **{
-                "PREFIX": cfg["SERVER_URL_PREFIX"],
+                "PREFIX": os.path.join(cfg["SERVER_URL_PREFIX"]),
             },
         )
 
@@ -300,7 +310,10 @@ def create_app(cfg):
 
         # using exe API
         # initial request
-        url = cr_path + "/cr/exe?" + flask.request.query_string.decode()
+        url = (
+            os.path.join(cmsweb_proxy_url, "cr/exe?")
+            + flask.request.query_string.decode()
+        )
         answer = None
         try:
             r = requests.get(url, cert=cert_path, verify=False, cookies=cookies)
@@ -398,7 +411,9 @@ def create_app(cfg):
                     )
                     log.warning(repr(error_log))
                     continue
-                fnames += [SERVER_URL_PREFIX + SERVER_DATA_PATH + "tmp/" + fname]
+                fnames += [
+                    os.path.join("/", SERVER_URL_PREFIX, SERVER_DATA_PATH, "tmp", fname)
+                ]
             return str(fnames)
 
         # default answer

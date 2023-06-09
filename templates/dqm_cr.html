@@ -7,8 +7,8 @@
 
 <body onload="">
   <div class=" title">
-    DQM <sup>2</sup> &#x25A0; Control Room &#x25A0; <a href="{{ PREFIX }}/">Mirror</a> &#x25A0; <a
-      href="{{ PREFIX }}/cr/logout">Logout</a>
+    DQM <sup>2</sup> &#x25A0; Control Room &#x25A0; <a href="/{{ PREFIX }}">Mirror</a> &#x25A0; <a
+      href="/{{ PREFIX }}cr/logout">Logout</a>
   </div>
   <br>
   <div>
@@ -228,31 +228,31 @@
     var xhttp_hltd_version = new XMLHttpRequest();
     set_cr_button(xhttp_hltd_version, "btn_get_hltd_version")
     function cr_get_hltd_version() {
-      process_cr_button(xhttp_hltd_version, "{{ PREFIX }}/cr/exe?what=get_hltd_versions&format=1", "btn_get_hltd_version");
+      process_cr_button(xhttp_hltd_version, "/{{ PREFIX }}cr/exe?what=get_hltd_versions&format=1", "btn_get_hltd_version");
     }
 
     var xhttp_fff_version = new XMLHttpRequest();
     set_cr_button(xhttp_fff_version, "btn_get_fff_version")
     function cr_get_fff_version() {
-      process_cr_button(xhttp_fff_version, "{{ PREFIX }}/cr/exe?what=get_fff_versions&format=1", "btn_get_fff_version");
+      process_cr_button(xhttp_fff_version, "/{{ PREFIX }}cr/exe?what=get_fff_versions&format=1", "btn_get_fff_version");
     }
 
     var xhttp_dqm_machines = new XMLHttpRequest();
     set_cr_button(xhttp_dqm_machines, "btn_get_dqm_machines")
     function cr_get_dqm_machines() {
-      process_cr_button(xhttp_dqm_machines, "{{ PREFIX }}/cr/exe?what=get_dqm_machines&format=1", "btn_get_dqm_machines");
+      process_cr_button(xhttp_dqm_machines, "/{{ PREFIX }}cr/exe?what=get_dqm_machines&format=1", "btn_get_dqm_machines");
     }
 
     var xhttp_simulator_config = new XMLHttpRequest();
     set_cr_button(xhttp_simulator_config, "btn_get_simulator_config")
     function cr_get_simulator_config() {
-      process_cr_button(xhttp_simulator_config, "{{ PREFIX }}/cr/exe?what=get_simulator_config&format=1", "btn_get_simulator_config");
+      process_cr_button(xhttp_simulator_config, "/{{ PREFIX }}cr/exe?what=get_simulator_config&format=1", "btn_get_simulator_config");
     }
 
     var xhttp_cmssw_info = new XMLHttpRequest();
     set_cr_button(xhttp_cmssw_info, "btn_get_cmssw_info")
     function cr_get_cmssw_info() {
-      process_cr_button(xhttp_cmssw_info, "{{ PREFIX }}/cr/exe?what=get_cmssw_info&format=1", "btn_get_cmssw_info");
+      process_cr_button(xhttp_cmssw_info, "/{{ PREFIX }}cr/exe?what=get_cmssw_info&format=1", "btn_get_cmssw_info");
     }
 
     var xhttp_start_playback_run = new XMLHttpRequest();
@@ -261,7 +261,7 @@
       run_number = document.getElementById("run_number").value;
       run_key = document.getElementById("run_key").value;
       number_of_ls = document.getElementById("LS_number").value;
-      process_cr_button(xhttp_start_playback_run, "{{ PREFIX }}/cr/exe?what=start_playback_run&run_number=" + run_number + "&run_key=" + run_key + "&number_of_ls=" + number_of_ls, "btn_start_playback_run");
+      process_cr_button(xhttp_start_playback_run, "/{{ PREFIX }}cr/exe?what=start_playback_run&run_number=" + run_number + "&run_key=" + run_key + "&number_of_ls=" + number_of_ls, "btn_start_playback_run");
     }
 
     var xhttp_copy_production_runs = new XMLHttpRequest();
@@ -269,7 +269,7 @@
     function cr_copy_production_runs() {
       run_number = document.getElementById("run_number_prod").value;
       number_of_ls = document.getElementById("LS_number_prod").value;
-      process_cr_button(xhttp_copy_production_runs, "{{ PREFIX }}/cr/exe?what=copy_production_runs&run_number=" + run_number + "&number_of_ls=" + number_of_ls, "btn_copy_production_runs");
+      process_cr_button(xhttp_copy_production_runs, "/{{ PREFIX }}cr/exe?what=copy_production_runs&run_number=" + run_number + "&number_of_ls=" + number_of_ls, "btn_copy_production_runs");
     }
 
     // functions with callback
@@ -291,31 +291,31 @@
       addOptions(run_numbers_prod_select, runs_numbers);
     });
     function cr_get_production_runs() {
-      process_cr_button(xhttp_get_production_runs, "{{ PREFIX }}/cr/exe?what=get_production_runs", "btn_get_production_runs");
+      process_cr_button(xhttp_get_production_runs, "/{{ PREFIX }}cr/exe?what=get_production_runs", "btn_get_production_runs");
     }
 
     // buttons constructor functions
     function cr_restart_hltd(machine) {
-      set_and_process_cr_button("btn hltd restart " + machine, "{{ PREFIX }}/cr/exe?what=restart_hltd&host=" + machine);
+      set_and_process_cr_button("btn hltd restart " + machine, "/{{ PREFIX }}cr/exe?what=restart_hltd&host=" + machine);
     }
 
     function cr_restart_fff(machine) {
-      set_and_process_cr_button("btn fff restart " + machine, "{{ PREFIX }}/cr/exe?what=restart_fff&host=" + machine);
+      set_and_process_cr_button("btn fff restart " + machine, "/{{ PREFIX }}cr/exe?what=restart_fff&host=" + machine);
     }
 
     // buttons constructor functions to open tabs with logs
     function cr_get_hltd_logs(machine) {
-      set_and_process_cr_log_button("btn hltd logs " + machine, "{{ PREFIX }}/cr/exe?what=get_hltd_logs&host=" + machine);
+      set_and_process_cr_log_button("btn hltd logs " + machine, "/{{ PREFIX }}cr/exe?what=get_hltd_logs&host=" + machine);
     }
 
     function cr_get_fff_logs(machine) {
-      set_and_process_cr_log_button("btn fff logs " + machine, "{{ PREFIX }}/cr/exe?what=get_fff_logs&host=" + machine);
+      set_and_process_cr_log_button("btn fff logs " + machine, "/{{ PREFIX }}cr/exe?what=get_fff_logs&host=" + machine);
     }
 
     // buttons with actions
     function cr_get_dqm_clients(host, playback, callback) {
       let xhttp_def_pl = new XMLHttpRequest();
-      xhttp_def_pl.open("GET", "{{ PREFIX }}/cr/exe?what=get_dqm_clients&host=" + host + "&playback=" + playback, true);
+      xhttp_def_pl.open("GET", "/{{ PREFIX }}cr/exe?what=get_dqm_clients&host=" + host + "&playback=" + playback, true);
       xhttp_def_pl.send();
       updateBar(false);
       xhttp_def_pl.onreadystatechange = function () {
@@ -339,7 +339,7 @@
       checkbox.disabled = true;
 
       let checked = checkbox.checked ? 1 : 0;
-      let req = "{{ PREFIX }}/cr/exe?what=change_dqm_client&host=" + machine + "&client=" + client + "&state=" + String(checked) + "&playback=" + playback;
+      let req = "/{{ PREFIX }}cr/exe?what=change_dqm_client&host=" + machine + "&client=" + client + "&state=" + String(checked) + "&playback=" + playback;
       let xhttp_def_pl = new XMLHttpRequest();
       xhttp_def_pl.onreadystatechange = function () {
         if (this.readyState == 4 && this.status != 200) {
@@ -383,7 +383,7 @@
     var dqm_machines_pl = [], dqm_machines_pr = []
     // playback machines
     var xhttp_def_pl = new XMLHttpRequest();
-    xhttp_def_pl.open("GET", "{{ PREFIX }}/cr/exe?what=get_dqm_machines&kind=playback", true);
+    xhttp_def_pl.open("GET", "/{{ PREFIX }}cr/exe?what=get_dqm_machines&kind=playback", true);
     updateBar(false);
     xhttp_def_pl.send();
     xhttp_def_pl.onreadystatechange = async function () {
@@ -432,7 +432,7 @@
     }
     // production machines
     var xhttp_def_pr = new XMLHttpRequest();
-    xhttp_def_pr.open("GET", "{{ PREFIX }}/cr/exe?what=get_dqm_machines&kind=production", true);
+    xhttp_def_pr.open("GET", "/{{ PREFIX }}cr/exe?what=get_dqm_machines&kind=production", true);
     updateBar(false);
     xhttp_def_pr.send();
     xhttp_def_pr.onreadystatechange = function () {
@@ -485,7 +485,7 @@
     var run_key_dropbox = document.getElementById("run_key");
     var LS_number_dropbox = document.getElementById("LS_number");
     var xhttp_def_get_simulator_config = new XMLHttpRequest();
-    xhttp_def_get_simulator_config.open("GET", "{{ PREFIX }}/cr/exe?what=get_simulator_config", true);
+    xhttp_def_get_simulator_config.open("GET", "/{{ PREFIX }}cr/exe?what=get_simulator_config", true);
     updateBar(false);
     xhttp_def_get_simulator_config.send();
     xhttp_def_get_simulator_config.onreadystatechange = function () {
@@ -505,13 +505,13 @@
       LS_number_dropbox.value = jsonResponse.number_of_ls;
 
       var xhttp_keys = new XMLHttpRequest();
-      xhttp_keys.open("GET", "{{ PREFIX }}/cr/exe?what=get_simulator_run_keys", true);
+      xhttp_keys.open("GET", "/{{ PREFIX }}cr/exe?what=get_simulator_run_keys", true);
       xhttp_keys.send();
       updateBar(false);
       xhttp_keys.onreadystatechange = function () {
         if (this.readyState != 4) return;
         if (this.status == 400) {
-          push_to_console("{{ PREFIX }}/cr/exe?what=get_simulator_run_keys Error:");
+          push_to_console("/{{ PREFIX }}cr/exe?what=get_simulator_run_keys Error:");
           push_to_console(xhttp_keys.responseText);
         }
         if (this.status == 200) {
@@ -524,13 +524,13 @@
       }
 
       var xhttp_runs = new XMLHttpRequest();
-      xhttp_runs.open("GET", "{{ PREFIX }}/cr/exe?what=get_simulator_runs", true);
+      xhttp_runs.open("GET", "/{{ PREFIX }}cr/exe?what=get_simulator_runs", true);
       xhttp_runs.send();
       updateBar(false);
       xhttp_runs.onreadystatechange = function () {
         if (this.readyState != 4) return;
         if (this.status == 400) {
-          push_to_console("{{ PREFIX }}/cr/exe?what=get_simulator_runs Error:");
+          push_to_console("/{{ PREFIX }}cr/exe?what=get_simulator_runs Error:");
           push_to_console(xhttp_keys.responseText);
         }
         if (this.status == 200) {

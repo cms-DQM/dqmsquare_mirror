@@ -8,8 +8,8 @@
 <body onload="">
   <div class="title">
     DQM <sup>2</sup>
-    &#x25A0; <a href="{{ PREFIX }}/" class="mlink">Mirror</a>
-    &#x25A0; <a href="{{ PREFIX }}/cr/" class="mlink">Control Room</a>
+    &#x25A0; <a href="/{{ PREFIX }}" class="mlink">Mirror</a>
+    &#x25A0; <a href="/{{ PREFIX }}cr/" class="mlink">Control Room</a>
     &#x25A0; Timeline
   </div>
   <br>
@@ -20,8 +20,8 @@
   <input type="checkbox" id="check_badonly" name="check_badonly" value=""><label for="check_badonly">exit_code !=
     0</label>
   <input type="checkbox" id="check_ls" name="check_ls" value=""><label for="check_ls">N(LS) > 0</label>
-  <a href="{{ PREFIX }}/timeline/?db=production">Production-></a>
-  <a href="{{ PREFIX }}/timeline/?db=playback">Playback-></a>
+  <a href="/{{ PREFIX }}timeline/?db=production">Production-></a>
+  <a href="/{{ PREFIX }}timeline/?db=playback">Playback-></a>
   <br>
   <canvas id="runRangeSlider" title="Run range" width=800 height=80></canvas>
   <div id="timelineProgress">
@@ -126,7 +126,7 @@
         // div.innerHTML = run;
 
         let lnk = document.createElement("a")
-        lnk.href = "{{ PREFIX }}/?run=" + run + "&db=" + db;
+        lnk.href = "/{{ PREFIX }}?run=" + run + "&db=" + db;
         lnk.innerText = run;
         lnk.target = target = "\"_blank\"";
         div.appendChild(lnk);
@@ -141,7 +141,7 @@
         div.className = "ttip";
 
         let lnk = document.createElement("a")
-        lnk.href = "{{ PREFIX }}/?run=" + run + "&db=" + db;
+        lnk.href = "/{{ PREFIX }}?run=" + run + "&db=" + db;
         lnk.innerText = run;
         lnk.target = target = "\"_blank\"";
         div.appendChild(lnk);
@@ -246,7 +246,7 @@
     }
 
     var xhttp_info = new XMLHttpRequest();
-    xhttp_info.open("GET", "{{ PREFIX }}/api?what=get_info" + "&db=" + db, true);
+    xhttp_info.open("GET", "/{{ PREFIX }}api?what=get_info" + "&db=" + db, true);
     xhttp_info.send();
     xhttp_info.onreadystatechange = function () {
       if (this.readyState == 4 && this.status != 200) { }
@@ -295,7 +295,7 @@
     function update_table_range(runMin, runMax, step, check_bad_only, check_ls) {
       let iMin = Math.max(runMax - step, runMin);
       let xhttp_def_pr = new XMLHttpRequest();
-      xhttp_def_pr.open("GET", "{{ PREFIX }}/api?what=get_runs&from=" + iMin + "&to=" + runMax + "&db=" + db + "&bad_only=" + check_bad_only + "&ls=" + check_ls, true);
+      xhttp_def_pr.open("GET", "/{{ PREFIX }}api?what=get_runs&from=" + iMin + "&to=" + runMax + "&db=" + db + "&bad_only=" + check_bad_only + "&ls=" + check_ls, true);
       xhttp_def_pr.send();
       xhttp_def_pr.onreadystatechange = function () {
         if (this.readyState == 4 && this.status != 200) { }
@@ -327,7 +327,7 @@
       let check_ls = Number(document.getElementById("check_ls").checked);
 
       var xhttp_start = new XMLHttpRequest();
-      xhttp_start.open("GET", "{{ PREFIX }}/api?what=get_clients&from=" + runMin + "&to=" + runMax + "&db=" + db, true);
+      xhttp_start.open("GET", "/{{ PREFIX }}api?what=get_clients&from=" + runMin + "&to=" + runMax + "&db=" + db, true);
       xhttp_start.send();
       xhttp_start.onreadystatechange = function () {
         if (this.readyState == 4 && this.status != 200) { }
