@@ -24,6 +24,7 @@
 {% endblock %}
 
 {% block script %}
+<script>
   // DQM RUNS PAGE //
   const reload_time = Number("{{ FRONTEND_API_QUERY_INTERVAL }}")
   let static_headers = ["Timestamp", "Time Diff", "Hostname", "State", "Tag", "LS", "RSS", "Total Ev.", "LOGS"];
@@ -340,5 +341,6 @@
   function init_load_production() {
     window.location = '{{ PREFIX }}?db=production';
   }
+</script>
 
 {% endblock %}

@@ -26,6 +26,7 @@
 {% endblock %}
 
 {% block script %}
+<script>
   // DQM TIMELINE PAGE //
   const url_param = new URLSearchParams(window.location.search);
   let db = url_param.get('db');
@@ -335,4 +336,5 @@
   }
 
   updateBar(false);
+</script>
 {% endblock %}

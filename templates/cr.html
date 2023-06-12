@@ -69,6 +69,7 @@
   {% endblock %}
 
   {% block script %}
+  <script>
     // some direct and helping functions
     function update_oms_link(run_key) {
       result = run_key.match(/\d\d\d\d\d\d/);
@@ -566,4 +567,5 @@
       target.className += " activetab";
       target.style.fontWeight = '700';
     }
+  </script>
 {% endblock %}
