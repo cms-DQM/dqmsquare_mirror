@@ -1,19 +1,14 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-  <link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-</head>
+{%block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
+{% endblock %}
+{% block extra_mirror_links %} 
+<button class="btn" id="btn_production" onclick="init_load_production()">production</button>
+<button class="btn" id="btn_playback" onclick="init_load_playback()">playback</button>
+{%endblock%}
 
-<div class="title">
-  DQM <sup>2</sup> &#x25A0; Mirror
-  <button class="btn" id="btn_production" onclick="init_load_production()">production</button>
-  <button class="btn" id="btn_playback" onclick="init_load_playback()">playback</button>
-  &#x25A0; <a href="{{ PREFIX }}cr/" class="mlink">Control Room</a>
-  &#x25A0; <a href="{{ PREFIX }}timeline/" class="mlink">Timeline</a>
-</div>
-
+{% block content %}
 <p style="clear:both;margin-bottom:25px"></p>
 
 <p id="nextRuns" style="margin-bottom:1px"></p>
@@ -26,8 +21,9 @@
   <canvas id="myChart_1" style="width: 400px; height: 150px;"></canvas>
   <canvas id="myChart_2" style="width: 400px; height: 150px;"></canvas>
 </div>
+{% endblock %}
 
-<script>
+{% block script %}
   // DQM RUNS PAGE //
   const reload_time = Number("{{ FRONTEND_API_QUERY_INTERVAL }}")
   let static_headers = ["Timestamp", "Time Diff", "Hostname", "State", "Tag", "LS", "RSS", "Total Ev.", "LOGS"];
@@ -345,7 +341,4 @@
     window.location = '{{ PREFIX }}?db=production';
   }
 
-</script>
-</body>
-
-</html>
+{% endblock %}

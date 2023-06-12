@@ -1,16 +1,14 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
+{% block head%}
   <link rel="stylesheet" href="{{ url_for('static', filename='dqm_style_cr.css') }}">
-</head>
+{% endblock %}
 
-<body onload="">
-  <div class=" title">
-    DQM <sup>2</sup> &#x25A0; Control Room &#x25A0; <a href="{{ PREFIX }}">Mirror</a> &#x25A0; <a
-      href="{{ PREFIX }}cr/logout">Logout</a>
-  </div>
-  <br>
+{% block extra_navbar_links %}
+<a class="mlink" href="{{ PREFIX }}cr/logout">&#x25A0; Logout</a>
+{% endblock %}
+
+  {% block content %}
   <div>
     <strong>Output:</strong>
     <pre id="console" class="techtext"> </pre>
@@ -68,7 +66,9 @@
     </div>
   </div>
 
-  <script>
+  {% endblock %}
+
+  {% block script %}
     // some direct and helping functions
     function update_oms_link(run_key) {
       result = run_key.match(/\d\d\d\d\d\d/);
@@ -566,8 +566,4 @@
       target.className += " activetab";
       target.style.fontWeight = '700';
     }
-
-  </script>
-</body>
-
-</html>
+{% endblock %}

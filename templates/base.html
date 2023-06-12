@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  {% block head%}
+  {%endblock%}
+</head>
+<body>
+    <div class="title">
+        DQM <sup>2</sup>
+        <a href="{{ PREFIX }}" class="mlink">&#x25A0; Mirror</a>
+        {% block extra_mirror_links %}
+        {% endblock %}
+        <a href="{{ PREFIX }}cr/" class="mlink">&#x25A0; Control Room</a>
+        <a href="{{ PREFIX }}timeline/" class="mlink">&#x25A0; Timeline</a>
+        {% block extra_navbar_links %}
+        {% endblock %}
+
+    </div>
+
+    <div>
+       {% block content %}{%endblock%}
+    </div>
+
+    <script>
+        {% block script %}
+        {%endblock%}
+    </script>
+</body>
+
+</html>
