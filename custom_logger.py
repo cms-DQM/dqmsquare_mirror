@@ -8,8 +8,11 @@ custom_formatter = logging.Formatter(
 )
 
 
-### get logger ===>
 def dummy_log():
+    """
+    Dummy logger, mostly for tests.
+    """
+
     class DummyLogger:
         def info(self, text):
             print(text)
@@ -26,16 +29,23 @@ def dummy_log():
     return DummyLogger()
 
 
-def set_log_handler(logger, path, interval, nlogs, debug_level):
+def set_log_handler(
+    logger: logging.Logger,
+    path: str,
+    interval: int,
+    nlogs: int,
+    enable_debug: bool = False,
+):
+    """Configures the logger given with a formatter and a handler"""
     try:
         # add a rotating handler
         formatter = custom_formatter
         handler = TimedRotatingFileHandler(
-            path, when="h", interval=int(interval), backupCount=int(nlogs)
+            path, when="h", interval=interval, backupCount=nlogs
         )
         handler.setFormatter(formatter)
-        handler.setLevel(logging.DEBUG if debug_level else logging.INFO)
-        logger.setLevel(logging.DEBUG if debug_level else logging.INFO)
+        handler.setLevel(logging.DEBUG if enable_debug else logging.INFO)
+        logger.setLevel(logging.DEBUG if enable_debug else logging.INFO)
 
         logger.addHandler(handler)
         logger.info(f"Logging started in '{path}'")

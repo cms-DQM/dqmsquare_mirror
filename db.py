@@ -305,35 +305,22 @@ class DQM2MirrorDB:
         """
         self.log.debug("DQM2MirrorDB.get() - " + str(run_start) + " " + str(run_end))
         with self.engine.connect() as cur:
-            postfix = ";"
+            postfix = ""
             if bad_only:
-                postfix = " AND exit_code != 0;"
+                postfix = " AND (exit_code <> 0 OR exit_code IS NULL) " + postfix
             if with_ls_only:
                 postfix = " AND cmssw_lumi > 0 " + postfix
             if run_start == run_end:
                 answer = cur.execute(
-                    "SELECT "
-                    + self.TB_DESCRIPTION_RUNS_SHORT_NOLOGS
-                    + " FROM "
-                    + self.TB_NAME_RUNS
-                    + " WHERE run = "
-                    + str(run_start)
-                    + " ORDER BY client, id"
-                    + postfix
+                    f"SELECT {self.TB_DESCRIPTION_RUNS_SHORT_NOLOGS} FROM {self.TB_NAME_RUNS} "
+                    + f"WHERE run = {run_start} {postfix} ORDER BY client, id;"
                 ).all()
             else:
                 answer = cur.execute(
-                    "SELECT "
-                    + self.TB_DESCRIPTION_RUNS_SHORT_NOLOGS
-                    + " FROM "
-                    + self.TB_NAME_RUNS
-                    + " WHERE run BETWEEN "
-                    + str(run_start)
-                    + " AND "
-                    + str(run_end)
-                    + postfix
+                    f"SELECT {self.TB_DESCRIPTION_RUNS_SHORT_NOLOGS} FROM {self.TB_NAME_RUNS} "
+                    + f"WHERE run BETWEEN {run_start} AND {run_end} {postfix}"
                 ).all()
-        self.log.debug(f"Read DB for runs {run_start}-{run_end}: " + str(answer))
+        self.log.debug(f"Read DB for runs {run_start}-{run_end}: {answer}")
         return answer
 
     def make_mirror_entry(self, data):
@@ -361,10 +348,8 @@ class DQM2MirrorDB:
         minutes = int((td.seconds / 60) % 60)
         seconds = int(td.seconds % 60)
         td = "%02d:%02d" % (minutes, seconds)
-        if hours:
-            td = "%02d:" % (hours) + td
-        if days:
-            td = "%d days " % (days) + td
+        td = "%02d:" % (hours) + td
+        td = "%d days " % (days) + td
 
         cmssw_path = ""
         subfolders = client_path.split("/")

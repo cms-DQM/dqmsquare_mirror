@@ -1,16 +1,17 @@
 # P.S.~Mandrik, IHEP, https://github.com/pmandrik
 
 import os
+import sys
 import json
 import flask
 import logging
 import requests
 import dqmsquare_cfg
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect
 from dotenv import load_dotenv
 from db import DQM2MirrorDB
-from decorators import check_login
-from custom_logger import set_log_handler
+from decorators import check_login, check_auth
+from custom_logger import set_log_handler, custom_formatter
 
 load_dotenv()  # Load environmental variables from .env file, if present
 
@@ -24,12 +25,14 @@ def create_app(cfg):
         __name__, static_url_path=os.path.join("/", cfg["SERVER_URL_PREFIX"], "static")
     )
     set_log_handler(
-        log,
-        cfg["SERVER_LOG_PATH"],
-        cfg["LOGGER_ROTATION_TIME"],
-        cfg["LOGGER_MAX_N_LOG_FILES"],
-        True,
+        logger=log,
+        path=cfg["SERVER_LOG_PATH"],
+        interval=cfg["LOGGER_ROTATION_TIME"],
+        nlogs=cfg["LOGGER_MAX_N_LOG_FILES"],
+        enable_debug=cfg["SERVER_DEBUG"],
     )
+
+    log.info(f"Configured logger for server, level={log.level}")
     cr_usernames = {}
     ## Read in CR credentials from env var
     try:
@@ -52,51 +55,58 @@ def create_app(cfg):
     )
 
     ### DQM^2 Mirror ###
-    @app.route("/")
-    @app.route("/dqm/dqm-square-k8")
-    @app.route("/dqm/dqm-square-k8/")
-    def greet(name="Stranger"):
-        log.warn(f"!!!")
-        log.warn(
-            os.path.join(
-                "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/<path:name>"
-            )
-        )
-        prefix = os.path.join("/", cfg["SERVER_URL_PREFIX"])
-        if not prefix.endswith("/"):
-            prefix += "/"
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"))
+    def greet():
+        log.debug(f"!!!!!!!, {app.url_map}")
         return render_template(
-            "dqm_runs.html",
-            PREFIX=prefix,
+            "runs.html",
+            PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"),
             FRONTEND_API_QUERY_INTERVAL=cfg["FRONTEND_API_QUERY_INTERVAL"],
         )
 
-    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "static/<path:name>"))
-    def get_static(name):
-        return flask.send_from_directory("static", name)
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "static/<path:filename>"))
+    def get_static(filename):
+        """
+        Endpoint that returns files from the static directory.
+        """
+        return flask.send_from_directory("static", filename)
 
     @app.route(
-        os.path.join("/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/<path:name>")
-    )
-    @app.route(
         os.path.join(
-            "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/tmp/<path:name>"
+            "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/<path:filename>"
         )
     )
-    def get_tmp(name):
-        return flask.send_from_directory(os.path.join(SERVER_DATA_PATH, "tmp"), name)
+    def get_tmp(filename):
+        """
+        Route that fetches file from the tmp directory.
+        """
+        # TODO: remove if, make paths easier to handle
+        return flask.send_from_directory(
+            (
+                os.path.join("/", SERVER_DATA_PATH, "tmp")
+                if cfg["ENV"] != "development"
+                else "tmp"
+            ),
+            filename,
+        )
 
     @app.route(
-        os.path.join("/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "log/<path:name>")
-    )
-    @app.route(
         os.path.join(
-            "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "tmp/log/<path:name>"
+            "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "log/<path:filename>"
         )
     )
-    def get_log(name):
+    def get_log(filename):
+        """
+        Route to directly access grabber and server log files.
+        """
+        # TODO: remove if, make paths easier to handle
         content = flask.send_from_directory(
-            os.path.join("/", SERVER_DATA_PATH, "log"), name
+            (
+                os.path.join("/", SERVER_DATA_PATH, "log")
+                if cfg["ENV"] != "development"
+                else "log"
+            ),
+            filename,
         )
         return content
 
@@ -115,8 +125,13 @@ def create_app(cfg):
     db_production = DQM2MirrorDB(log, cfg["DB_PRODUCTION_URI"], server=True)
     dbs = {"playback": db, "production": db_production, "": db_production}
 
-    @app.route("/api")
-    @app.route("/dqm/dqm-square-k8/api")
+    @app.route(
+        os.path.join(
+            "/",
+            cfg["SERVER_URL_PREFIX"],
+            "api",
+        )
+    )
     def dqm2_api():
         """
         Get data from DQM^2 Mirror's Databases.
@@ -170,43 +185,43 @@ def create_app(cfg):
             answer = db_.get_logs(client_id)
             a1 = "".join(eval(answer[0]))
             a2 = "".join(eval(answer[1]))
-            # print( a1 + a2 )
             return "<plaintext>" + a1 + "\n ... \n\n" + a2
 
     ### TIMELINE ###
-    @app.route("/timeline")
-    @app.route("/timeline/")
-    @app.route("/dqm/dqm-square-k8/timeline")
-    @app.route("/dqm/dqm-square-k8/timeline/")
-    def get_timeline(name="Stranger"):
-        prefix = os.path.join("/", cfg["SERVER_URL_PREFIX"])
-        if not prefix.endswith("/"):
-            prefix += "/"
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "timeline/"))
+    def get_timeline():
         return render_template(
-            "dqm_timeline.html",
-            PREFIX=prefix,
+            "timeline.html",
+            PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"),
             FRONTEND_API_QUERY_INTERVAL=cfg["FRONTEND_API_QUERY_INTERVAL"],
         )
 
     ### CR ###
+    @app.route(
+        os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr", "login/"), methods=["GET"]
+    )
+    def login():
+        return render_template(
+            "login.html", PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/")
+        )
 
-    @app.route("/cr/login", methods=["POST"])
-    @app.route("/dqm/dqm-square-k8/cr/login", methods=["POST"])
+    @app.route(
+        os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr", "login/"), methods=["POST"]
+    )
     def do_login():
+        log.info("!!!1")
         username = flask.request.form.get("username")
         password = flask.request.form.get("password")
-        log.info(
-            "login result "
-            + str(
-                check_login(
-                    username=username, password=password, cr_usernames=cr_usernames
-                )
-            )
+        login_successful = check_login(
+            username=username, password=password, cr_usernames=cr_usernames
         )
-        if check_login(username, password, cr_usernames):
-            resp = flask.make_response(
-                flask.redirect(os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr"))
-            )
+        log.info("!!!2")
+        log.info(f"login successful: {login_successful}")
+        log.info("!!!2")
+        if login_successful:
+            redirect_url = os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/")
+            log.info(f"!!!3 {redirect_url}")
+            resp = flask.make_response(redirect(redirect_url))
 
             resp.set_cookie(
                 "dqmsquare-mirror-cr-account",
@@ -219,12 +234,11 @@ def create_app(cfg):
         else:
             return "<p>Login failed.</p>"
 
-    @app.route("/cr/logout")
-    @app.route("/dqm/dqm-square-k8/cr/logout")
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/logout/"))
     def do_logout():
         log.info("logout")
         resp = flask.make_response(
-            flask.redirect(os.path.join("/", cfg["SERVER_URL_PREFIX"]))
+            redirect(os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"))
         )
 
         resp.set_cookie(
@@ -232,73 +246,19 @@ def create_app(cfg):
         )
         return resp
 
-    def check_auth(redirect=True):
-        """
-        Route decorator to redirect users to login
-        """
-
-        def check_auth_(fn):
-            def check_auth__(*args, **kwargs):
-                username = flask.request.cookies.get("dqmsquare-mirror-cr-account")
-                if not check_login(username, None, cr_usernames, True):
-                    if redirect:
-                        return flask.redirect(
-                            os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/login")
-                        )
-                    else:
-                        return "Please login ..."
-                else:
-                    return fn(*args, **kwargs)
-
-            check_auth__.__name__ = fn.__name__
-            return check_auth__
-
-        return check_auth_
-
-    @app.route("/cr")
-    @app.route("/cr/")
-    @app.route("/dqm/dqm-square-k8/cr")
-    @app.route("/dqm/dqm-square-k8/cr/")
-    @check_auth()
-    def get_cr(name="Stranger"):
-        prefix = os.path.join("/", cfg["SERVER_URL_PREFIX"])
-        if not prefix.endswith("/"):
-            prefix += "/"
-        return render_template("dqm_cr.html", PREFIX=prefix)
-
-    @app.route("/cr/login", methods=["GET"])
-    @app.route("/dqm/dqm-square-k8/cr/login", methods=["GET"])
-    def login():
-        return """
-        <style>
-            .title {
-            padding-left: 16px;
-            padding-top: 7px;
-            padding-right: 16px;
-            padding-bottom: 6px;
-            text-decoration: none;
-            font-size: 18px;
-            background-color: #2471a3;
-            color:  #d4e6f1 ;
-            font-weight: bold;
-            }
-        </style>
-        <div class="title">
-            DQM <sup>2</sup> &#x25A0; Welcom!
-        </div> <br>
-        <form action="/dqm/dqm-square-k8/cr/login" method="post">
-            Username: <input name="username" type="text" />
-            Password: <input name="password" type="password" />
-            <input value="Login" type="submit" />
-        </form>
-    """
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/"))
+    @check_auth(
+        redirect_url=os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/login/"),
+        cr_usernames=cr_usernames,
+    )
+    def get_cr():
+        return render_template(
+            "cr.html", PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/")
+        )
 
     # DQM & FFF & HLTD
-    @app.route("/cr/exe")
-    @app.route(
-        "/dqm/dqm-square-k8/cr/exe"
-    )  # http://0.0.0.0:8887/dqm/dqm-square-k8/cr/exe?what=get_dqm_machines&
-    @check_auth(False)
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr", "exe"))
+    @check_auth(redirect=False, cr_usernames=cr_usernames)
     def cr_exe():
         log.info(flask.request.base_url)
         what = flask.request.args.get("what")
@@ -326,7 +286,6 @@ def create_app(cfg):
             log.warning("cr_exe() initial request : " + repr(error_log))
             return repr(error_log), 400
 
-        log.warning(what)
         if what in ["get_production_runs"]:
             return ",".join(
                 [
@@ -408,8 +367,9 @@ def create_app(cfg):
                 try:
                     # Dirty machete code for now. The problem is that the SERVER_DATA_PATH is also used for a
                     # file path and a URL. This means that for os.path.join to work, the path must NOT have a
-                    # leading "/". This means that we do not know explicitly if the path is relative or absolute.
-                    # For development, we store the file locally, so consider the path relative.
+                    # leading "/" (see: https://docs.python.org/3/library/os.path.html#os.path.join).
+                    # This means that we do not know explicitly if the path is relative or absolute.
+                    # For development, we store the tmp file locally, so we consider the path relative.
                     # For non-development, the SERVER_DATA_PATH is considered an absolute path.
                     fname = dqmsquare_cfg.dump_tmp_file(
                         data=item,
@@ -443,8 +403,8 @@ def create_app(cfg):
 if __name__ == "__main__":
     # Local development entrypoint
     cfg = dqmsquare_cfg.load_cfg()
-    create_app = create_app(cfg)
-    create_app.run(
+    app = create_app(cfg=cfg)
+    app.run(
         host=str(cfg["SERVER_HOST"]),
         port=int(cfg["SERVER_PORT"]),
         debug=bool(cfg["SERVER_DEBUG"]),

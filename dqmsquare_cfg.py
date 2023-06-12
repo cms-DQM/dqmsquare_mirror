@@ -34,12 +34,11 @@ def load_cfg() -> dict:
     """
 
     load_dotenv()
-    mount_path_cinder = os.path.join("cinder", "dqmsquare")
-    mount_path = mount_path_cinder
+    mount_path = os.path.join("cinder", "dqmsquare")
 
     ### default values === >
     cfg = {}
-    cfg["VERSION"] = "1.1.0"
+    cfg["VERSION"] = "1.0.10"
 
     cfg["ENV"] = os.environ.get("ENV", "development")
     cfg["SLEEP_TIME"] = 5  # sec, int
@@ -56,25 +55,14 @@ def load_cfg() -> dict:
     cfg["SERVER_HOST"] = "0.0.0.0"
     cfg["SERVER_PORT"] = 8084 if cfg["ENV"] != "development" else 8887
 
-    # ?
-    cfg["SERVER_PATH_TO_PRODUCTION_PAGE"] = (
-        os.path.join(mount_path, "api?what=get_production")
+    cfg["FRONTEND_API_QUERY_INTERVAL"] = 3000  # msec, int
+    cfg["SERVER_LOG_PATH"] = (
+        os.path.join("/", mount_path, "log", "server.log")
         if cfg["ENV"] != "development"
-        else "api?what=get_production"
+        else os.path.join("log", "server.log")
     )
 
-    # ?
-    cfg["SERVER_PATH_TO_PLAYBACK_PAGE"] = (
-        os.path.join(mount_path, "api?what=get_playback")
-        if cfg["ENV"] != "development"
-        else "api?what=get_playback"
-    )
-    cfg["FRONTEND_API_QUERY_INTERVAL"] = 5000  # msec, int
-    cfg["SERVER_LOG_PATH"] = (
-        os.path.join(mount_path, "log", "server.log")
-        if cfg["ENV"] != "development"
-        else os.path.join("/", "log", "server.log")
-    )
+    # This is used both as part of URLs and local filenames, so it must not start with a "/"
     cfg["SERVER_DATA_PATH"] = mount_path if cfg["ENV"] != "development" else ""
     cfg["SERVER_URL_PREFIX"] = (
         os.path.join("dqm", "dqm-square-k8") if cfg["ENV"] != "development" else ""
@@ -111,18 +99,18 @@ def load_cfg() -> dict:
     cfg["SERVER_SIMULATOR_RUN_KEYS"] = "cosmic_run,pp_run,commisioning_run"
 
     cfg["ROBBER_LOG_PATH"] = (
-        os.path.join(mount_path, "log/robber1.log")
+        os.path.join("/", mount_path, "log/robber1.log")
         if cfg["ENV"] != "development"
         else "log/robber1.log"
     )
     cfg["ROBBER_OLDRUNS_LOG_PATH"] = (
-        os.path.join(mount_path, "log/robber2.log")
+        os.path.join("/", mount_path, "log/robber2.log")
         if cfg["ENV"] != "development"
         else "log/robber2.log"
     )
 
     cfg["GRABBER_LOG_PATH"] = (
-        os.path.join(mount_path, "log/grabber.log")
+        os.path.join("/", mount_path, "log/grabber.log")
         if cfg["ENV"] != "development"
         else "log/grabber.log"
     )
