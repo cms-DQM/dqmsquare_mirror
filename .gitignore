@@ -7,3 +7,4 @@ __pycache__/
 dqm2m_production.db_test
 *.env
 *.pkl
+*.log.*
