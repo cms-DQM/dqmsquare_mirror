@@ -57,7 +57,6 @@ def create_app(cfg):
     ### DQM^2 Mirror ###
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"))
     def greet():
-        log.debug(f"!!!!!!!, {app.url_map}")
         return render_template(
             "runs.html",
             PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"),
@@ -201,6 +200,7 @@ def create_app(cfg):
         os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr", "login/"), methods=["GET"]
     )
     def login():
+        log.info("In login view")
         return render_template(
             "login.html", PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/")
         )
@@ -209,19 +209,16 @@ def create_app(cfg):
         os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr", "login/"), methods=["POST"]
     )
     def do_login():
-        log.info("!!!1")
         username = flask.request.form.get("username")
         password = flask.request.form.get("password")
         login_successful = check_login(
             username=username, password=password, cr_usernames=cr_usernames
         )
-        log.info("!!!2")
         log.info(f"login successful: {login_successful}")
-        log.info("!!!2")
         if login_successful:
             redirect_url = os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/")
-            log.info(f"!!!3 {redirect_url}")
-            resp = flask.make_response(redirect(redirect_url))
+            # resp = flask.make_response(redirect(redirect_url))
+            resp = redirect(flask.url_for("get_cr"))
 
             resp.set_cookie(
                 "dqmsquare-mirror-cr-account",
@@ -237,9 +234,7 @@ def create_app(cfg):
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/logout/"))
     def do_logout():
         log.info("logout")
-        resp = flask.make_response(
-            redirect(os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"))
-        )
+        resp = flask.make_response(redirect(flask.url_for("greet")))
 
         resp.set_cookie(
             "dqmsquare-mirror-cr-account", "random", path="/", httponly=True
@@ -247,10 +242,7 @@ def create_app(cfg):
         return resp
 
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/"))
-    @check_auth(
-        redirect_url=os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/login/"),
-        cr_usernames=cr_usernames,
-    )
+    @check_auth(cr_usernames=cr_usernames)
     def get_cr():
         return render_template(
             "cr.html", PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/")

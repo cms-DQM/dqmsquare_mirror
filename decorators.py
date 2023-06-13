@@ -16,9 +16,7 @@ def check_login(
     return True
 
 
-def check_auth(
-    redirect: bool = True, cr_usernames: dict = {}, redirect_url: str = "/cr/login/"
-):
+def check_auth(redirect: bool = True, cr_usernames: dict = {}):
     """
     Route decorator which can redirect users to login.
 
@@ -33,13 +31,11 @@ def check_auth(
             # We cannot modify the one passed by the decorator, as
             # it would make it immediately a local var.
             # https://stackoverflow.com/questions/4962932/access-decorator-arguments-inside-the-decorators-wrapper-function
-            redirect_url_ = redirect_url
+
             username = flask.request.cookies.get("dqmsquare-mirror-cr-account")
             if not check_login(username, None, cr_usernames, True):
                 if redirect:
-                    if not redirect_url.endswith("/"):
-                        redirect_url_ += "/"
-                    return flask.redirect(redirect_url_)
+                    return flask.redirect(flask.url_for("login"))
                 else:
                     return "Please login ..."
             else:
