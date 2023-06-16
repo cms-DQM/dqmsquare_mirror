@@ -80,7 +80,7 @@ def load_cfg() -> dict:
     # FFF simulator machine
     # This is the machine that the grabber will try to acces
     # through CMSWEB_FRONTEND_PROXY_URL
-    cfg["SERVER_FFF_MACHINE"] = "bu-c2f11-13-01"
+    cfg["SERVER_FFF_MACHINE"] = "dqmrubu-c2a06-03-01"
 
     cfg["SERVER_GRID_CERT_PATH"] = (
         "/etc/robots/robotcert.pem"

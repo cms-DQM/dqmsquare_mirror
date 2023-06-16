@@ -20,20 +20,8 @@ if __name__ == "__main__":
     cfg = dqmsquare_cfg.load_cfg()
     # for local tests ...
     run_modes = ["playback", "production"]
-    playback = [
-        "bu-c2f11-13-01",
-        "fu-c2f11-15-01",
-        "fu-c2f11-15-02",
-        "fu-c2f11-15-03",
-        "fu-c2f11-15-04",
-    ]
-    production = [
-        "bu-c2f11-09-01",
-        "fu-c2f11-11-01",
-        "fu-c2f11-11-02",
-        "fu-c2f11-11-03",
-        "fu-c2f11-11-04",
-    ]
+    playback = ["dqmrubu-c2a06-03-01", "dqmfu-c2b01-45-01", "dqmfu-c2b02-45-01"]
+    production = ["dqmrubu-c2a06-01-01", "dqmfu-c2b03-45-01", "dqmfu-c2b04-45-01"]
 
     if len(sys.argv) > 1 and sys.argv[1] == "playback":
         set_log_handler(
