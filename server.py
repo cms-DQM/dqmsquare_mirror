@@ -253,8 +253,8 @@ def create_app(cfg):
             PREFIX=os.path.join(
                 "/",
                 cfg["SERVER_URL_PREFIX"] + "/",
-                VERSION=cfg["VERSION"],
             ),
+            VERSION=cfg["VERSION"],
         )
 
     # DQM & FFF & HLTD

@@ -1,571 +1,571 @@
 {% extends "base.html" %}
 
 {% block head%}
-  <link rel="stylesheet" href="{{ url_for('static', filename='dqm_style_cr.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
 {% endblock %}
 
 {% block extra_navbar_links %}
 <a class="mlink" href="{{ PREFIX }}cr/logout/">&#x25A0; Logout</a>
 {% endblock %}
 
-  {% block content %}
-  <div>
-    <strong>Output:</strong>
-    <pre id="console" class="techtext"> </pre>
+{% block content %}
+<div>
+  <strong>Output:</strong>
+  <pre id="console" class="techtext"> </pre>
 
-    <div id="myProgress">
-      <div id="myBar"></div>
-    </div>
-
-    <button class="btn" id="btn_get_dqm_machines" onclick="cr_get_dqm_machines()">Print DQM machines</button>
-    <button class="btn" id="btn_get_hltd_version" onclick="cr_get_hltd_version()">Print HLTD versions</button>
-    <button class="btn" id="btn_get_fff_version" onclick="cr_get_fff_version()">Print FFF versions</button>
-    <button class="btn" id="btn_get_cmssw_info" onclick="cr_get_cmssw_info()">Print CMSSW info</button>
-
-    <div class="row">
-      <div class="column">
-        <div id="hltd_production"> </div>
-      </div>
-      <div class="column">
-        <div id="hltd_playback"> </div>
-      </div>
-      <div class="column">
-        <div id="playback_run"> </div>
-        <strong>Playback simulations:</strong> <br>
-        <button class="btn" id="btn_get_simulator_config" onclick="cr_get_simulator_config()">Print Simulator
-          config</button> <br>
-        Select playback run: <select id="run_number" name="run_number"
-          onchange="update_oms_link( this.options[this.selectedIndex].value )"></select> <br>
-        <a id="oms_link" href="https://cmsoms.cern.ch/cms/runs/report?cms_run=349963&cms_run_sequence=GLOBAL-RUN"
-          target="_blank">OMS link run 349963</a> <br>
-        Select run class: <select id="run_key" name="run_key"></select><br>
-        Set LS number: <input type="number" id="LS_number" name="LS_number" min="1" max="10000" size="7"><br>
-        <button class="btn" id="btn_start_playback_run" onclick="cr_start_playback_run()">Start new run</button><br><br>
-
-        <strong>Productions runs:</strong> <br>
-        Select production run: <select id="run_number_prod" name="run_number_prod"></select>
-        <button class="btn" id="btn_get_production_runs" onclick="cr_get_production_runs()">refresh</button> <br>
-        Set LS number to copy: <input type="number" id="LS_number_prod" name="LS_number_prod" min="1" max="10000"
-          size="7"><br>
-        <button class="btn" id="btn_copy_production_runs" onclick="cr_copy_production_runs()">Copy production
-          run</button><br>
-      </div>
-    </div>
-    <p style="clear:both;margin-bottom:25px"></p>
-
-    <!-- Tab links -->
-    <div class="row">
-      <div class="column2">
-        <div class="tab" id="clients_production"></div>
-        <div id="clients_production_tabs"></div>
-      </div>
-      <div class="column2">
-        <div class="tab" id="clients_playback"></div>
-        <div id="clients_playback_tabs"> </div>
-      </div>
-    </div>
+  <div id="myProgress">
+    <div id="myBar"></div>
   </div>
 
-  {% endblock %}
+  <button class="btn" id="btn_get_dqm_machines" onclick="cr_get_dqm_machines()">Print DQM machines</button>
+  <button class="btn" id="btn_get_hltd_version" onclick="cr_get_hltd_version()">Print HLTD versions</button>
+  <button class="btn" id="btn_get_fff_version" onclick="cr_get_fff_version()">Print FFF versions</button>
+  <button class="btn" id="btn_get_cmssw_info" onclick="cr_get_cmssw_info()">Print CMSSW info</button>
 
-  {% block script %}
-  <script>
-    // some direct and helping functions
-    function update_oms_link(run_key) {
-      result = run_key.match(/\d\d\d\d\d\d/);
-      if (result) {
-        var run = result[0];
-        document.getElementById("oms_link").href = "https://cmsoms.cern.ch/cms/runs/report?cms_run=" + run + "&cms_run_sequence=GLOBAL-RUN";
-        document.getElementById("oms_link").textContent = "OMS link run " + run;
-      } else {
-        document.getElementById("oms_link").href = "";
-        document.getElementById("oms_link").textContent = "";
+  <div class="row">
+    <div class="column">
+      <div id="hltd_production"> </div>
+    </div>
+    <div class="column">
+      <div id="hltd_playback"> </div>
+    </div>
+    <div class="column">
+      <div id="playback_run"> </div>
+      <strong>Playback simulations:</strong> <br>
+      <button class="btn" id="btn_get_simulator_config" onclick="cr_get_simulator_config()">Print Simulator
+        config</button> <br>
+      Select playback run: <select id="run_number" name="run_number"
+        onchange="update_oms_link( this.options[this.selectedIndex].value )"></select> <br>
+      <a id="oms_link" href="https://cmsoms.cern.ch/cms/runs/report?cms_run=349963&cms_run_sequence=GLOBAL-RUN"
+        target="_blank">OMS link run 349963</a> <br>
+      Select run class: <select id="run_key" name="run_key"></select><br>
+      Set LS number: <input type="number" id="LS_number" name="LS_number" min="1" max="10000" size="7"><br>
+      <button class="btn" id="btn_start_playback_run" onclick="cr_start_playback_run()">Start new run</button><br><br>
+
+      <strong>Productions runs:</strong> <br>
+      Select production run: <select id="run_number_prod" name="run_number_prod"></select>
+      <button class="btn" id="btn_get_production_runs" onclick="cr_get_production_runs()">refresh</button> <br>
+      Set LS number to copy: <input type="number" id="LS_number_prod" name="LS_number_prod" min="1" max="10000"
+        size="7"><br>
+      <button class="btn" id="btn_copy_production_runs" onclick="cr_copy_production_runs()">Copy production
+        run</button><br>
+    </div>
+  </div>
+  <p style="clear:both;margin-bottom:25px"></p>
+
+  <!-- Tab links -->
+  <div class="row">
+    <div class="column2">
+      <div class="tab" id="clients_production"></div>
+      <div id="clients_production_tabs"></div>
+    </div>
+    <div class="column2">
+      <div class="tab" id="clients_playback"></div>
+      <div id="clients_playback_tabs"> </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+<script>
+  // some direct and helping functions
+  function update_oms_link(run_key) {
+    result = run_key.match(/\d\d\d\d\d\d/);
+    if (result) {
+      var run = result[0];
+      document.getElementById("oms_link").href = "https://cmsoms.cern.ch/cms/runs/report?cms_run=" + run + "&cms_run_sequence=GLOBAL-RUN";
+      document.getElementById("oms_link").textContent = "OMS link run " + run;
+    } else {
+      document.getElementById("oms_link").href = "";
+      document.getElementById("oms_link").textContent = "";
+    }
+  }
+
+  function removeOptions(selectElement) {
+    var i, L = selectElement.options.length - 1;
+    for (i = L; i >= 0; i--) {
+      selectElement.remove(i);
+    }
+  }
+
+  function addOptions(selectElement, options) {
+    for (var i = 0; i < options.length; i++) {
+      var opt = options[i];
+      var el = document.createElement("option");
+      el.textContent = opt;
+      el.value = opt;
+      selectElement.appendChild(el);
+    }
+  }
+
+  function setDefaultOptions(selectElement, option) {
+    for (var i, j = 0; i = selectElement.options[j]; j++) {
+      if (i.value == option) {
+        selectElement.selectedIndex = j;
+        return;
       }
     }
+  }
 
-    function removeOptions(selectElement) {
-      var i, L = selectElement.options.length - 1;
-      for (i = L; i >= 0; i--) {
-        selectElement.remove(i);
-      }
-    }
+  // load bar
+  var bar_N_req = 0;
+  var bar_N_done = 0;
+  function updateBar(done) {
+    if (done) bar_N_done += 1;
+    else bar_N_req += 1;
+    var elem = document.getElementById("myBar");
+    elem.style.width = Math.min(bar_N_done / Math.max(bar_N_req, 1) * 100, 100) + "%";
+  }
 
-    function addOptions(selectElement, options) {
-      for (var i = 0; i < options.length; i++) {
-        var opt = options[i];
-        var el = document.createElement("option");
-        el.textContent = opt;
-        el.value = opt;
-        selectElement.appendChild(el);
-      }
-    }
+  // console
+  var MAX_CONSOLE_SIZE = 80
 
-    function setDefaultOptions(selectElement, option) {
-      for (var i, j = 0; i = selectElement.options[j]; j++) {
-        if (i.value == option) {
-          selectElement.selectedIndex = j;
-          return;
+  var console_content = [];
+  for (let i = 0; i <= MAX_CONSOLE_SIZE; ++i) console_content.push(". . .\n");
+
+  function countLines() {
+    var el = document.getElementById('content');
+    var divHeight = el.offsetHeight
+    var lineHeight = parseInt(el.style.lineHeight);
+    var lines = divHeight / lineHeight;
+    alert("Lines: " + lines);
+  }
+
+  function push_to_console(string) {
+    const lines = string.split(/\r?\n/);
+    console_content = console_content.concat(lines);
+    console_content.push(". . .")
+    console_content = console_content.slice(-MAX_CONSOLE_SIZE, -1)
+    var content = "";
+    console_content.forEach(function (item, index, array) {
+      content += item + "<br>";
+    });
+    console = document.getElementById("console")
+    console.innerHTML = content;
+    console.scrollTop = console.scrollHeight - console.clientHeight;
+  }
+  push_to_console(". . .");
+
+  // definition of default buttons
+  function set_cr_button(xhttp, element_name) {
+    xhttp.onreadystatechange = function () {
+      if (this.readyState == XMLHttpRequest.DONE) {
+        if (this.status == 200) {
+          push_to_console(xhttp.responseText);
+        } else {
+          push_to_console("Error, XMLHttpRequest status=" + this.status);
+          push_to_console("responseText: " + this.responseText);
         }
-      }
-    }
-
-    // load bar
-    var bar_N_req = 0;
-    var bar_N_done = 0;
-    function updateBar(done) {
-      if (done) bar_N_done += 1;
-      else bar_N_req += 1;
-      var elem = document.getElementById("myBar");
-      elem.style.width = Math.min(bar_N_done / Math.max(bar_N_req, 1) * 100, 100) + "%";
-    }
-
-    // console
-    var MAX_CONSOLE_SIZE = 80
-
-    var console_content = [];
-    for (let i = 0; i <= MAX_CONSOLE_SIZE; ++i) console_content.push(". . .\n");
-
-    function countLines() {
-      var el = document.getElementById('content');
-      var divHeight = el.offsetHeight
-      var lineHeight = parseInt(el.style.lineHeight);
-      var lines = divHeight / lineHeight;
-      alert("Lines: " + lines);
-    }
-
-    function push_to_console(string) {
-      const lines = string.split(/\r?\n/);
-      console_content = console_content.concat(lines);
-      console_content.push(". . .")
-      console_content = console_content.slice(-MAX_CONSOLE_SIZE, -1)
-      var content = "";
-      console_content.forEach(function (item, index, array) {
-        content += item + "<br>";
-      });
-      console = document.getElementById("console")
-      console.innerHTML = content;
-      console.scrollTop = console.scrollHeight - console.clientHeight;
-    }
-    push_to_console(". . .");
-
-    // definition of default buttons
-    function set_cr_button(xhttp, element_name) {
-      xhttp.onreadystatechange = function () {
-        if (this.readyState == XMLHttpRequest.DONE) {
-          if (this.status == 200) {
-            push_to_console(xhttp.responseText);
-          } else {
-            push_to_console("Error, XMLHttpRequest status=" + this.status);
-            push_to_console("responseText: " + this.responseText);
-          }
-          var element = document.getElementById(element_name);
-          element.style.color = "";
-        }
-      }
-    }
-
-    function set_cr_button_callback(xhttp, element_name, callback) {
-      xhttp.onreadystatechange = function () {
-        if (this.readyState == XMLHttpRequest.DONE) {
-          if (this.status == 200) {
-            push_to_console(xhttp.responseText);
-            callback(xhttp.responseText);
-          } else {
-            push_to_console("Error, XMLHttpRequest status=" + this.status);
-            push_to_console("responseText: " + this.responseText);
-          }
-          var element = document.getElementById(element_name);
-          element.style.color = "";
-        }
-      }
-    }
-
-    function set_cr_logs_button(xhttp, element_name) {
-      xhttp.onreadystatechange = function () {
-        if (this.readyState == XMLHttpRequest.DONE) {
-          if (this.status == 200) {
-            push_to_console(xhttp.responseText);
-            files = eval(xhttp.responseText);
-            files.forEach(function (item, index, array) {
-              window.open(item);
-            })
-          } else {
-            push_to_console("Error, XMLHttpRequest status=" + this.status);
-            push_to_console("responseText: " + this.responseText);
-          }
-          var element = document.getElementById(element_name);
-          element.style.color = "";
-        }
-      }
-    }
-
-    function process_cr_button(xhttp, url, element_name, req = "GET") {
-      var element = document.getElementById(element_name);
-      if (element.style.color == "") {
-        push_to_console("Processing ... " + url);
-        xhttp.open(req, url, true);
-        xhttp.send();
-        element.style.color = "red";
-      } else if (element.style.color == "red") {
-        push_to_console("Abort/Reset ... " + url);
-        xhttp.abort();
+        var element = document.getElementById(element_name);
         element.style.color = "";
       }
     }
+  }
 
-    function set_and_process_cr_button(bname, url) {
-      var xhttp = new XMLHttpRequest();
-      set_cr_button(xhttp, bname)
-      process_cr_button(xhttp, url, bname);
-    }
-
-    function set_and_process_cr_log_button(bname, url) {
-      var xhttp = new XMLHttpRequest();
-      set_cr_logs_button(xhttp, bname)
-      process_cr_button(xhttp, url, bname);
-    }
-
-    // simple buttons
-    var xhttp_hltd_version = new XMLHttpRequest();
-    set_cr_button(xhttp_hltd_version, "btn_get_hltd_version")
-    function cr_get_hltd_version() {
-      process_cr_button(xhttp_hltd_version, "{{ PREFIX }}cr/exe?what=get_hltd_versions&format=1", "btn_get_hltd_version");
-    }
-
-    var xhttp_fff_version = new XMLHttpRequest();
-    set_cr_button(xhttp_fff_version, "btn_get_fff_version")
-    function cr_get_fff_version() {
-      process_cr_button(xhttp_fff_version, "{{ PREFIX }}cr/exe?what=get_fff_versions&format=1", "btn_get_fff_version");
-    }
-
-    var xhttp_dqm_machines = new XMLHttpRequest();
-    set_cr_button(xhttp_dqm_machines, "btn_get_dqm_machines")
-    function cr_get_dqm_machines() {
-      process_cr_button(xhttp_dqm_machines, "{{ PREFIX }}cr/exe?what=get_dqm_machines&format=1", "btn_get_dqm_machines");
-    }
-
-    var xhttp_simulator_config = new XMLHttpRequest();
-    set_cr_button(xhttp_simulator_config, "btn_get_simulator_config")
-    function cr_get_simulator_config() {
-      process_cr_button(xhttp_simulator_config, "{{ PREFIX }}cr/exe?what=get_simulator_config&format=1", "btn_get_simulator_config");
-    }
-
-    var xhttp_cmssw_info = new XMLHttpRequest();
-    set_cr_button(xhttp_cmssw_info, "btn_get_cmssw_info")
-    function cr_get_cmssw_info() {
-      process_cr_button(xhttp_cmssw_info, "{{ PREFIX }}cr/exe?what=get_cmssw_info&format=1", "btn_get_cmssw_info");
-    }
-
-    var xhttp_start_playback_run = new XMLHttpRequest();
-    set_cr_button(xhttp_start_playback_run, "btn_start_playback_run")
-    function cr_start_playback_run() {
-      run_number = document.getElementById("run_number").value;
-      run_key = document.getElementById("run_key").value;
-      number_of_ls = document.getElementById("LS_number").value;
-      process_cr_button(xhttp_start_playback_run, "{{ PREFIX }}cr/exe?what=start_playback_run&run_number=" + run_number + "&run_key=" + run_key + "&number_of_ls=" + number_of_ls, "btn_start_playback_run");
-    }
-
-    var xhttp_copy_production_runs = new XMLHttpRequest();
-    set_cr_button(xhttp_copy_production_runs, "btn_copy_production_runs")
-    function cr_copy_production_runs() {
-      run_number = document.getElementById("run_number_prod").value;
-      number_of_ls = document.getElementById("LS_number_prod").value;
-      process_cr_button(xhttp_copy_production_runs, "{{ PREFIX }}cr/exe?what=copy_production_runs&run_number=" + run_number + "&number_of_ls=" + number_of_ls, "btn_copy_production_runs");
-    }
-
-    // functions with callback
-    var xhttp_get_production_runs = new XMLHttpRequest();
-    set_cr_button_callback(xhttp_get_production_runs, "btn_get_production_runs", function (runs) {
-      var run_numbers_prod_select = document.getElementById("run_number_prod");
-      // runs is a list [['000000', '000'], ['111111', '111'], ['222222', '222']]
-      data_to_print = "<strong>Runs and lumisections available:</strong><br>"
-      const runs_numbers = []
-      const runs_arr = runs.split(",");
-      runs_arr.forEach(function (item, index, array) {
-        let x = item.split("_")
-        data_to_print += "Run <strong>" + x[0] + "</strong> with <strong>" + x[1] + "</strong> lumi files <br>";
-        runs_numbers.push(x[0])
-      })
-      push_to_console(data_to_print);
-
-      removeOptions(run_numbers_prod_select);
-      addOptions(run_numbers_prod_select, runs_numbers);
-    });
-    function cr_get_production_runs() {
-      process_cr_button(xhttp_get_production_runs, "{{ PREFIX }}cr/exe?what=get_production_runs", "btn_get_production_runs");
-    }
-
-    // buttons constructor functions
-    function cr_restart_hltd(machine) {
-      set_and_process_cr_button("btn hltd restart " + machine, "{{ PREFIX }}cr/exe?what=restart_hltd&host=" + machine);
-    }
-
-    function cr_restart_fff(machine) {
-      set_and_process_cr_button("btn fff restart " + machine, "{{ PREFIX }}cr/exe?what=restart_fff&host=" + machine);
-    }
-
-    // buttons constructor functions to open tabs with logs
-    function cr_get_hltd_logs(machine) {
-      set_and_process_cr_log_button("btn hltd logs " + machine, "{{ PREFIX }}cr/exe?what=get_hltd_logs&host=" + machine);
-    }
-
-    function cr_get_fff_logs(machine) {
-      set_and_process_cr_log_button("btn fff logs " + machine, "{{ PREFIX }}cr/exe?what=get_fff_logs&host=" + machine);
-    }
-
-    // buttons with actions
-    function cr_get_dqm_clients(host, playback, callback) {
-      let xhttp_def_pl = new XMLHttpRequest();
-      xhttp_def_pl.open("GET", "{{ PREFIX }}cr/exe?what=get_dqm_clients&host=" + host + "&playback=" + playback, true);
-      xhttp_def_pl.send();
-      updateBar(false);
-      xhttp_def_pl.onreadystatechange = function () {
-        if (this.readyState == 4 && this.status != 200) {
+  function set_cr_button_callback(xhttp, element_name, callback) {
+    xhttp.onreadystatechange = function () {
+      if (this.readyState == XMLHttpRequest.DONE) {
+        if (this.status == 200) {
+          push_to_console(xhttp.responseText);
+          callback(xhttp.responseText);
+        } else {
           push_to_console("Error, XMLHttpRequest status=" + this.status);
           push_to_console("responseText: " + this.responseText);
         }
-        if (this.readyState == 4 && this.status == 200) {
-          updateBar(true);
-          callback(xhttp_def_pl.responseText);
-        }
+        var element = document.getElementById(element_name);
+        element.style.color = "";
       }
     }
+  }
 
-    function cr_dqm_change_client(checkbox, playback) {
-      const words = checkbox.name.split(',');
-      const machine = words[1];
-      const client = words[2];
-
-      push_to_console("Processing ... " + machine + " " + client + " to " + String(checkbox.checked));
-      checkbox.disabled = true;
-
-      let checked = checkbox.checked ? 1 : 0;
-      let req = "{{ PREFIX }}cr/exe?what=change_dqm_client&host=" + machine + "&client=" + client + "&state=" + String(checked) + "&playback=" + playback;
-      let xhttp_def_pl = new XMLHttpRequest();
-      xhttp_def_pl.onreadystatechange = function () {
-        if (this.readyState == 4 && this.status != 200) {
+  function set_cr_logs_button(xhttp, element_name) {
+    xhttp.onreadystatechange = function () {
+      if (this.readyState == XMLHttpRequest.DONE) {
+        if (this.status == 200) {
+          push_to_console(xhttp.responseText);
+          files = eval(xhttp.responseText);
+          files.forEach(function (item, index, array) {
+            window.open(item);
+          })
+        } else {
           push_to_console("Error, XMLHttpRequest status=" + this.status);
           push_to_console("responseText: " + this.responseText);
         }
-        if (this.readyState == 4 && this.status == 200) {
-          push_to_console(this.responseText);
-          if (this.responseText == "Ok") checkbox.disabled = false;
-        }
-      }
-      xhttp_def_pl.open("GET", req, true);
-      xhttp_def_pl.send();
-    }
-
-    function cr_get_dqm_clients_tabe_content(evt, tab_client_name, item, playback, element_tabs) {
-      element = document.getElementById("btn fff clients " + item);
-      target = evt.currentTarget
-      if (element.style.color == "") {
-        element.style.color = "red";
-        cr_get_dqm_clients(item, playback, function (clients) {
-          element = document.getElementById("btn fff clients " + item);
-          element.style.color = "";
-          let content = "<div id=\'tab " + item + "\' class=\"tabcontent\">";
-          clients_a = eval(clients);
-          clients_a.forEach(function (client, index, array) {
-            let name = "check," + item + "," + client[0];
-            if (Boolean(client[1])) {
-              content += "<input type=\"checkbox\" name=\"" + name + "\" onchange=\"cr_dqm_change_client(this, \'" + playback + "\')\" checked /> <span id=" + name + "> " + client[0] + " </label> <br>";
-            } else {
-              content += "<input type=\"checkbox\" name=\"" + name + "\" onchange=\"cr_dqm_change_client(this, \'" + playback + "\')\" /> <span id=" + name + "> " + client[0] + " <br>";
-            };
-          });
-          document.getElementById(element_tabs).innerHTML += content + "</p> </div>";
-          cr_open_tab(target, tab_client_name);
-        });
+        var element = document.getElementById(element_name);
+        element.style.color = "";
       }
     }
+  }
 
-    // Get DQM machine list and set some buttons per dqm machine list
-    var dqm_machines_pl = [], dqm_machines_pr = []
-    // playback machines
-    var xhttp_def_pl = new XMLHttpRequest();
-    xhttp_def_pl.open("GET", "{{ PREFIX }}cr/exe?what=get_dqm_machines&kind=playback", true);
-    updateBar(false);
+  function process_cr_button(xhttp, url, element_name, req = "GET") {
+    var element = document.getElementById(element_name);
+    if (element.style.color == "") {
+      push_to_console("Processing ... " + url);
+      xhttp.open(req, url, true);
+      xhttp.send();
+      element.style.color = "red";
+    } else if (element.style.color == "red") {
+      push_to_console("Abort/Reset ... " + url);
+      xhttp.abort();
+      element.style.color = "";
+    }
+  }
+
+  function set_and_process_cr_button(bname, url) {
+    var xhttp = new XMLHttpRequest();
+    set_cr_button(xhttp, bname)
+    process_cr_button(xhttp, url, bname);
+  }
+
+  function set_and_process_cr_log_button(bname, url) {
+    var xhttp = new XMLHttpRequest();
+    set_cr_logs_button(xhttp, bname)
+    process_cr_button(xhttp, url, bname);
+  }
+
+  // simple buttons
+  var xhttp_hltd_version = new XMLHttpRequest();
+  set_cr_button(xhttp_hltd_version, "btn_get_hltd_version")
+  function cr_get_hltd_version() {
+    process_cr_button(xhttp_hltd_version, "{{ PREFIX }}cr/exe?what=get_hltd_versions&format=1", "btn_get_hltd_version");
+  }
+
+  var xhttp_fff_version = new XMLHttpRequest();
+  set_cr_button(xhttp_fff_version, "btn_get_fff_version")
+  function cr_get_fff_version() {
+    process_cr_button(xhttp_fff_version, "{{ PREFIX }}cr/exe?what=get_fff_versions&format=1", "btn_get_fff_version");
+  }
+
+  var xhttp_dqm_machines = new XMLHttpRequest();
+  set_cr_button(xhttp_dqm_machines, "btn_get_dqm_machines")
+  function cr_get_dqm_machines() {
+    process_cr_button(xhttp_dqm_machines, "{{ PREFIX }}cr/exe?what=get_dqm_machines&format=1", "btn_get_dqm_machines");
+  }
+
+  var xhttp_simulator_config = new XMLHttpRequest();
+  set_cr_button(xhttp_simulator_config, "btn_get_simulator_config")
+  function cr_get_simulator_config() {
+    process_cr_button(xhttp_simulator_config, "{{ PREFIX }}cr/exe?what=get_simulator_config&format=1", "btn_get_simulator_config");
+  }
+
+  var xhttp_cmssw_info = new XMLHttpRequest();
+  set_cr_button(xhttp_cmssw_info, "btn_get_cmssw_info")
+  function cr_get_cmssw_info() {
+    process_cr_button(xhttp_cmssw_info, "{{ PREFIX }}cr/exe?what=get_cmssw_info&format=1", "btn_get_cmssw_info");
+  }
+
+  var xhttp_start_playback_run = new XMLHttpRequest();
+  set_cr_button(xhttp_start_playback_run, "btn_start_playback_run")
+  function cr_start_playback_run() {
+    run_number = document.getElementById("run_number").value;
+    run_key = document.getElementById("run_key").value;
+    number_of_ls = document.getElementById("LS_number").value;
+    process_cr_button(xhttp_start_playback_run, "{{ PREFIX }}cr/exe?what=start_playback_run&run_number=" + run_number + "&run_key=" + run_key + "&number_of_ls=" + number_of_ls, "btn_start_playback_run");
+  }
+
+  var xhttp_copy_production_runs = new XMLHttpRequest();
+  set_cr_button(xhttp_copy_production_runs, "btn_copy_production_runs")
+  function cr_copy_production_runs() {
+    run_number = document.getElementById("run_number_prod").value;
+    number_of_ls = document.getElementById("LS_number_prod").value;
+    process_cr_button(xhttp_copy_production_runs, "{{ PREFIX }}cr/exe?what=copy_production_runs&run_number=" + run_number + "&number_of_ls=" + number_of_ls, "btn_copy_production_runs");
+  }
+
+  // functions with callback
+  var xhttp_get_production_runs = new XMLHttpRequest();
+  set_cr_button_callback(xhttp_get_production_runs, "btn_get_production_runs", function (runs) {
+    var run_numbers_prod_select = document.getElementById("run_number_prod");
+    // runs is a list [['000000', '000'], ['111111', '111'], ['222222', '222']]
+    data_to_print = "<strong>Runs and lumisections available:</strong><br>"
+    const runs_numbers = []
+    const runs_arr = runs.split(",");
+    runs_arr.forEach(function (item, index, array) {
+      let x = item.split("_")
+      data_to_print += "Run <strong>" + x[0] + "</strong> with <strong>" + x[1] + "</strong> lumi files <br>";
+      runs_numbers.push(x[0])
+    })
+    push_to_console(data_to_print);
+
+    removeOptions(run_numbers_prod_select);
+    addOptions(run_numbers_prod_select, runs_numbers);
+  });
+  function cr_get_production_runs() {
+    process_cr_button(xhttp_get_production_runs, "{{ PREFIX }}cr/exe?what=get_production_runs", "btn_get_production_runs");
+  }
+
+  // buttons constructor functions
+  function cr_restart_hltd(machine) {
+    set_and_process_cr_button("btn hltd restart " + machine, "{{ PREFIX }}cr/exe?what=restart_hltd&host=" + machine);
+  }
+
+  function cr_restart_fff(machine) {
+    set_and_process_cr_button("btn fff restart " + machine, "{{ PREFIX }}cr/exe?what=restart_fff&host=" + machine);
+  }
+
+  // buttons constructor functions to open tabs with logs
+  function cr_get_hltd_logs(machine) {
+    set_and_process_cr_log_button("btn hltd logs " + machine, "{{ PREFIX }}cr/exe?what=get_hltd_logs&host=" + machine);
+  }
+
+  function cr_get_fff_logs(machine) {
+    set_and_process_cr_log_button("btn fff logs " + machine, "{{ PREFIX }}cr/exe?what=get_fff_logs&host=" + machine);
+  }
+
+  // buttons with actions
+  function cr_get_dqm_clients(host, playback, callback) {
+    let xhttp_def_pl = new XMLHttpRequest();
+    xhttp_def_pl.open("GET", "{{ PREFIX }}cr/exe?what=get_dqm_clients&host=" + host + "&playback=" + playback, true);
     xhttp_def_pl.send();
-    xhttp_def_pl.onreadystatechange = async function () {
+    updateBar(false);
+    xhttp_def_pl.onreadystatechange = function () {
       if (this.readyState == 4 && this.status != 200) {
         push_to_console("Error, XMLHttpRequest status=" + this.status);
         push_to_console("responseText: " + this.responseText);
       }
       if (this.readyState == 4 && this.status == 200) {
         updateBar(true);
-        dqm_machines_pl = eval(xhttp_def_pl.responseText);
-
-        let text = "<strong>Playback machines:</strong> <br>";
-        // get logs hltd 
-        text += "hltd logs: <br>";
-        dqm_machines_pl.forEach(function (item, index, array) {
-          text += "<button class=\"btn\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
-        })
-        // restart hltd 
-        text += "<br> hltd restart: <br>";
-        dqm_machines_pl.forEach(function (item, index, array) {
-          text += "<button class=\"btn\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
-        })
-        // get fff hltd 
-        text += "<br> fff logs: <br>";
-        dqm_machines_pl.forEach(function (item, index, array) {
-          text += "<button class=\"btn\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
-        })
-        // restart fff 
-        text += "<br> fff restart: <br>";
-        dqm_machines_pl.forEach(function (item, index, array) {
-          text += "<button class=\"btn\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
-        })
-        document.getElementById("hltd_playback").innerHTML = text;
-
-        // clients 
-        let text_clients = "<strong>Playback clients:</strong> <br>";
-        dqm_machines_pl.forEach(function (item, index, array) {
-          if (item.charAt(0) == "b") return;
-          //text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_open_tab(event, \'tab " + item + "\')\">" + item + "</button>";
-          // cr_get_dqm_clients_tabe_content( item, "1", "clients_playback_tabs" );
-          text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_get_dqm_clients_tabe_content(event, \'tab " + item + "\', \'" + item + "\', \'1\', \'clients_playback_tabs\')\">" + item + "</button>";
-        });
-
-        document.getElementById("clients_playback").innerHTML = text_clients;
+        callback(xhttp_def_pl.responseText);
       }
     }
-    // production machines
-    var xhttp_def_pr = new XMLHttpRequest();
-    xhttp_def_pr.open("GET", "{{ PREFIX }}cr/exe?what=get_dqm_machines&kind=production", true);
-    updateBar(false);
-    xhttp_def_pr.send();
-    xhttp_def_pr.onreadystatechange = function () {
+  }
+
+  function cr_dqm_change_client(checkbox, playback) {
+    const words = checkbox.name.split(',');
+    const machine = words[1];
+    const client = words[2];
+
+    push_to_console("Processing ... " + machine + " " + client + " to " + String(checkbox.checked));
+    checkbox.disabled = true;
+
+    let checked = checkbox.checked ? 1 : 0;
+    let req = "{{ PREFIX }}cr/exe?what=change_dqm_client&host=" + machine + "&client=" + client + "&state=" + String(checked) + "&playback=" + playback;
+    let xhttp_def_pl = new XMLHttpRequest();
+    xhttp_def_pl.onreadystatechange = function () {
       if (this.readyState == 4 && this.status != 200) {
         push_to_console("Error, XMLHttpRequest status=" + this.status);
         push_to_console("responseText: " + this.responseText);
       }
       if (this.readyState == 4 && this.status == 200) {
-        updateBar(true);
-        dqm_machines_pr = eval(xhttp_def_pr.responseText);
-        let text = "<strong>Production machines:</strong> <br>"
-        // get logs
-        text += "hltd logs: <br>"
-        dqm_machines_pr.forEach(function (item, index, array) {
-          text += "<button class=\"btn\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
-        })
-        // restart hltd
-        text += "<br> hltd restart: <br>"
-        dqm_machines_pr.forEach(function (item, index, array) {
-          text += "<button class=\"btn\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
-        })
-        // get fff hltd
-        text += "<br> fff logs: <br>"
-        dqm_machines_pr.forEach(function (item, index, array) {
-          text += "<button class=\"btn\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
-        })
-        // restart fff
-        text += "<br> fff restart: <br>"
-        dqm_machines_pr.forEach(function (item, index, array) {
-          text += "<button class=\"btn\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
-        })
-
-        document.getElementById("hltd_production").innerHTML = text;
-
-        // clients
-        let text_clients = "<strong>Production clients:</strong> <br>";
-        dqm_machines_pr.forEach(function (item, index, array) {
-          if (item.charAt(0) == "b") return;
-          // text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_open_tab(event, \'tab " + item + "\')\">" + item + "</button>";    
-          //cr_get_dqm_clients_tabe_content( item, "0", "clients_production_tabs" );
-          text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_get_dqm_clients_tabe_content(event, \'tab " + item + "\', \'" + item + "\', \'0\', \'clients_production_tabs\')\">" + item + "</button>";
-        });
-
-        document.getElementById("clients_production").innerHTML = text_clients;
+        push_to_console(this.responseText);
+        if (this.responseText == "Ok") checkbox.disabled = false;
       }
     }
+    xhttp_def_pl.open("GET", req, true);
+    xhttp_def_pl.send();
+  }
 
-    // choice run number, run_key, number_of_ls
-    var run_numbers_dropbox = document.getElementById("run_number");
-    var run_key_dropbox = document.getElementById("run_key");
-    var LS_number_dropbox = document.getElementById("LS_number");
-    var xhttp_def_get_simulator_config = new XMLHttpRequest();
-    xhttp_def_get_simulator_config.open("GET", "{{ PREFIX }}cr/exe?what=get_simulator_config", true);
-    updateBar(false);
-    xhttp_def_get_simulator_config.send();
-    xhttp_def_get_simulator_config.onreadystatechange = function () {
-      if (this.readyState == 4 && this.status == 400) {
-        push_to_console("Error, XMLHttpRequest status=" + this.status);
-        push_to_console("responseText: " + this.responseText);
-      }
-      if (this.readyState != 4 || this.status != 200) return;
+  function cr_get_dqm_clients_tabe_content(evt, tab_client_name, item, playback, element_tabs) {
+    element = document.getElementById("btn fff clients " + item);
+    target = evt.currentTarget
+    if (element.style.color == "") {
+      element.style.color = "red";
+      cr_get_dqm_clients(item, playback, function (clients) {
+        element = document.getElementById("btn fff clients " + item);
+        element.style.color = "";
+        let content = "<div id=\'tab " + item + "\' class=\"tabcontent\">";
+        clients_a = eval(clients);
+        clients_a.forEach(function (client, index, array) {
+          let name = "check," + item + "," + client[0];
+          if (Boolean(client[1])) {
+            content += "<input type=\"checkbox\" name=\"" + name + "\" onchange=\"cr_dqm_change_client(this, \'" + playback + "\')\" checked /> <span id=" + name + "> " + client[0] + " </label> <br>";
+          } else {
+            content += "<input type=\"checkbox\" name=\"" + name + "\" onchange=\"cr_dqm_change_client(this, \'" + playback + "\')\" /> <span id=" + name + "> " + client[0] + " <br>";
+          };
+        });
+        document.getElementById(element_tabs).innerHTML += content + "</p> </div>";
+        cr_open_tab(target, tab_client_name);
+      });
+    }
+  }
+
+  // Get DQM machine list and set some buttons per dqm machine list
+  var dqm_machines_pl = [], dqm_machines_pr = []
+  // playback machines
+  var xhttp_def_pl = new XMLHttpRequest();
+  xhttp_def_pl.open("GET", "{{ PREFIX }}cr/exe?what=get_dqm_machines&kind=playback", true);
+  updateBar(false);
+  xhttp_def_pl.send();
+  xhttp_def_pl.onreadystatechange = async function () {
+    if (this.readyState == 4 && this.status != 200) {
+      push_to_console("Error, XMLHttpRequest status=" + this.status);
+      push_to_console("responseText: " + this.responseText);
+    }
+    if (this.readyState == 4 && this.status == 200) {
       updateBar(true);
-      removeOptions(run_numbers_dropbox);
-      removeOptions(run_key_dropbox);
+      dqm_machines_pl = eval(xhttp_def_pl.responseText);
 
-      cfg = xhttp_def_get_simulator_config.responseText;
-      var jsonResponse = JSON.parse(cfg);
-      var run_name = jsonResponse.source.replace(/^.*[\\\/]/, '')
-      var number_of_ls = jsonResponse.number_of_ls;
-      LS_number_dropbox.value = jsonResponse.number_of_ls;
+      let text = "<strong>Playback machines:</strong> <br>";
+      // get logs hltd 
+      text += "hltd logs: <br>";
+      dqm_machines_pl.forEach(function (item, index, array) {
+        text += "<button class=\"btn\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
+      })
+      // restart hltd 
+      text += "<br> hltd restart: <br>";
+      dqm_machines_pl.forEach(function (item, index, array) {
+        text += "<button class=\"btn\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
+      })
+      // get fff hltd 
+      text += "<br> fff logs: <br>";
+      dqm_machines_pl.forEach(function (item, index, array) {
+        text += "<button class=\"btn\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
+      })
+      // restart fff 
+      text += "<br> fff restart: <br>";
+      dqm_machines_pl.forEach(function (item, index, array) {
+        text += "<button class=\"btn\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
+      })
+      document.getElementById("hltd_playback").innerHTML = text;
 
-      var xhttp_keys = new XMLHttpRequest();
-      xhttp_keys.open("GET", "{{ PREFIX }}cr/exe?what=get_simulator_run_keys", true);
-      xhttp_keys.send();
-      updateBar(false);
-      xhttp_keys.onreadystatechange = function () {
-        if (this.readyState != 4) return;
-        if (this.status == 400) {
-          push_to_console("{{ PREFIX }}cr/exe?what=get_simulator_run_keys Error:");
-          push_to_console(xhttp_keys.responseText);
-        }
-        if (this.status == 200) {
-          updateBar(true);
-          var run_classes = eval(xhttp_keys.responseText);
-          addOptions(run_key_dropbox, run_classes);
+      // clients 
+      let text_clients = "<strong>Playback clients:</strong> <br>";
+      dqm_machines_pl.forEach(function (item, index, array) {
+        if (item.charAt(0) == "b") return;
+        //text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_open_tab(event, \'tab " + item + "\')\">" + item + "</button>";
+        // cr_get_dqm_clients_tabe_content( item, "1", "clients_playback_tabs" );
+        text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_get_dqm_clients_tabe_content(event, \'tab " + item + "\', \'" + item + "\', \'1\', \'clients_playback_tabs\')\">" + item + "</button>";
+      });
 
-          setDefaultOptions(run_key_dropbox, jsonResponse.run_key);
-        }
+      document.getElementById("clients_playback").innerHTML = text_clients;
+    }
+  }
+  // production machines
+  var xhttp_def_pr = new XMLHttpRequest();
+  xhttp_def_pr.open("GET", "{{ PREFIX }}cr/exe?what=get_dqm_machines&kind=production", true);
+  updateBar(false);
+  xhttp_def_pr.send();
+  xhttp_def_pr.onreadystatechange = function () {
+    if (this.readyState == 4 && this.status != 200) {
+      push_to_console("Error, XMLHttpRequest status=" + this.status);
+      push_to_console("responseText: " + this.responseText);
+    }
+    if (this.readyState == 4 && this.status == 200) {
+      updateBar(true);
+      dqm_machines_pr = eval(xhttp_def_pr.responseText);
+      let text = "<strong>Production machines:</strong> <br>"
+      // get logs
+      text += "hltd logs: <br>"
+      dqm_machines_pr.forEach(function (item, index, array) {
+        text += "<button class=\"btn\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
+      })
+      // restart hltd
+      text += "<br> hltd restart: <br>"
+      dqm_machines_pr.forEach(function (item, index, array) {
+        text += "<button class=\"btn\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
+      })
+      // get fff hltd
+      text += "<br> fff logs: <br>"
+      dqm_machines_pr.forEach(function (item, index, array) {
+        text += "<button class=\"btn\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
+      })
+      // restart fff
+      text += "<br> fff restart: <br>"
+      dqm_machines_pr.forEach(function (item, index, array) {
+        text += "<button class=\"btn\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
+      })
+
+      document.getElementById("hltd_production").innerHTML = text;
+
+      // clients
+      let text_clients = "<strong>Production clients:</strong> <br>";
+      dqm_machines_pr.forEach(function (item, index, array) {
+        if (item.charAt(0) == "b") return;
+        // text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_open_tab(event, \'tab " + item + "\')\">" + item + "</button>";    
+        //cr_get_dqm_clients_tabe_content( item, "0", "clients_production_tabs" );
+        text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_get_dqm_clients_tabe_content(event, \'tab " + item + "\', \'" + item + "\', \'0\', \'clients_production_tabs\')\">" + item + "</button>";
+      });
+
+      document.getElementById("clients_production").innerHTML = text_clients;
+    }
+  }
+
+  // choice run number, run_key, number_of_ls
+  var run_numbers_dropbox = document.getElementById("run_number");
+  var run_key_dropbox = document.getElementById("run_key");
+  var LS_number_dropbox = document.getElementById("LS_number");
+  var xhttp_def_get_simulator_config = new XMLHttpRequest();
+  xhttp_def_get_simulator_config.open("GET", "{{ PREFIX }}cr/exe?what=get_simulator_config", true);
+  updateBar(false);
+  xhttp_def_get_simulator_config.send();
+  xhttp_def_get_simulator_config.onreadystatechange = function () {
+    if (this.readyState == 4 && this.status == 400) {
+      push_to_console("Error, XMLHttpRequest status=" + this.status);
+      push_to_console("responseText: " + this.responseText);
+    }
+    if (this.readyState != 4 || this.status != 200) return;
+    updateBar(true);
+    removeOptions(run_numbers_dropbox);
+    removeOptions(run_key_dropbox);
+
+    cfg = xhttp_def_get_simulator_config.responseText;
+    var jsonResponse = JSON.parse(cfg);
+    var run_name = jsonResponse.source.replace(/^.*[\\\/]/, '')
+    var number_of_ls = jsonResponse.number_of_ls;
+    LS_number_dropbox.value = jsonResponse.number_of_ls;
+
+    var xhttp_keys = new XMLHttpRequest();
+    xhttp_keys.open("GET", "{{ PREFIX }}cr/exe?what=get_simulator_run_keys", true);
+    xhttp_keys.send();
+    updateBar(false);
+    xhttp_keys.onreadystatechange = function () {
+      if (this.readyState != 4) return;
+      if (this.status == 400) {
+        push_to_console("{{ PREFIX }}cr/exe?what=get_simulator_run_keys Error:");
+        push_to_console(xhttp_keys.responseText);
       }
+      if (this.status == 200) {
+        updateBar(true);
+        var run_classes = eval(xhttp_keys.responseText);
+        addOptions(run_key_dropbox, run_classes);
 
-      var xhttp_runs = new XMLHttpRequest();
-      xhttp_runs.open("GET", "{{ PREFIX }}cr/exe?what=get_simulator_runs", true);
-      xhttp_runs.send();
-      updateBar(false);
-      xhttp_runs.onreadystatechange = function () {
-        if (this.readyState != 4) return;
-        if (this.status == 400) {
-          push_to_console("{{ PREFIX }}cr/exe?what=get_simulator_runs Error:");
-          push_to_console(xhttp_keys.responseText);
-        }
-        if (this.status == 200) {
-          updateBar(true);
-          var run_numbers = eval(xhttp_runs.responseText);
-          addOptions(run_numbers_dropbox, run_numbers);
-          setDefaultOptions(run_numbers_dropbox, run_name);
-          update_oms_link(run_name);
-        }
+        setDefaultOptions(run_key_dropbox, jsonResponse.run_key);
       }
     }
 
-    // function cr_open_tab(evt, cityName) {
-    function cr_open_tab(target, cityName) {
-      // Declare all variables
-      var i, tabcontent, tablinks;
-
-      // Get all elements with class="tabcontent" and hide them
-      tabcontent = document.getElementsByClassName("tabcontent");
-      for (i = 0; i < tabcontent.length; i++) {
-        tabcontent[i].style.display = "none";
+    var xhttp_runs = new XMLHttpRequest();
+    xhttp_runs.open("GET", "{{ PREFIX }}cr/exe?what=get_simulator_runs", true);
+    xhttp_runs.send();
+    updateBar(false);
+    xhttp_runs.onreadystatechange = function () {
+      if (this.readyState != 4) return;
+      if (this.status == 400) {
+        push_to_console("{{ PREFIX }}cr/exe?what=get_simulator_runs Error:");
+        push_to_console(xhttp_keys.responseText);
       }
-
-      // Get all elements with class="tablinks" and remove the class "active"
-      tablinks = document.getElementsByClassName("tablinks");
-      for (i = 0; i < tablinks.length; i++) {
-        tablinks[i].className = tablinks[i].className.replace(" activetab", "");
-        // tablinks[i].style.fontWeight =  '100';
+      if (this.status == 200) {
+        updateBar(true);
+        var run_numbers = eval(xhttp_runs.responseText);
+        addOptions(run_numbers_dropbox, run_numbers);
+        setDefaultOptions(run_numbers_dropbox, run_name);
+        update_oms_link(run_name);
       }
-
-      // Show the current tab, and add an "active" class to the button that opened the tab
-      document.getElementById(cityName).style.display = "block";
-      target.className += " activetab";
-      target.style.fontWeight = '700';
     }
-  </script>
+  }
+
+  // function cr_open_tab(evt, cityName) {
+  function cr_open_tab(target, cityName) {
+    // Declare all variables
+    var i, tabcontent, tablinks;
+
+    // Get all elements with class="tabcontent" and hide them
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+      tabcontent[i].style.display = "none";
+    }
+
+    // Get all elements with class="tablinks" and remove the class "active"
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+      tablinks[i].className = tablinks[i].className.replace(" activetab", "");
+      // tablinks[i].style.fontWeight =  '100';
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(cityName).style.display = "block";
+    target.className += " activetab";
+    target.style.fontWeight = '700';
+  }
+</script>
 {% endblock %}

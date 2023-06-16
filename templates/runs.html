@@ -3,9 +3,9 @@
 {%block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
 {% endblock %}
-{% block extra_mirror_links %} 
-<button class="btn" id="btn_production" onclick="init_load_production()">production</button>
-<button class="btn" id="btn_playback" onclick="init_load_playback()">playback</button>
+{% block extra_mirror_links %}
+<button class="btn-navbar" id="btn_production" onclick="init_load_production()">production</button>
+<button class="btn-navbar" id="btn_playback" onclick="init_load_playback()">playback</button>
 {%endblock%}
 
 {% block content %}
