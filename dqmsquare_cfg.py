@@ -98,12 +98,12 @@ def load_cfg() -> dict:
     )
     cfg["SERVER_SIMULATOR_RUN_KEYS"] = "cosmic_run,pp_run,commisioning_run"
 
-    cfg["ROBBER_LOG_PATH"] = (
+    cfg["ROBBER_LOG_PATH_PRODUCTION"] = (
         os.path.join("/", mount_path, "log/robber1.log")
         if cfg["ENV"] != "development"
         else "log/robber1.log"
     )
-    cfg["ROBBER_OLDRUNS_LOG_PATH"] = (
+    cfg["ROBBER_LOG_PATH_PLAYBACK"] = (
         os.path.join("/", mount_path, "log/robber2.log")
         if cfg["ENV"] != "development"
         else "log/robber2.log"

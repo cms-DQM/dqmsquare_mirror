@@ -22,10 +22,10 @@ if __name__ == "__main__":
     run_modes = ["playback", "production"]
     playback = [
         "bu-c2f11-13-01",
-        "fu-c2f11-15-04",
         "fu-c2f11-15-01",
         "fu-c2f11-15-02",
         "fu-c2f11-15-03",
+        "fu-c2f11-15-04",
     ]
     production = [
         "bu-c2f11-09-01",
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "playback":
         set_log_handler(
             log,
-            cfg["ROBBER_OLDRUNS_LOG_PATH"],
+            cfg["ROBBER_LOG_PATH_PLAYBACK"],
             cfg["LOGGER_ROTATION_TIME"],
             cfg["LOGGER_MAX_N_LOG_FILES"],
             cfg["GRABBER_DEBUG"],
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     elif len(sys.argv) > 1 and sys.argv[1] == "production":
         set_log_handler(
             log,
-            cfg["ROBBER_LOG_PATH"],
+            cfg["ROBBER_LOG_PATH_PRODUCTION"],
             cfg["LOGGER_ROTATION_TIME"],
             cfg["LOGGER_MAX_N_LOG_FILES"],
             cfg["GRABBER_DEBUG"],
@@ -87,9 +87,9 @@ if __name__ == "__main__":
     cookies = {str(cfg["FFF_SECRET_NAME"]): fff_secret.strip()}
 
     ### DQM^2-MIRROR DB CONNECTION
-    DB_PLAYBACK_URI, db_production = None, None
+    db_playback, db_production = None, None
     if "playback" in run_modes:
-        DB_PLAYBACK_URI = DQM2MirrorDB(log, cfg["DB_PLAYBACK_URI"])
+        db_playback = DQM2MirrorDB(log, cfg["DB_PLAYBACK_URI"])
     if "production" in run_modes:
         db_production = DQM2MirrorDB(log, cfg["DB_PRODUCTION_URI"])
 
@@ -100,13 +100,7 @@ if __name__ == "__main__":
         headers == clients basic info
         documents == clients logs and other information
         """
-        url = (
-            cfg["CMSWEB_FRONTEND_PROXY_URL"]
-            + "/redirect?path="
-            + dqm_machine
-            + "&port="
-            + str(dqm_port)
-        )
+        url = f'{cfg["CMSWEB_FRONTEND_PROXY_URL"]}/redirect?path={dqm_machine}&port={dqm_port}'
         if dqm_machine == cfg["SERVER_FFF_MACHINE"]:
             url = cfg["CMSWEB_FRONTEND_PROXY_URL"] + "/sync_proxy"
 
@@ -127,13 +121,7 @@ if __name__ == "__main__":
         return r.content
 
     def get_headers_from_fff(dqm_machine, dqm_port=cfg["FFF_PORT"], revision=0):
-        url = (
-            cfg["CMSWEB_FRONTEND_PROXY_URL"]
-            + "/redirect?path="
-            + dqm_machine
-            + "&port="
-            + str(dqm_port)
-        )
+        url = f'{cfg["CMSWEB_FRONTEND_PROXY_URL"]}/redirect?path={dqm_machine}&port={dqm_port}'
         if dqm_machine == cfg["SERVER_FFF_MACHINE"]:
             url = cfg["CMSWEB_FRONTEND_PROXY_URL"] + "/sync_proxy"
 
@@ -149,7 +137,7 @@ if __name__ == "__main__":
             cookies=cookies,
             timeout=30,
         )
-        log.debug(f"Got {len(r.content)} byte response.")
+        log.debug(f"Got response of length {len(r.content)}.")
 
         return r.content
 
@@ -200,13 +188,6 @@ if __name__ == "__main__":
                 if answer:
                     bad_rvs += [answer]
 
-    # update_db("fu-c2f11-15-04", 0 )
-    # exit()
-
-    # rev = db.get_rev( "fu-c2f11-15-04" );
-    # update_db( "fu-c2f11-15-04", rev )
-    # exit()
-
     log.info("Starting loop for modes " + str(run_modes))
 
     while True:
@@ -215,9 +196,9 @@ if __name__ == "__main__":
             if "playback" in run_modes:
                 for host in playback:
                     log.debug(f"Getting latest rev for {host} from DB.")
-                    rev = DB_PLAYBACK_URI.get_rev(host)
+                    rev = db_playback.get_rev(host)
                     log.debug(f"Latest rev = {rev}.")
-                    update_db(DB_PLAYBACK_URI, host, rev)
+                    update_db(db_playback, host, rev)
             if "production" in run_modes:
                 for host in production:
                     log.debug(f"Getting latest rev for {host} from DB.")

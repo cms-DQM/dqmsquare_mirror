@@ -216,10 +216,7 @@ def create_app(cfg):
         )
         log.info(f"login successful: {login_successful}")
         if login_successful:
-            redirect_url = os.path.join("/", cfg["SERVER_URL_PREFIX"], "cr/")
-            # resp = flask.make_response(redirect(redirect_url))
             resp = redirect(flask.url_for("get_cr"))
-
             resp.set_cookie(
                 "dqmsquare-mirror-cr-account",
                 username,
