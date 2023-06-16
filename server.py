@@ -61,6 +61,7 @@ def create_app(cfg):
             "runs.html",
             PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"),
             FRONTEND_API_QUERY_INTERVAL=cfg["FRONTEND_API_QUERY_INTERVAL"],
+            VERSION=cfg["VERSION"],
         )
 
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "static/<path:filename>"))
@@ -193,6 +194,7 @@ def create_app(cfg):
             "timeline.html",
             PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"),
             FRONTEND_API_QUERY_INTERVAL=cfg["FRONTEND_API_QUERY_INTERVAL"],
+            VERSION=cfg["VERSION"],
         )
 
     ### CR ###
@@ -202,7 +204,12 @@ def create_app(cfg):
     def login():
         log.info("In login view")
         return render_template(
-            "login.html", PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/")
+            "login.html",
+            PREFIX=os.path.join(
+                "/",
+                cfg["SERVER_URL_PREFIX"] + "/",
+            ),
+            VERSION=cfg["VERSION"],
         )
 
     @app.route(
@@ -242,7 +249,12 @@ def create_app(cfg):
     @check_auth(cr_usernames=cr_usernames)
     def get_cr():
         return render_template(
-            "cr.html", PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/")
+            "cr.html",
+            PREFIX=os.path.join(
+                "/",
+                cfg["SERVER_URL_PREFIX"] + "/",
+                VERSION=cfg["VERSION"],
+            ),
         )
 
     # DQM & FFF & HLTD

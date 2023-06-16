@@ -6,25 +6,26 @@
   {% block head%}
   {%endblock%}
 </head>
+
 <body>
-    <div class="title">
-        DQM <sup>2</sup>
-        <a href="{{ PREFIX }}" class="mlink">&#x25A0; Mirror</a>
-        {% block extra_mirror_links %}
-        {% endblock %}
-        <a href="{{ PREFIX }}cr/" class="mlink">&#x25A0; Control Room</a>
-        <a href="{{ PREFIX }}timeline/" class="mlink">&#x25A0; Timeline</a>
-        {% block extra_navbar_links %}
-        {% endblock %}
+  <div class="title">
+    DQM <sup>2</sup>
+    <a href="{{ PREFIX }}" class="mlink">&#x25A0; Mirror</a>
+    {% block extra_mirror_links %}
+    {% endblock %}
+    <a href="{{ PREFIX }}cr/" class="mlink">&#x25A0; Control Room</a>
+    <a href="{{ PREFIX }}timeline/" class="mlink">&#x25A0; Timeline</a>
+    {% block extra_navbar_links %}
+    {% endblock %}
+    <small class="version_string">v{{ VERSION }}</small>
+  </div>
 
-    </div>
+  <div>
+    {% block content %}{%endblock%}
+  </div>
 
-    <div>
-       {% block content %}{%endblock%}
-    </div>
-
-    {% block script %}
-    {%endblock%}
+  {% block script %}
+  {%endblock%}
 </body>
 
 </html>

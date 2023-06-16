@@ -38,7 +38,7 @@ def load_cfg() -> dict:
 
     ### default values === >
     cfg = {}
-    cfg["VERSION"] = "1.0.10"
+    cfg["VERSION"] = "1.1.0"
 
     cfg["ENV"] = os.environ.get("ENV", "development")
     cfg["SLEEP_TIME"] = 5  # sec, int
