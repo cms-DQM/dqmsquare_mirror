@@ -68,13 +68,13 @@ def load_cfg() -> dict:
         os.path.join("dqm", "dqm-square-k8") if cfg["ENV"] != "development" else ""
     )
     cfg["CMSWEB_FRONTEND_PROXY_URL"] = (
-        "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin"
+        "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
         if cfg["ENV"] == "testbed"
-        else "https://cmsweb.cern.ch/dqm/dqm-square-origin"
+        else "https://cmsweb.cern.ch/dqm/dqm-square-origin-rubu"
         if cfg["ENV"] == "production"
-        else "https://cmsweb-test4.cern.ch/dqm/dqm-square-origin"
+        else "https://cmsweb-test4.cern.ch/dqm/dqm-square-origin-rubu"
         if cfg["ENV"] == "test4"
-        else "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin"
+        else "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
     )
 
     # FFF simulator machine
