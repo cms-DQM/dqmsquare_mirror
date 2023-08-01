@@ -18,10 +18,10 @@ log = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     cfg = dqmsquare_cfg.load_cfg()
-    # for local tests ...
+
     run_modes = ["playback", "production"]
-    playback = ["dqmrubu-c2a06-03-01", "dqmfu-c2b01-45-01", "dqmfu-c2b02-45-01"]
-    production = ["dqmrubu-c2a06-01-01", "dqmfu-c2b03-45-01", "dqmfu-c2b04-45-01"]
+    playback = cfg["FFF_PLAYBACK_MACHINES"]
+    production = cfg["FFF_PRODUCTION_MACHINES"]
 
     if len(sys.argv) > 1 and sys.argv[1] == "playback":
         set_log_handler(
@@ -132,6 +132,9 @@ if __name__ == "__main__":
     bad_rvs = []
 
     def update_db(db_, host, rev=0):
+        """
+        TODO: Cleanup; this is definitely NOT just updating the DB
+        """
         global bad_rvs
         log.info(f"Update host {host} {str(rev)}")
         if not rev:

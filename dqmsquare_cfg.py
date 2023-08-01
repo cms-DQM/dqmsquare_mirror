@@ -67,20 +67,36 @@ def load_cfg() -> dict:
     cfg["SERVER_URL_PREFIX"] = (
         os.path.join("dqm", "dqm-square-k8") if cfg["ENV"] != "development" else ""
     )
-    cfg["CMSWEB_FRONTEND_PROXY_URL"] = (
+    cfg["CMSWEB_FRONTEND_PROXY_URL"] = os.environ.get(
+        "CMSWEB_FRONTEND_PROXY_URL",
+        # If value is not found in .env
         "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
         if cfg["ENV"] == "testbed"
-        else "https://cmsweb.cern.ch/dqm/dqm-square-origin-rubu"
-        if cfg["ENV"] == "production"
-        else "https://cmsweb-test4.cern.ch/dqm/dqm-square-origin-rubu"
-        if cfg["ENV"] == "test4"
         else "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
+        if cfg["ENV"] == "production"
+        else "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
+        if cfg["ENV"] == "test4"
+        else "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu",
     )
 
     # FFF simulator machine
-    # This is the machine that the grabber will try to acces
+    # This is the machine that the grabber will try to access
     # through CMSWEB_FRONTEND_PROXY_URL
-    cfg["SERVER_FFF_MACHINE"] = "dqmrubu-c2a06-03-01"
+    cfg["SERVER_FFF_MACHINE"] = os.environ.get(
+        "SERVER_FFF_MACHINE", "dqmrubu-c2a06-03-01"
+    )
+
+    # List of hostnames for playback machines
+    cfg["FFF_PLAYBACK_MACHINES"] = os.environ.get(
+        "FFF_PLAYBACK_MACHINES",
+        "dqmrubu-c2a06-03-01;dqmfu-c2b01-45-01;dqmfu-c2b02-45-01",
+    ).split(";")
+
+    # List of hostnames for production machines
+    cfg["FFF_PRODUCTION_MACHINES"] = os.environ.get(
+        "FFF_PRODUCTION_MACHINES",
+        "dqmrubu-c2a06-01-01;dqmfu-c2b03-45-01;dqmfu-c2b04-45-01",
+    ).split(";")
 
     cfg["SERVER_GRID_CERT_PATH"] = (
         "/etc/robots/robotcert.pem"
