@@ -64,12 +64,10 @@ They are packed into a single Docker image.
 
 The server is available to world-wide-web through the cmsweb frontend proxy. The grabber is also connected to P5 through the cmsweb frontend proxy.
 Cmsweb frontend requires by default authentication using a CERN grid certificate, so we are using one provided by cmsweb team to k8 cluster.
-Also, by default, Firefox does not know which certificate to use with `cmsweb.cern.ch`. For this reason, we need to define rules in a Firefox profile locally and then pack the profile into the Docker image (**TODO: Provide instructions**).
 The connection at P5 to DQM^2 is closed without authentication cookie defined in DQM^2 backend (`fff_web.py`). 
 Environment variable values are attached to the k8s cluster using an Opaque Secret defined in the `k8_secret.yaml` file. 
 To store `log` and `tmp`, we mount CephFS. The claim for CephFS is defined in `k8_claim_testbed.yaml` for the testbed cluster. In production and preproduction cluster, the CephFS volume is created by the cmsweb team.
-Also, they requested that the Docker image created does not use the `root` user. The Docker source image is `python:3.9`, cmsweb images not work well with firefox & geckodriver.
-In general, source image and selenium, firefox, geckodriver versions are carefully selected to be able to work together with available code.
+Also, they requested that the Docker image created does not use the `root` user. The Docker source image is `python:3.9`.
 
 1. `docker build -t registry.cern.ch/cmsweb/dqmsquare_mirror:v1.1.0 dqmsquare_mirror` 
    For testing locally:
@@ -83,7 +81,7 @@ In general, source image and selenium, firefox, geckodriver versions are careful
 * Log into `lxplus8` and run:
 ```bash
   export KUBECONFIG=/afs/cern.ch/user/m/mimran/public/cmsweb-k8s/config.cmsweb-test4
-  kubectl apply -f k8_claim_testbed.yaml # (once if PVC(??) not available)
+  kubectl apply -f k8_claim_testbed.yaml # (Only needed if this PVC has not been applied yet)
   kubectl apply -f k8_config_testbed.yaml
 ```
 to login into a pod :   

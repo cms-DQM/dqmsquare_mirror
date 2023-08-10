@@ -1,6 +1,6 @@
 # Dockerfile for creating containers running dqmsquare_mirror instances.
 
-FROM python:3.9
+FROM python:3.11
 
 RUN apt update \
     && apt upgrade -y \
