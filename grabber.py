@@ -109,9 +109,10 @@ if __name__ == "__main__":
         return r.content
 
     def get_headers_from_fff(dqm_machine, dqm_port=cfg["FFF_PORT"], revision=0):
-        url = f'{cfg["CMSWEB_FRONTEND_PROXY_URL"]}/redirect?path={dqm_machine}&port={dqm_port}'
         if dqm_machine == cfg["SERVER_FFF_MACHINE"]:
             url = cfg["CMSWEB_FRONTEND_PROXY_URL"] + "/sync_proxy"
+        else:
+            url = f'{cfg["CMSWEB_FRONTEND_PROXY_URL"]}/redirect?path={dqm_machine}&port={dqm_port}'
 
         jsn = {"event": "sync_request", "known_rev": str(revision)}
         data = json.dumps({"messages": [json.dumps(jsn)]})
@@ -136,7 +137,7 @@ if __name__ == "__main__":
         TODO: Cleanup; this is definitely NOT just updating the DB
         """
         global bad_rvs
-        log.info(f"Update host {host} {str(rev)}")
+        log.info(f"Update host {host}, revision:{str(rev)}")
         if not rev:
             rev = 0
 
