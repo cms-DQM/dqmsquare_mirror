@@ -16,20 +16,38 @@ class DQM2MirrorDB:
 
     TB_NAME_RUNS = "runs"
     TB_DESCRIPTION_RUNS = "( id TEXT PRIMARY KEY NOT NULL, client TEXT, run INT, rev INT, hostname TEXT, exit_code INT, events_total INT, events_rate REAL, cmssw_run INT, cmssw_lumi INT, client_path TEXT, runkey TEXT, fi_state TEXT, timestamp TIMESTAMP, vmrss TEXT, stdlog_start TEXT, stdlog_end TEXT )"
-    TB_DESCRIPTION_RUNS_SHORT = "id , client , run , rev , hostname , exit_code , events_total , events_rate , cmssw_run , cmssw_lumi , client_path , runkey , fi_state, timestamp, vmrss, stdlog_start, stdlog_end".replace(
-        " ", ""
-    ).split(
-        ","
-    )
+    TB_DESCRIPTION_RUNS_SHORT = [
+        "id",
+        "client",
+        "run",
+        "rev",
+        "hostname",
+        "exit_code",
+        "events_total",
+        "events_rate",
+        "cmssw_run",
+        "cmssw_lumi",
+        "client_path",
+        "runkey",
+        "fi_state",
+        "timestamp",
+        "vmrss",
+        "stdlog_start",
+        "stdlog_end",
+    ]
     TB_DESCRIPTION_RUNS_SHORT_NOLOGS = "id , client , run , rev , hostname , exit_code , events_total , events_rate , cmssw_run , cmssw_lumi , client_path , runkey , fi_state, timestamp, vmrss"
 
     TB_NAME_GRAPHS = "graphs"
     TB_DESCRIPTION_GRAPHS = "( run INT PRIMARY KEY NOT NULL, rev INT, id TEXT, timestamp TIMESTAMP, global_start TIMESTAMP, stream_data TEXT, hostname TEXT )"
-    TB_DESCRIPTION_GRAPHS_SHORT = (
-        "run, rev, id, timestamp, global_start, stream_data, hostname".replace(
-            " ", ""
-        ).split(",")
-    )
+    TB_DESCRIPTION_GRAPHS_SHORT = [
+        "run",
+        "rev",
+        "id",
+        "timestamp",
+        "global_start",
+        "stream_data",
+        "hostname",
+    ]
 
     TB_NAME_META = "meta"
     TB_DESCRIPTION_META = "( name TEXT PRIMARY KEY NOT NULL, data TEXT )"
@@ -100,13 +118,41 @@ class DQM2MirrorDB:
                 self.log.error("Error occurred: ", e)
                 session.rollback()
 
-    def fill_graph(self, header, document) -> int:
+    def fill_graph(self, header: dict, document: dict) -> int:
         """
-        Fill DB graph data from an FFF document
+        Fill DB graph data from an FFF document. Documents
+        Example header:
+        {
+            'tag': 'analyze_files',
+            'run': 334388,
+            'type': 'dqm-files',
+            'timestamp': 1579729985.921526,
+            '_rev': 10050,
+            'hostname': 'bu-c2f11-09-01',
+            '_id': 'dqm-files-bu-c2f11-09-01-analyze_files-run334388'
+        }
+        Example document:
+        {
+            'extra': {
+                'global_start': 1579722020.7529602,
+                'global_start_source': 'global_file',
+                'streams': {...},
+                'lumi': 23.310893056
+            },
+            'run': 334388,
+            'sequence': 0,
+            'timestamp': 1579729985.921526,
+            '_rev': 10050,
+            'hostname': 'bu-c2f11-09-01',
+            'pid': 8066,
+            'tag': 'analyze_files',
+            '_id': 'dqm-files-bu-c2f11-09-01-analyze_files-run334388',
+            'type': 'dqm-files'
+        }
         """
         extra = document.get("extra", None)
         if not extra:
-            self.log.debug("No 'extra' found in document")
+            self.log.debug("No 'extra' key found in document")
             return
 
         id = header.get("_id")
@@ -151,12 +197,9 @@ class DQM2MirrorDB:
         with self.engine.connect() as cur:
             session = self.Session(bind=cur)
             try:
-                # cur.execute("INSERT OR REPLACE INTO " + self.TB_NAME_GRAPHS + " " + self.TB_DESCRIPTION_GRAPHS_SHORT + " VALUES " + template, values)
                 session.execute(
                     f"DELETE FROM {self.TB_NAME_GRAPHS} WHERE id = '{str(id)}';"
                 )
-                # cur.execute("INSERT INTO " + self.TB_NAME_GRAPHS + " " + self.TB_DESCRIPTION_GRAPHS_SHORT + " VALUES " + template % values )
-                # cur.execute( sqlalchemy.insert( self.TB_NAME_GRAPHS ).values( values_dic )
                 session.execute(
                     sqlalchemy.insert(self.db_meta.tables[self.TB_NAME_GRAPHS]).values(
                         values_dic
@@ -186,7 +229,7 @@ class DQM2MirrorDB:
 
         return answer
 
-    def fill(self, header, document) -> int:
+    def fill(self, header: dict, document: dict) -> int:
         """
         fill 'runs' table with clients data
         """
@@ -322,20 +365,26 @@ class DQM2MirrorDB:
     def make_mirror_entry(self, data):
         answer = []
         # values = (id , client , run , rev , hostname , exit_code , events_total , events_rate , cmssw_run , cmssw_lumi , client_path , runkey , fi_state, timestamp, VmRSS, stdlog_start, stdlog_end )
-        id = data[0]
-        client = data[1]
-        hostname = data[4]
-        exit_code = data[5]
-        events_total = data[6]
-        events_rate = data[7]
-        cmssw_lumi = data[9]
-        client_path = data[10]
-        runkey = data[11]
-        # fi_state  = data[12]  # Not needed here
-        timestamp = data[13]
-        VmRSS = data[14]
+        (
+            id,
+            client,
+            _,
+            _,
+            hostname,
+            exit_code,
+            events_total,
+            events_rate,
+            _,
+            cmssw_lumi,
+            client_path,
+            runkey,
+            _,
+            timestamp,
+            VmRSS,
+        ) = data
 
         client = self.get_short_client_name(client)
+        # Hide part of the hostname for safety reasons
         var = hostname.split("-")
         hostname = "..".join([var[0], var[-1]])
         td = datetime.now() - timestamp
@@ -375,21 +424,26 @@ class DQM2MirrorDB:
 
     def make_table_entry(self, data: dict):
         answer = []
-        # values = (id , client , run , rev , hostname , exit_code , events_total , events_rate , cmssw_run , cmssw_lumi , client_path , runkey , fi_state, timestamp )
-        client = data[1]
-        run = data[2]
-        hostname = data[4]
-        exit_code = data[5]
-        events_total = data[6]
-        # events_rate = data[7]
-        cmssw_run = data[8]
-        cmssw_lumi = data[9]
-        client_path = data[10]
-        runkey = data[11]
-        fi_state = data[12]
-        timestamp = data[13]
+        (
+            _,
+            client,
+            run,
+            _,
+            hostname,
+            exit_code,
+            events_total,
+            _,
+            cmssw_run,
+            cmssw_lumi,
+            client_path,
+            runkey,
+            fi_state,
+            timestamp,
+            _,
+        ) = data
 
         client = self.get_short_client_name(client)
+        # Hide part of the hostname for safety reasons
         var = hostname.split("-")
         hostname = "..".join([var[0], var[-1]])
         runkey = runkey[len("runkey=") :]
@@ -530,8 +584,10 @@ class DQM2MirrorDB:
 
         return answer
 
-    # get latest rev from given dqm machine
     def get_rev(self, machine: str) -> int:
+        """
+        Search the runs table in the DB for get latest rev for a given dqm machine
+        """
         self.log.debug("DQM2MirrorDB.get_rev()")
         if ".cms" in machine:
             machine = machine[: -len(".cms")]

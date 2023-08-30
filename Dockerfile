@@ -4,15 +4,8 @@ FROM python:3.11
 
 RUN apt update \
     && apt upgrade -y \
-    && apt install -y lsb-release \
-    && sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' \
-    && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
     && apt-get update --fix-missing \
     && apt install -y libgtk-3-0 iputils-ping sudo nano postgresql-13 python3-psycopg2
-
-# setup postgres db
-RUN echo "local   all             all                                     trust" >> /etc/postgresql/13/main/pg_hba.conf \
-    && echo "data_directory='/cinder/dqmsquare/pgdb'"  >>  /etc/postgresql/13/main/postgresql.conf
  
 COPY . /dqmsquare_mirror
 WORKDIR dqmsquare_mirror

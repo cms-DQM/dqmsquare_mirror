@@ -5,30 +5,27 @@ This is a system to grab the information about DQM jobs from DQM^2 site,
 parse it, removing sensitive information, and show selections outside the P5 are.
 
 The architecture is sequential:
-* `dqmsquare_robber.py` - uses firefox webdriver (must installed on the same pc) & `selenium` library to load DQM^2 page and execute JavaScript and save a copy to local folder. It is also used to click on *log* button in order to get the logs of the jobs withing the page, click on *graph* button in order to get the link to the graph-images and then save them as separate files into the tmp folder  
-* `dqmsquare_robber_oldruns.py` - similar to `dqmsquare_robber.py` but click on *run number* buttons in order to switch to old runs and grab them too as separate files  
-* `dqmsquare_parser.py` - parses the files made by dqmsquare_robber.py using based on BeautifulSoupin order to extract job status information and logs, lumis and run information and put it into html files. The parser is also remove tmp files older than `TMP_FILES_LIFETIME`.  
-* `dqmsquare_server.py` - simple server to show html files made by `dqmsquare_parser.py`. Also host Control Room and other servises.  
+* `grabber.py` - uses firefox webdriver (must installed on the same pc) & `selenium` library to load DQM^2 page and execute JavaScript and save a copy to local folder. It is also used to click on *log* button in order to get the logs of the jobs withing the page, click on *graph* button in order to get the link to the graph-images and then save them as separate files into the tmp folder  
+* `server.py` - simple server to show html files. Also host Control Room and other services.  
 * `dqmsquare_cfg.py` - for CFG and common code, run it to produce default `.cfg` file  
-The work is periodic: dqmsquare_robber.py retrieves the information every X seconds, 
-`dqmsquare_parser.py` tries to produce new html files every Y seconds,
-JS at dqmsquare_server.py tries to update the content of the page using html files every Z seconds.
+
+The work is periodic: `grabber.py` retrieves information for each machine specified in `FFF_PLAYBACK_MACHINES` or `FFF_PRODUCTION_MACHINES` (depending on the arguments the grabber is launched with) through the `SERVER_FFF_MACHINE`, storing it into the database. 
 
 Other scripts/files:
 * `dqmsquare_deploy.sh` - to download some extra software and run PyInstaller. We are using PyInstaller to pack python together with extra libraries (not a firefox!) into single executable ignoring lack of the software at P5 machines.
-* `dqmsquare_mirror.spec` - to specify the RPM properties. Check this file in order to change the files used for the installation and paths. 
+* `dqmsquare_mirror.spec` - [DEPRECATED] Specifies the RPM properties. Check this file in order to change the files used for the installation and paths. 
 * `services/dqmsquare_mirror@.service` - configuration of daemons for DQM^2 Mirror services
 * `services/dqmsquare_mirror_wrapper.sh` - used in order to define the working folder and execute dqmsquare_robber, dqmsquare_parser or dqmsquare_server
-* `static/dqm_mirror_template.html` - 
 
 Folders:
 * `log` - folder to put logs files
 * `tmp` - folder to put output from dqmsquare_robber and dqmsquare_parser
+
 The RPM post-install script will create this folders. They are also hardcoded in the `dqmsquare_server.py`.
 
 ### Deployment 
 
-#### RPM, Python 2.7
+#### RPM, Python 2.7 [DEPRECATED]
 
 Download repo to your local linux machine. 
 Check `dqmsquare_deploy.sh` to download extra dependencies and create executables.
@@ -54,16 +51,14 @@ Tested with:
 For the creation of RPM:
 * rpm-build  
 
-#### Docker, k8s, Python 3.6
+#### Docker image on kubernetes, Python 3.9
 
-We are using the cmsweb k8s cluster to host our pods:
-- server
-- two grabbers 
+We are using the CMSWEB kubernetes clusters to host our Docker container, which runs:
+- the web server and
+- the two grabbers. 
 
-They are packed into a single Docker image.
-
-The server is available to world-wide-web through the cmsweb frontend proxy. The grabber is also connected to P5 through the cmsweb frontend proxy.
-Cmsweb frontend requires by default authentication using a CERN grid certificate, so we are using one provided by cmsweb team to k8 cluster.
+The server is available to the Internet through the CMSWEB's frontend proxy. The grabber is also connected to P5 through the CMSWEB frontend proxy.
+CMSWEB frontend requires by default authentication using a CERN grid certificate, so we are using one provided by CMSWEB team to k8 cluster.
 The connection at P5 to DQM^2 is closed without authentication cookie defined in DQM^2 backend (`fff_web.py`). 
 Environment variable values are attached to the k8s cluster using an Opaque Secret defined in the `k8_secret.yaml` file. 
 To store `log` and `tmp`, we mount CephFS. The claim for CephFS is defined in `k8_claim_testbed.yaml` for the testbed cluster. In production and preproduction cluster, the CephFS volume is created by the cmsweb team.

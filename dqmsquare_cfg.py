@@ -21,11 +21,7 @@ def format_db_uri(
     """
     Helper function to format the DB URI for SQLAclhemy
     """
-    return (
-        f"postgresql:///{db_name}"
-        if env != "development"
-        else f"postgresql://{username}:{password}@{host}:{port}/{db_name}"
-    )
+    return f"postgresql://{username}:{password}@{host}:{port}/{db_name}"
 
 
 def load_cfg() -> dict:
