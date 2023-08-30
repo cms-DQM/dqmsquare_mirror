@@ -5,15 +5,14 @@ This is a system to grab the information about DQM jobs from DQM^2 site,
 parse it, removing sensitive information, and show selections outside the P5 are.
 
 The architecture is sequential:
-* `grabber.py` - uses firefox webdriver (must installed on the same pc) & `selenium` library to load DQM^2 page and execute JavaScript and save a copy to local folder. It is also used to click on *log* button in order to get the logs of the jobs withing the page, click on *graph* button in order to get the link to the graph-images and then save them as separate files into the tmp folder  
-* `server.py` - simple server to show html files. Also host Control Room and other services.  
-* `dqmsquare_cfg.py` - for CFG and common code, run it to produce default `.cfg` file  
+* `grabber.py` - Runs in the background, fetching information from each FU and BU machine. 
+* `server.py` - Simple server to serve the front-end, including the Control Room.  
+* `dqmsquare_cfg.py` - Loads environment settings and creates a configuration object, which is used by the application. See [`.env_sample`](./.env_sample_production) for available settings.
 
 The work is periodic: `grabber.py` retrieves information for each machine specified in `FFF_PLAYBACK_MACHINES` or `FFF_PRODUCTION_MACHINES` (depending on the arguments the grabber is launched with) through the `SERVER_FFF_MACHINE`, storing it into the database. 
 
 Other scripts/files:
 * `dqmsquare_deploy.sh` - to download some extra software and run PyInstaller. We are using PyInstaller to pack python together with extra libraries (not a firefox!) into single executable ignoring lack of the software at P5 machines.
-* `dqmsquare_mirror.spec` - [DEPRECATED] Specifies the RPM properties. Check this file in order to change the files used for the installation and paths. 
 * `services/dqmsquare_mirror@.service` - configuration of daemons for DQM^2 Mirror services
 * `services/dqmsquare_mirror_wrapper.sh` - used in order to define the working folder and execute dqmsquare_robber, dqmsquare_parser or dqmsquare_server
 
@@ -21,37 +20,9 @@ Folders:
 * `log` - folder to put logs files
 * `tmp` - folder to put output from dqmsquare_robber and dqmsquare_parser
 
-The RPM post-install script will create this folders. They are also hardcoded in the `dqmsquare_server.py`.
-
 ### Deployment 
 
-#### RPM, Python 2.7 [DEPRECATED]
-
-Download repo to your local linux machine. 
-Check `dqmsquare_deploy.sh` to download extra dependencies and create executables.
-Several options:
-
-1. For testing copy whole package manually to the P5 machine (fusermount works well for me).
-   From the same folder run dqmsquare_server.py at server machine, `dqmsquare_robber.py` at machine with firefox, `dqmsquare_parser.py` at any machine..
-2. .. or copy RPM created by `dqmsquare_deploy.sh` to the P5 machine and install.  
-```bash
-   sudo rpm -i dqmsquare_mirror-1.0.0-1.x86_64.rpm  
-   sudo systemctl enable dqmsquare_mirror@robber.service dqmsquare_mirror@robber_oldruns.service dqmsquare_mirror@parser.service dqmsquare_mirror@server.service  
-   sudo systemctl start dqmsquare_mirror@robber.service dqmsquare_mirror@robber_oldruns.service dqmsquare_mirror@parser.service dqmsquare_mirror@server.service
-```  
-   You can also install this locally with `--prefix=PATH` option.  
-
-Tested with:  
-* Python: 2.7.14  
-* Platform: `Linux-4.12.14-lp150.12.82-default-x86_64-with-glibc2.2.5` 
-* Bottle: 0.12.19  
-* Geckodriver: 0.29.1  
-* PyInstaller: 3.4  
-
-For the creation of RPM:
-* rpm-build  
-
-#### Docker image on kubernetes, Python 3.9
+#### Docker image on kubernetes, Python 3.11
 
 We are using the CMSWEB kubernetes clusters to host our Docker container, which runs:
 - the web server and
@@ -62,7 +33,7 @@ CMSWEB frontend requires by default authentication using a CERN grid certificate
 The connection at P5 to DQM^2 is closed without authentication cookie defined in DQM^2 backend (`fff_web.py`). 
 Environment variable values are attached to the k8s cluster using an Opaque Secret defined in the `k8_secret.yaml` file. 
 To store `log` and `tmp`, we mount CephFS. The claim for CephFS is defined in `k8_claim_testbed.yaml` for the testbed cluster. In production and preproduction cluster, the CephFS volume is created by the cmsweb team.
-Also, they requested that the Docker image created does not use the `root` user. The Docker source image is `python:3.9`.
+Also, they requested that the Docker image created does not use the `root` user. The Docker source image is `python:3.11`.
 
 1. `docker build -t registry.cern.ch/cmsweb/dqmsquare_mirror:v1.1.0 dqmsquare_mirror` 
    For testing locally:
@@ -72,19 +43,23 @@ Also, they requested that the Docker image created does not use the `root` user.
 
 ##### For the testbed cmsweb k8 cluster:
 
-* update k8 config yaml (`k8_config_testbed.yaml`) to use `registry.cern.ch/cmsweb/dqmsquare_mirror:v1.1.0`
+* Update the k8 config yaml (`k8_config_testbed.yaml`) to use `registry.cern.ch/cmsweb/dqmsquare_mirror:v1.1.0`
 * Log into `lxplus8` and run:
+
 ```bash
   export KUBECONFIG=/afs/cern.ch/user/m/mimran/public/cmsweb-k8s/config.cmsweb-test4
   kubectl apply -f k8_claim_testbed.yaml # (Only needed if this PVC has not been applied yet)
   kubectl apply -f k8_config_testbed.yaml
 ```
+
 to login into a pod :   
+
 ```bash
   kubectl get pods -n dqm
   # find the pod name which looks like dqm-square-mirror-server-<something> 
   kubectl exec <pod name> -it -n dqm -- bash
 ```
+
 While Service claim with port definition is avalable in testbed yaml maifest file, it is not supported by cmsweb.
 
 ##### For the preproduction cmsweb k8s cluster:
@@ -98,33 +73,24 @@ While Service claim with port definition is avalable in testbed yaml maifest fil
   cd CMSKubernetes/kubernetes/cmsweb
   ./scripts/deploy-srv.sh dqmsquare v1.1.0_pre23 preprod
 ```
-Also create Secret if it is not created before or edit it:
+
+You will also need to create a `Secret` object, if there's none, or edit an existing one:
+
 ```bash
 kubectl apply -f k8_secret.yaml -n dqm
 kubectl edit secrets dqmsecret -n dqm
 ```
-Secret value inside dqmsecret need to be in base64 format:
-```bash
-echo -n 'SECRET' | base64
-```
-To be able to connect DQM^2 at P5, the secrets at DQM^2 Mirror need to match secrets at DQM^2. 
+
+> **Note**
+> The values in the `dqmsecret` resource need to be encoded with `base64`:
+> ```bash
+> echo -n 'SECRET' | base64
+> ```
+
+For the Mirrors's request to be fulfilled by DQM^2, the secret on DQM^2 Mirror's side (`DQM_FFF_SECRET`) needs to match the one on DQM^2's side. 
 
 Deployment to the production cmsweb is similare, follow:
 https://cms-http-group.docs.cern.ch/k8s_cluster/cmsweb_production_cluster_doc/
-
-```bash
-wget https://cernbox.cern.ch/index.php/s/gLNiHYaGF8QbPrO/download -O config.cmsweb-k8s-services-prod
-export KUBECONFIG=$PWD/config.cmsweb-k8s-services-prod
-export OS_TOKEN=$(openstack token issue -c id -f value)
-./scripts/deploy-srv.sh dqmsquare v1.1.0 prod
-```
-
-Tested with:  
-* Python: 3.6  
-* Bottle: 0.12.19  
-* Geckodriver: 0.30.0  
-* selenium==3.141.0  
-* Firefox 91.2.0esr  
 
 ### DQM^2 Mirror Control Room (CR)
 
