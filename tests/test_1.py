@@ -30,9 +30,7 @@ def format_entry_to_db_entry(graph_entry: list, datetime_cols: list):
 
 @pytest.fixture
 def testing_database():
-    cfg = load_cfg()
     db_uri = format_db_uri(
-        env=cfg["ENV"],
         username=os.environ.get("POSTGRES_USERNAME", "postgres"),
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
         host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),

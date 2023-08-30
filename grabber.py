@@ -145,7 +145,7 @@ def get_latest_info_from_hosts(hosts: list[str], db: DQM2MirrorDB) -> None:
     """
     for host in hosts:
         log.debug(f"Getting latest rev for {host} from DB.")
-        rev = db.get_rev(host)
+        rev = db.get_latest_revision(host)
         get_latest_info_from_host(host=host, rev=rev, db=db)
 
 

@@ -364,7 +364,6 @@ class DQM2MirrorDB:
 
     def make_mirror_entry(self, data):
         answer = []
-        # values = (id , client , run , rev , hostname , exit_code , events_total , events_rate , cmssw_run , cmssw_lumi , client_path , runkey , fi_state, timestamp, VmRSS, stdlog_start, stdlog_end )
         (
             id,
             client,
@@ -542,12 +541,11 @@ class DQM2MirrorDB:
         # self.log.debug( "return " + str(answer) )
         return answer
 
-    # update metadata table with info about min and max run number in runs table for fast fetch
     def update_min_max(self, new_min: int, new_max: int):
+        """update metadata table with info about min and max run number in runs table for fast fetch"""
         with self.engine.connect() as cur:
             session = self.Session(bind=cur)
             try:
-                # cur.execute("INSERT OR REPLACE INTO " + self.TB_NAME_META + " " + self.TB_DESCRIPTION_META_SHORT + " VALUES('min_max_runs', '[" + str(new_min) + "," + str(new_max) + "]')" )
                 session.execute(
                     f"DELETE FROM {self.TB_NAME_META} WHERE name = 'min_max_runs';"
                 )
@@ -584,24 +582,24 @@ class DQM2MirrorDB:
 
         return answer
 
-    def get_rev(self, machine: str) -> int:
+    def get_latest_revision(self, host: str) -> int:
         """
         Search the runs table in the DB for get latest rev for a given dqm machine
         """
         self.log.debug("DQM2MirrorDB.get_rev()")
-        if ".cms" in machine:
-            machine = machine[: -len(".cms")]
+        if ".cms" in host:
+            host = host[: -len(".cms")]
 
         with self.engine.connect() as cur:
-            if "fu" in machine:
+            if "fu" in host:
                 answer = cur.execute(
-                    f"SELECT MAX(rev) FROM {self.TB_NAME_RUNS} WHERE hostname = '{machine}';"
+                    f"SELECT MAX(rev) FROM {self.TB_NAME_RUNS} WHERE hostname = '{host}';"
                 ).all()
                 answer = list(answer[0])
                 return answer[0]
             else:
                 answer = cur.execute(
-                    f"SELECT MAX(rev) FROM {self.TB_NAME_GRAPHS} WHERE hostname = '{machine}';"
+                    f"SELECT MAX(rev) FROM {self.TB_NAME_GRAPHS} WHERE hostname = '{host}';"
                 ).all()
                 answer = list(answer[0])
                 return answer[0]
@@ -618,16 +616,15 @@ class DQM2MirrorDB:
                 answer = answer[0]
         return answer
 
-    # get next run and prev run, unordered
     def get_runs_around(self, run: int) -> list:
+        """
+        get next run and prev run, unordered
+        """
         answer = []
         self.log.debug("DQM2MirrorDB.get_runs_around()")
         with self.engine.connect() as cur:
             answer = cur.execute(
                 f"SELECT min(run) FROM {self.TB_NAME_RUNS} WHERE run > {run} union SELECT max(run) FROM {self.TB_NAME_RUNS} WHERE run < {run};"
             ).all()
-            # answer1 = cur.execute( "SELECT min(run) from " + self.TB_NAME_RUNS + " where run > " + str(run) + ";" ).all()
-            # answer2 = cur.execute( "SELECT max(run) FROM " + self.TB_NAME_RUNS + " WHERE run < " + str(run) + ";" ).all()
-            # print( run, answer, answer1, answer2 )
             answer = [item[0] for item in answer]
         return answer

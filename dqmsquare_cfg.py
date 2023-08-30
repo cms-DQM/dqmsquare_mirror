@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 
 
 def format_db_uri(
-    env: str = "production",
     username: str = "postgres",
     password: str = "postgres",
     host: str = "postgres",
@@ -129,7 +128,6 @@ def load_cfg() -> dict:
     cfg["GRABBER_DEBUG"] = os.environ.get("GRABBER_DEBUG", False)
 
     cfg["DB_PLAYBACK_URI"] = format_db_uri(
-        env=cfg["ENV"],
         username=os.environ.get("POSTGRES_USERNAME", "postgres"),
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
         host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
@@ -137,7 +135,6 @@ def load_cfg() -> dict:
         db_name=os.environ.get("POSTGRES_PLAYBACK_DB_NAME", "postgres"),
     )
     cfg["DB_PRODUCTION_URI"] = format_db_uri(
-        env=cfg["ENV"],
         username=os.environ.get("POSTGRES_USERNAME", "postgres"),
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
         host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),

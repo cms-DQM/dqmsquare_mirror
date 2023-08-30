@@ -31,9 +31,8 @@ def cfg():
 
 
 @pytest.fixture
-def testing_databases(cfg):
+def testing_databases():
     db_uri_prod = format_db_uri(
-        env=cfg["ENV"],
         username=os.environ.get("POSTGRES_USERNAME", "postgres"),
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
         host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
@@ -41,7 +40,6 @@ def testing_databases(cfg):
         db_name=os.environ.get("POSTGRES_PRODUCTION_DB_NAME") + "_test",
     )
     db_uri_playback = format_db_uri(
-        env=cfg["ENV"],
         username=os.environ.get("POSTGRES_USERNAME", "postgres"),
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
         host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
