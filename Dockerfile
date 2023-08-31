@@ -5,7 +5,7 @@ FROM python:3.11
 RUN apt update \
     && apt upgrade -y \
     && apt-get update --fix-missing \
-    && apt install -y libgtk-3-0 iputils-ping sudo nano postgresql-13 python3-psycopg2
+    && apt install -y libgtk-3-0 iputils-ping sudo nano python3-psycopg2
  
 COPY . /dqmsquare_mirror
 WORKDIR dqmsquare_mirror
