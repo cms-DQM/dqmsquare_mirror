@@ -542,7 +542,9 @@ class DQM2MirrorDB:
         return answer
 
     def update_min_max(self, new_min: int, new_max: int):
-        """update metadata table with info about min and max run number in runs table for fast fetch"""
+        """
+        update metadata table with info about min and max run number in runs table for fast fetch
+        """
         with self.engine.connect() as cur:
             session = self.Session(bind=cur)
             try:

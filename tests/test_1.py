@@ -94,7 +94,7 @@ pytest.production = [
 
 
 def test_db_1(testing_database):
-    print("Check DQM2MirrorDB.get_rev()")
+    print("Check DQM2MirrorDB.get_latest_revision()")
     revs = [
         6001382,
         7912099,
@@ -102,10 +102,10 @@ def test_db_1(testing_database):
         2762604,
         12811635,
     ]
-    revs = [testing_database.get_rev(host) for host in pytest.production]
+    revs = [testing_database.get_latest_revision(host) for host in pytest.production]
     assert all(
         [
-            testing_database.get_rev(host) == rev
+            testing_database.get_latest_revision(host) == rev
             for host, rev in zip(pytest.production, revs)
         ]
     )
