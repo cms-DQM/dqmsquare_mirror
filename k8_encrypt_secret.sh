@@ -31,5 +31,7 @@ for i in $(awk '/^[^ ]/{ f=/^data:/; next } f{ if (match($0, /^\s+[a-zA-Z0-9_]+\
     # Set base64's wrap to zero to have it all in one line.
     # Use commas in the sed regexp, as we may have '/' in the values (e.g. CMSWEB_FRONTEND_PROXY_URL).
     # Leading spaces are not preserved in the replacement string, so we're adding them manually.
-    sed -r "s,^$i$,  $(echo $i | awk '{print $1}') $(echo $i | awk '{printf $2}' | base64 --wrap 0) # $(echo $i | awk '{printf $2}'),g"  -i $OUT_FILE
+    i_escaped=$(echo $i | awk '{ gsub(/\\/, "\\\\"); gsub(/\^/, "\\^"); gsub(/\(/, "\\("); gsub(/\//, "\\/");  printf $0 }')
+    sed_expr="s,^$i_escaped$,  $(echo $i | awk '{print $1}') $(echo $i | awk '{printf $2}' | base64 --wrap 0),g"
+    sed -E $sed_expr -i $OUT_FILE
 done
