@@ -7,16 +7,8 @@ service=$1
 #sudo mkdir -p /cephfs/testbed/dqmsquare_mirror/log/
 #sudo find /cephfs/testbed/dqmsquare_mirror -type d -exec chmod 777 {} \;
 
-sudo mkdir -p /cinder/dqmsquare/db/
-sudo mkdir -p /cinder/dqmsquare/tmp/
 sudo mkdir -p /cinder/dqmsquare/log/
 sudo find /cinder/dqmsquare -type d -exec chmod 777 {} \;
-sudo chown postgres:postgres /cinder/dqmsquare/db
-
-echo `ls -alF /cinder/dqmsquare/pgdb`
-/usr/lib/postgresql/13/bin/pg_ctl -D /cinder/dqmsquare/pgdb initdb
-sudo chown -R postgres /cinder/dqmsquare/pgdb
-sudo find /cinder/dqmsquare/pgdb -type d -exec chmod 0700 {} \;
 
 python3 dqmsquare_cfg.py k8
 
