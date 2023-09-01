@@ -13,10 +13,6 @@ sudo find /cinder/dqmsquare -type d -exec chmod 777 {} \;
 python3 dqmsquare_cfg.py k8
 
 if [[ $service ]] && [[ $service = "server" ]] ; then
-  # python3 dqmsquare_server.py
-  sudo service postgresql start
-  # DB 'postgres' is created by default, create  'postgres_production' database too
-  sudo -u dqm createdb postgres_production 
   python3 grabber.py production & 
   python3 grabber.py playback & 
 
