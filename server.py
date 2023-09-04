@@ -34,7 +34,7 @@ def create_app(cfg):
 
     log.info(f"Configured logger for server, level={log.level}")
     cr_usernames = {}
-    ## Read in CR credentials from env var
+    # Read in CR credentials from env var
     try:
         username, password = os.environ.get("DQM_CR_USERNAMES").split(":")
         cr_usernames = {username: password}
@@ -46,6 +46,23 @@ def create_app(cfg):
 
     # Path to the Cinder mount, for permanent storage
     SERVER_DATA_PATH = cfg["SERVER_DATA_PATH"]
+
+    # global variables and auth cookies
+    CMSWEB_FRONTEND_PROXY_URL = cfg["CMSWEB_FRONTEND_PROXY_URL"]
+    CERT_PATH = [cfg["SERVER_GRID_CERT_PATH"], cfg["SERVER_GRID_KEY_PATH"]]
+
+    cookies = {
+        str(cfg["FFF_SECRET_NAME"]): os.environ.get(
+            "DQM_FFF_SECRET", "changeme"
+        ).strip()
+    }
+
+    db_playback = DQM2MirrorDB(log, cfg["DB_PLAYBACK_URI"], server=True)
+    db_production = DQM2MirrorDB(log, cfg["DB_PRODUCTION_URI"], server=True)
+    databases = {
+        "playback": db_playback,
+        "production": db_production,
+    }
 
     log.info(
         "\n\n\n =============================================================================== "
@@ -110,21 +127,6 @@ def create_app(cfg):
         )
         return content
 
-    ### global variables and auth cookies
-    cmsweb_proxy_url = cfg["CMSWEB_FRONTEND_PROXY_URL"]
-    cert_path = [cfg["SERVER_GRID_CERT_PATH"], cfg["SERVER_GRID_KEY_PATH"]]
-    fff_secret = "changeme"  # This will be overriden by the one in env vars
-
-    env_secret = os.environ.get("DQM_FFF_SECRET")
-    if env_secret:
-        fff_secret = env_secret
-    cookies = {str(cfg["FFF_SECRET_NAME"]): fff_secret.strip()}
-
-    ### DQM^2-MIRROR DB API
-    db = DQM2MirrorDB(log, cfg["DB_PLAYBACK_URI"], server=True)
-    db_production = DQM2MirrorDB(log, cfg["DB_PRODUCTION_URI"], server=True)
-    dbs = {"playback": db, "production": db_production, "": db_production}
-
     @app.route(
         os.path.join(
             "/",
@@ -142,14 +144,14 @@ def create_app(cfg):
         if what == "get_run":
             run = flask.request.args.get("run", default=0)
             db_name = flask.request.args.get("db", default="")
-            db_ = dbs.get(db_name, db)
+            db_ = databases.get(db_name, db_playback)
             run_data = db_.get_mirror_data(run)
             runs_around = db_.get_runs_around(run)
             return json.dumps([runs_around, run_data])
         if what == "get_graph":
             run = flask.request.args.get("run", default=0)
             db_name = flask.request.args.get("db", default="")
-            db_ = dbs.get(db_name, db)
+            db_ = databases.get(db_name, db_playback)
             graph_data = db_.get_graphs_data(run)
             return json.dumps(graph_data)
         if what == "get_runs":
@@ -158,7 +160,7 @@ def create_app(cfg):
             bad_only = flask.request.args.get("bad_only", default=0)
             with_ls_only = flask.request.args.get("ls", default=0)
             db_name = flask.request.args.get("db", default="")
-            db_ = dbs.get(db_name, db)
+            db_ = databases.get(db_name, db_playback)
             answer = db_.get_timeline_data(
                 min(run_from, run_to),
                 max(run_from, run_to),
@@ -170,18 +172,18 @@ def create_app(cfg):
             run_from = flask.request.args.get("from", default=0)
             run_to = flask.request.args.get("to", default=0)
             db_name = flask.request.args.get("db", default="")
-            db_ = dbs.get(db_name, db)
+            db_ = databases.get(db_name, db_playback)
             answer = db_.get_clients(run_from, run_to)
             return json.dumps(answer)
         if what == "get_info":
             db_name = flask.request.args.get("db", default="")
-            db_ = dbs.get(db_name, db)
+            db_ = databases.get(db_name, db_playback)
             answer = db_.get_info()
             return json.dumps(answer)
         if what == "get_logs":
             client_id = flask.request.args.get("id", default=0)
             db_name = flask.request.args.get("db", default="")
-            db_ = dbs.get(db_name, db)
+            db_ = databases.get(db_name, db_playback)
             answer = db_.get_logs(client_id)
             a1 = "".join(eval(answer[0]))
             a2 = "".join(eval(answer[1]))
@@ -269,23 +271,23 @@ def create_app(cfg):
             try:
                 answer = str(cfg["SERVER_SIMULATOR_RUN_KEYS"].split(","))
                 return answer
-            except Exception as error_log:
-                log.warning(error_log)
-                return repr(error_log), 400
+            except Exception as e:
+                log.warning(e)
+                return repr(e), 400
 
         # using exe API
         # initial request
         url = (
-            os.path.join(cmsweb_proxy_url, "cr/exe?")
+            os.path.join(CMSWEB_FRONTEND_PROXY_URL, "cr/exe?")
             + flask.request.query_string.decode()
         )
         answer = None
         try:
-            r = requests.get(url, cert=cert_path, verify=False, cookies=cookies)
+            r = requests.get(url, cert=CERT_PATH, verify=False, cookies=cookies)
             dqm2_answer = r.content
-        except Exception as error_log:
-            log.warning("cr_exe() initial request : " + repr(error_log))
-            return repr(error_log), 400
+        except Exception as e:
+            log.warning("cr_exe() initial request : " + repr(e))
+            return repr(e), 400
 
         if what in ["get_production_runs"]:
             return ",".join(
@@ -340,11 +342,9 @@ def create_app(cfg):
                 if what == "get_simulator_config":
                     answer = json.loads(dqm2_answer)
 
-            except Exception as error_log:
-                log.warning(
-                    "cr_exe() change format to be printable : " + repr(error_log)
-                )
-                return repr(error_log), 400
+            except Exception as e:
+                log.warning("cr_exe() change format to be printable : " + repr(e))
+                return repr(e), 400
 
             return answer
 
@@ -354,12 +354,12 @@ def create_app(cfg):
 
             try:
                 data = json.loads(dqm2_answer)
-            except Exception as error_log:
+            except Exception as e:
                 log.warning(
                     "cr_exe() : can't json.loads from DQM^2 data " + dqm2_answer
                 )
-                log.warning(repr(error_log))
-                return repr(error_log), 400
+                log.warning(repr(e))
+                return repr(e), 400
 
             file_urls = []
             for item in data:
@@ -380,11 +380,11 @@ def create_app(cfg):
                         prefix=what,
                         postfix=".txt",
                     )
-                except Exception as error_log:
+                except Exception as e:
                     log.warning(
                         "cr_exe() : error in dqmsquare_cfg.dump_tmp_file for file:"
                     )
-                    log.warning(repr(error_log))
+                    log.warning(repr(e))
                     continue
                 file_urls += [
                     os.path.join(

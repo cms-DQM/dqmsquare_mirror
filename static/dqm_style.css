@@ -131,18 +131,22 @@ col:nth-child(2n) {
   visibility: visible;
 }
 
+/* Job error */
 .rrun {
   background-color: #EC7063;
 }
 
+/* Ongoing job */
 .grun {
   background-color: #52BE80;
 }
 
+/* Job finished */
 .yrun {
   background-color: #F4D03F;
 }
 
+/* Dark variations for alternating column colors */
 .rrunD {
   background-color: #d26459;
 }

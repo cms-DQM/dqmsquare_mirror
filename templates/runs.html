@@ -31,315 +31,336 @@
 
   // console.log( window.location.href ); // like http://0.0.0.0:8887/dqm/dqm-square-k8/runs?run=501450
   const url_param = new URLSearchParams(window.location.search);
-  let start_run = url_param.get('run');
-  if (!start_run) {
-    // get latest run as default
-  }
-  let db = url_param.get('db');
-  if (!db || db == "") db = "production";
+  let specific_run_number = url_param.get('run');  // Get Run number from URL, if specified
+  let db = url_param.get('db') || "production";
 
   var myChart1, myChart2;
 
-  function update_table(run_id, data) {
-    other_runs = data[0]
-    global_data = data[1][0]; // 
-    clients_data = data[1][1];
-
-    // Other runs info
-    let p_runnext = document.getElementById("nextRuns");
-    let p_content = "";
-    // console.log( other_runs );
-
-    if (other_runs[1] != null) {
-      if (other_runs[1] < run_id) {
-        var b = other_runs[0];
-        other_runs[0] = other_runs[1];
-        other_runs[1] = b;
-      }
-    };
-
-    if (other_runs[0] != null) { p_content += '<a href="{{ PREFIX }}?run=' + other_runs[0] + "&db=" + db + '"><-' + other_runs[0] + '</a> &nbsp;'; }
-    p_content += '<a href="{{ PREFIX }}?run=' + run_id + "&db=" + db + '"><strong>' + run_id + '</strong></a> &nbsp;';
-    if (other_runs[1] != null) { p_content += '<a href="{{ PREFIX }}?run=' + other_runs[1] + "&db=" + db + '">' + other_runs[1] + '-></a> &nbsp;'; }
-    p_runnext.innerHTML = p_content;
-
-    // Table
-    let tb_main = document.getElementById("runTable");
-    tb_main.innerHTML = '';
-
-    // Table header ...
-    for (let j = 0; j < static_headers.length; ++j) {
-      let col = document.createElement("col");
-      tb_main.appendChild(col);
-    }
-
-    let tr = document.createElement("tr");
-    for (let header of static_headers) {
-      let td = document.createElement("th");
-      td.className = "jtc2 "
-      td.innerText = header;
-      tr.appendChild(td);
-    }
-    tb_main.appendChild(tr);
-
-    // Table clients ...
-    // console.log( clients_data );
-    let state_G = 0;
-    let state_Y = 0;
-    let state_R = 0;
-    for (let client_data of clients_data) { // (timestamp, td, hostname, fi_state, client, cmssw_lumi, VmRSS, events_total, id, events_rate)
-      tr = document.createElement("tr");
-      client_data[0] = new Date(client_data[0]).toLocaleString('en-GB', { hour12: false, timeZone: 'Europe/Zurich' });
-      // console.log(client_data)
-      if (client_data[9] < 0) client_data[9] = 0
-      client_data[7] = client_data[7] + " (" + client_data[9].toFixed(1) + " ev/s)"
-
-      id = client_data[8]
-
-      let ec = client_data[3];
-      let state = ec;
-      let style = "rrun";
-
-      if ((ec === null) || (ec === undefined) || (ec === -1)) { state = "R"; style = "grun"; state_G += 1; }
-      else if ((ec === 0) || (ec === "0")) { style = "yrun"; state_Y += 1; }
-      else { state_R += 1; }
-      client_data[3] = state;
-
-      for (const [i, data] of client_data.entries()) {
-        if (i == 8) continue;
-        if (i == 9) continue;
-        let td = document.createElement("td");
-        td.className = "jtc2 " + style;
-        if (i % 2 != 0) { td.className += "D"; }
-        td.innerText = data;
-        tr.appendChild(td);
-      }
-
-      let td = document.createElement("td");
-      td.className = "jtc2 " + style;
-      let log_link = "{{ PREFIX }}api?what=get_logs&id=" + id + "&db=" + db;
-      td.innerHTML = "<a href=" + log_link + " target=\"_blank\"> -> </a>"; // /dqm/dqm-square-k8/logs?id=
-      tr.appendChild(td);
-
-      tb_main.appendChild(tr);
-    }
-
-    // Info
-    let p_runinfo = document.getElementById("runInfo");
-    let content = 'CMSSW: <strong>' + global_data[0] + '</strong> &nbsp;&nbsp;<br> run_key: <strong>' + global_data[1] + '</strong><br>';
-    content += 'Known cmssw jobs: <strong>' + clients_data.length + '</strong> &nbsp;&nbsp;&nbsp;&nbsp;'
-    content += 'Legend: '
-    content += '<strong><span class=grun> &nbsp;&nbsp; running ' + state_G + ' &nbsp;&nbsp; </span></strong>'
-    content += '<strong><span class=yrun> &nbsp;&nbsp; stopped ' + state_Y + ' &nbsp;&nbsp; </span></strong>'
-    content += '<strong><span class=rrun> &nbsp;&nbsp; crashed ' + state_R + ' &nbsp;&nbsp; </span></strong>'
-    p_runinfo.innerHTML = content;
-  };
-
-  function update_graph(data) {
-    const LUMI = 23.310893056;
-    if (data.length < 6) { return };
-    let stream_datas = data[5];
-    let global_start = data[4];
-
-
-    const labels = [];
-    const data_points_array_1 = [];
-    const data_points_array_2 = [];
-
-    if (typeof stream_datas === 'undefined') { return };
-
-    for (const [stream, stream_data] of Object.entries(stream_datas)) {
-      // console.log(stream, stream_data);
-      stream_name = stream.split('_')[0];
-      // console.log(stream_name, stream_data);
-      labels.push(stream_name);
-      const data_points_1 = [];
-      const data_points_2 = [];
-
-      let lumis = stream_data['lumis'];
-      let mtimes = stream_data['mtimes'];
-      let evt_accepted = stream_data['evt_accepted'];
-      let delay_mtimes = Array(lumis.lenght);
-
-      for (index = 0; index < lumis.length; index++) { // copy paste logic from fff code
-        let start_offset_mtime = mtimes[index] - global_start - LUMI;
-        var lumi_offset = (lumis[index] - 1) * LUMI;
-        let delay_mtime = start_offset_mtime - lumi_offset;
-        delay_mtimes[index] = delay_mtime;
-
-        data_points_1.push({ 'x': lumis[index], 'y': delay_mtimes[index] });
-        data_points_2.push({ 'x': lumis[index], 'y': evt_accepted[index] });
-      };
-
-      data_points_array_1.push(data_points_1);
-      data_points_array_2.push(data_points_2);
-      // console.log( lumis );
-      // console.log( evt_accepted );
-      // console.log( delay_mtimes );
-    }
-
-    if (labels.length) {
-      const chart_data_1 = [];
-      const chart_data_2 = [];
-      const borderColors = ["#3366CC", "#DC3912", "#FF9900", "#109618", "#990099", "#3B3EAC", "#0099C6", "#DD4477", "#66AA00", "#B82E2E", "#316395", "#994499", "#22AA99", "#AAAA11", "#6633CC", "#E67300", "#8B0707", "#329262", "#5574A6", "#651067"];
-      for (index = 0; index < labels.length; index++) {
-        chart_data_1.push({ label: [labels[index]], data: data_points_array_1[index], fill: false, borderColor: borderColors[index], });
-        chart_data_2.push({ label: [labels[index]], data: data_points_array_2[index], fill: false, borderColor: borderColors[index], });
-      }
-
-      const ctx1 = document.getElementById('myChart_1');
-      const ctx2 = document.getElementById('myChart_2');
-
-      if (myChart1 instanceof Chart) {
-        myChart1.data = { datasets: chart_data_1 };
-        myChart1.update();
-      } else {
-        myChart1 = new Chart(ctx1, {
-          type: 'bubble',
-          data: { datasets: chart_data_1 },
-          options: {
-            animation: false,
-            plugins: {
-              title: {
-                display: true,
-                text: 'DQM File Delivery'
-              }
-            },
-            scales: {
-              x: {
-                title: {
-                  display: true,
-                  text: "LS"
-                }
-              },
-              y: {
-                title: {
-                  display: true,
-                  text: "File delivery delay, s"
-                }
-              },
-            },
-          }
-        });
-      };
-
-
-      if (myChart2 instanceof Chart) {
-        myChart2.data = { datasets: chart_data_2 };
-        myChart2.update();
-      } else {
-        myChart2 = new Chart(ctx2, {
-          type: 'bubble',
-          data: { datasets: chart_data_2 },
-          options: {
-            animation: false,
-            plugins: {
-              title: {
-                display: true,
-                text: 'DQM Event Rate'
-              },
-            },
-            scales: {
-              x: {
-                title: {
-                  display: true,
-                  text: "LS"
-                }
-              },
-              y: {
-                title: {
-                  display: true,
-                  text: "Accepted events"
-                }
-              },
-            },
-          }
-        });
-      }
-    };
-  };
-
-  function update_table_req(run_id, db) {
-    var xhttp_start = new XMLHttpRequest();
-    xhttp_start.open("GET", "{{ PREFIX }}api?what=get_run&run=" + run_id + "&db=" + db, true);
-    xhttp_start.send();
-    xhttp_start.onreadystatechange = function () {
-      if (this.readyState == 4 && this.status != 200) { }
-      if (this.readyState == 4 && this.status == 200) {
-        data = JSON.parse(xhttp_start.responseText);
-        update_table(run_id, data);
-      }
-    }
-  }
-
-  function update_graph_req(run_id, db) {
-    var xhttp_start = new XMLHttpRequest();
-    xhttp_start.open("GET", "{{ PREFIX }}api?what=get_graph&run=" + run_id + "&db=" + db, true);
-    xhttp_start.send();
-    xhttp_start.onreadystatechange = function () {
-      if (this.readyState == 4 && this.status != 200) { }
-      if (this.readyState == 4 && this.status == 200) {
-        data = JSON.parse(xhttp_start.responseText);
-        // console.log( "GRAPH DATA = ", data )
-        update_graph(data);
-      }
-    }
-  }
-
-  function update_tables(run) {
-    update_table_req(run, db);
-    update_graph_req(run, db);
-  }
-
-  function start_live(start) {
-    if (!start) { return; };
-    window.timer_load_production = 0;
-    window.timer_load_playback = 0;
-    if (db == "playback") load_playback();
-    if (db == "production") load_production();
-  }
-
-  if (start_run) {
-    fetch("{{ PREFIX }}api?what=get_info" + "&db=" + db, { method: 'GET' }).then(response => response.json()).then((data) => start_live(String(data[1]) === start_run)).catch(error => console.error('error:', error));
-    update_tables(start_run);
+  // If specific run number was requested, display data for it.
+  if (specific_run_number !== null) {
+    // If run requested is NOT the latest run, disable live mode, 
+    // else, enable it.
+      fetch(
+          "{{ PREFIX }}api?what=get_info" + "&db=" + db,
+          { method: 'GET' }
+      )
+          .then(response => response.json())
+          .then(data => start_live(String(data[1]) === specific_run_number))
+          .catch(error => console.error('error:', error));
+      update_tables(specific_run_number);
   } else {
-    start_live(true);
+    // No run number requested, start live mode.
+      start_live(true);
+  }
+  function update_table(run_id, data) {
+      other_runs = data[0]
+      global_data = data[1][0]; // 
+      clients_data = data[1][1];
+
+      // Other runs info
+      let p_runnext = document.getElementById("nextRuns");
+      let p_content = "";
+      // console.log( other_runs );
+
+      if (other_runs[1] != null) {
+          if (other_runs[1] < run_id) {
+              var b = other_runs[0];
+              other_runs[0] = other_runs[1];
+              other_runs[1] = b;
+          }
+      };
+
+      if (other_runs[0] != null) { p_content += '<a href="{{ PREFIX }}?run=' + other_runs[0] + "&db=" + db + '"><-' + other_runs[0] + '</a> &nbsp;'; }
+      p_content += '<a href="{{ PREFIX }}?run=' + run_id + "&db=" + db + '"><strong>' + run_id + '</strong></a> &nbsp;';
+      if (other_runs[1] != null) { p_content += '<a href="{{ PREFIX }}?run=' + other_runs[1] + "&db=" + db + '">' + other_runs[1] + '-></a> &nbsp;'; }
+      p_runnext.innerHTML = p_content;
+
+      // Table
+      let tb_main = document.getElementById("runTable");
+      tb_main.innerHTML = '';
+
+      // Table header ...
+      for (let j = 0; j < static_headers.length; ++j) {
+          let col = document.createElement("col");
+          tb_main.appendChild(col);
+      }
+
+      let tr = document.createElement("tr");
+      for (let header of static_headers) {
+          let td = document.createElement("th");
+          td.className = "jtc2 "
+          td.innerText = header;
+          tr.appendChild(td);
+      }
+      tb_main.appendChild(tr);
+
+      // Table clients ...
+      // console.log( clients_data );
+      let state_G = 0;
+      let state_Y = 0;
+      let state_R = 0;
+      for (let client_data of clients_data) { // (timestamp, td, hostname, fi_state, client, cmssw_lumi, VmRSS, events_total, id, events_rate)
+          tr = document.createElement("tr");
+          client_data[0] = new Date(client_data[0]).toLocaleString('en-GB', { hour12: false, timeZone: 'Europe/Zurich' });
+          // console.log(client_data)
+          if (client_data[9] < 0) client_data[9] = 0
+          client_data[7] = client_data[7] + " (" + client_data[9].toFixed(1) + " ev/s)"
+
+          id = client_data[8]
+
+          let ec = client_data[3];
+          let state = ec;
+          let style = "rrun";
+
+          if ((ec === null) || (ec === undefined) || (ec === -1)) { state = "R"; style = "grun"; state_G += 1; }
+          else if ((ec === 0) || (ec === "0")) { style = "yrun"; state_Y += 1; }
+          else { state_R += 1; }
+          client_data[3] = state;
+
+          for (const [i, data] of client_data.entries()) {
+              if (i == 8) continue;
+              if (i == 9) continue;
+              let td = document.createElement("td");
+              td.className = "jtc2 " + style;
+              if (i % 2 != 0) { td.className += "D"; }
+              td.innerText = data;
+              tr.appendChild(td);
+          }
+
+          let td = document.createElement("td");
+          td.className = "jtc2 " + style;
+          let log_link = "{{ PREFIX }}api?what=get_logs&id=" + id + "&db=" + db;
+          td.innerHTML = "<a href=" + log_link + " target=\"_blank\"> -> </a>"; // /dqm/dqm-square-k8/logs?id=
+          tr.appendChild(td);
+
+          tb_main.appendChild(tr);
+      }
+
+      // Info
+      let p_runinfo = document.getElementById("runInfo");
+      let content = 'CMSSW: <strong>' + global_data[0] + '</strong> &nbsp;&nbsp;<br> run_key: <strong>' + global_data[1] + '</strong><br>';
+      content += 'Known cmssw jobs: <strong>' + clients_data.length + '</strong> &nbsp;&nbsp;&nbsp;&nbsp;'
+      content += 'Legend: '
+      content += '<strong><span class=grun> &nbsp;&nbsp; running ' + state_G + ' &nbsp;&nbsp; </span></strong>'
+      content += '<strong><span class=yrun> &nbsp;&nbsp; stopped ' + state_Y + ' &nbsp;&nbsp; </span></strong>'
+      content += '<strong><span class=rrun> &nbsp;&nbsp; crashed ' + state_R + ' &nbsp;&nbsp; </span></strong>'
+      p_runinfo.innerHTML = content;
+  };
+
+  /*
+  Updates both graphs (file delivery and events processed.)
+  */
+  function update_graph(data) {
+      const LUMI = 23.310893056;
+      if (data.length < 6) { return };
+      let stream_data = data[5];
+      let global_start = data[4];
+
+
+      const labels = [];  // Labels for different data series
+      const data_points_array_1 = [];
+      const data_points_array_2 = [];
+
+      if (typeof stream_data === 'undefined') { return };
+
+      for (const [stream, stream_datum] of Object.entries(stream_data)) {
+          stream_name = stream.split('_')[0];
+          labels.push(stream_name);
+          const data_points_1 = [];
+          const data_points_2 = [];
+
+          let lumis = stream_datum['lumis'];
+          let mtimes = stream_datum['mtimes'];
+          let evt_accepted = stream_datum['evt_accepted'];
+          let delay_mtimes = Array(lumis.length);
+
+          // copy paste logic from fff code
+          for (index = 0; index < lumis.length; index++) { 
+              let start_offset_mtime = mtimes[index] - global_start - LUMI;
+              var lumi_offset = (lumis[index] - 1) * LUMI;
+              let delay_mtime = start_offset_mtime - lumi_offset;
+              delay_mtimes[index] = delay_mtime;
+
+              data_points_1.push({ 'x': lumis[index], 'y': delay_mtimes[index] });
+              data_points_2.push({ 'x': lumis[index], 'y': evt_accepted[index] });
+          };
+
+          data_points_array_1.push(data_points_1);
+          data_points_array_2.push(data_points_2);
+
+      }
+
+      if (labels.length) {
+          const chart_data_1 = [];
+          const chart_data_2 = [];
+          const borderColors = ["#3366CC", "#DC3912", "#FF9900", "#109618", "#990099", "#3B3EAC", "#0099C6", "#DD4477", "#66AA00", "#B82E2E", "#316395", "#994499", "#22AA99", "#AAAA11", "#6633CC", "#E67300", "#8B0707", "#329262", "#5574A6", "#651067"];
+          for (index = 0; index < labels.length; index++) {
+              chart_data_1.push({ label: [labels[index]], data: data_points_array_1[index], fill: false, borderColor: borderColors[index], });
+              chart_data_2.push({ label: [labels[index]], data: data_points_array_2[index], fill: false, borderColor: borderColors[index], });
+          }
+
+          const ctx1 = document.getElementById('myChart_1');
+          const ctx2 = document.getElementById('myChart_2');
+
+          if (myChart1 instanceof Chart) {
+              myChart1.data = { datasets: chart_data_1 };
+              myChart1.update();
+          } else {
+              myChart1 = new Chart(ctx1, {
+                  type: 'bubble',
+                  data: { datasets: chart_data_1 },
+                  options: {
+                      animation: false,
+                      plugins: {
+                          title: {
+                              display: true,
+                              text: 'DQM File Delivery'
+                          }
+                      },
+                      scales: {
+                          x: {
+                              title: {
+                                  display: true,
+                                  text: "LS"
+                              }
+                          },
+                          y: {
+                              title: {
+                                  display: true,
+                                  text: "File delivery delay, s"
+                              }
+                          },
+                      },
+                  }
+              });
+          };
+
+
+          if (myChart2 instanceof Chart) {
+              myChart2.data = { datasets: chart_data_2 };
+              myChart2.update();
+          } else {
+              myChart2 = new Chart(ctx2, {
+                  type: 'bubble',
+                  data: { datasets: chart_data_2 },
+                  options: {
+                      animation: false,
+                      plugins: {
+                          title: {
+                              display: true,
+                              text: 'DQM Event Rate'
+                          },
+                      },
+                      scales: {
+                          x: {
+                              title: {
+                                  display: true,
+                                  text: "LS"
+                              }
+                          },
+                          y: {
+                              title: {
+                                  display: true,
+                                  text: "Accepted events"
+                              }
+                          },
+                      },
+                  }
+              });
+          }
+      };
+  };
+
+  /*
+  Get run data for a run, from specific db
+  */
+  function fetch_table_data(run_id, db) {
+      fetch(`{{ PREFIX }}api?what=get_run&run=${run_id}&db=${db}`)
+      .then(data => data.json())
+      .then(data => update_table(run_id, data))
+      .catch(error => console.log(`Error when getting table data: ${error}`));
+  }
+
+  /*
+  Get graph data for a run, from specific db
+  */
+  function fetch_graph_data(run_id, db) {
+      fetch(`{{ PREFIX }}api?what=get_graph&run=${run_id}&db=${db}`)
+      .then(data => data.json())
+      .then(data => update_graph(data))
+      .catch(error => console.log(`Error when getting graph data: ${error}`));
+  }
+
+  /*
+  Fetch data for a specific run and update tables & graphs
+  */
+  function update_tables(run_number) {
+      fetch_table_data(run_number, db);
+      fetch_graph_data(run_number, db);
+  }
+
+  function start_live(start) { 
+      if (!start) { return; };
+      window.timer_load_production = 0;
+      window.timer_load_playback = 0;
+      if (db == "playback") load_playback();
+      if (db == "production") load_production();
   }
 
   async function load_production() {
-    db = "production";
-    await fetch("{{ PREFIX }}api?what=get_info" + "&db=" + db, { method: 'GET' }).then(response => response.json()).then((data) => update_tables(data[1])).catch(error => console.error('error:', error));
-    window.timer_load_production = setTimeout(load_production, reload_time);
-    document.getElementById("btn_production").classList.add('active');
+      db = "production";
+      await fetch(
+          `{{ PREFIX }}api?what=get_info&db=${db}`,
+          { method: 'GET' })
+          .then(
+              response => response.json())
+          .then(
+              data => update_tables(data[1])
+          ).catch(
+              error => console.error('error:', error)
+          );
+      window.timer_load_production = setTimeout(load_production, reload_time);
+      document.getElementById("btn_production").classList.add('active');
   };
 
   async function load_playback() {
-    db = "playback";
-    await fetch("{{ PREFIX }}api?what=get_info" + "&db=" + db, { method: 'GET' }).then(response => response.json()).then((data) => update_tables(data[1])).catch(error => console.error('error:', error));
-    window.timer_load_playback = setTimeout(load_playback, reload_time);
-    document.getElementById("btn_playback").classList.add('active');
+      db = "playback";
+      await fetch(
+        `{{ PREFIX }}api?what=get_info&db=${db}`,
+        { method: 'GET' })
+      .then(
+        response => response.json()
+        ).then(
+        (data) => update_tables(data[1])
+        ).catch(
+        error => console.error('error:', error)
+        );
+
+      window.timer_load_playback = setTimeout(load_playback, reload_time);
+      document.getElementById("btn_playback").classList.add('active');
   };
 
-  function reset_btn() {
-    if (window.timer_load_production) {
-      clearTimeout(window.timer_load_production);
-      window.timer_load_production = 0;
-    }
-    if (window.timer_load_playback) {
-      clearTimeout(window.timer_load_playback);
-      window.timer_load_playback = 0;
-    }
+  // Unused, AFAIK
+  // function reset_btn() {
+  //     if (window.timer_load_production) {
+  //         clearTimeout(window.timer_load_production);
+  //         window.timer_load_production = 0;
+  //     }
+  //     if (window.timer_load_playback) {
+  //         clearTimeout(window.timer_load_playback);
+  //         window.timer_load_playback = 0;
+  //     }
 
-    document.getElementById("btn_production").classList = ["btn"];
-    document.getElementById("btn_playback").classList = ["btn"];
-  }
+  //     document.getElementById("btn_production").classList = ["btn"];
+  //     document.getElementById("btn_playback").classList = ["btn"];
+  // }
 
   function init_load_playback() {
-    window.location = '{{ PREFIX }}?db=playback';
+      window.location = '{{ PREFIX }}?db=playback';
   }
 
   function init_load_production() {
-    window.location = '{{ PREFIX }}?db=production';
+      window.location = '{{ PREFIX }}?db=production';
   }
 </script>
 

@@ -49,7 +49,7 @@ class DQM2MirrorDB:
         "hostname",
     ]
 
-    TB_NAME_META = "meta"
+    TB_NAME_META = "meta"  # Metadata table, storing data on stored runs, unclear if it's used or not
     TB_DESCRIPTION_META = "( name TEXT PRIMARY KEY NOT NULL, data TEXT )"
     TB_DESCRIPTION_META_SHORT = "( name, data )"
 
@@ -563,6 +563,10 @@ class DQM2MirrorDB:
         return 0
 
     def get_info(self) -> list:
+        """
+        Fetches the max and min run numbers from the database.
+        Used for navigating runs.
+        """
         self.log.debug("DQM2MirrorDB.get_info()")
 
         with self.engine.connect() as cur:
@@ -580,7 +584,7 @@ class DQM2MirrorDB:
                 return [-1, -1]
 
             answer = list(answer[0])
-        # self.update_min_max( answer[0], answer[1] )
+            # self.update_min_max( answer[0], answer[1] )  # Updates meta table for faster next query
 
         return answer
 
