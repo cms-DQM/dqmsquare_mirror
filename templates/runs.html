@@ -18,8 +18,8 @@
 
 <p style="clear:both;margin-bottom:25px"></p>
 <div class="chart-container" style="position: relative; height:60vh; width:60vw">
-  <canvas id="myChart_1" style="width: 400px; height: 150px;"></canvas>
-  <canvas id="myChart_2" style="width: 400px; height: 150px;"></canvas>
+  <canvas id="chart-delay-times" style="width: 400px; height: 150px;"></canvas>
+  <canvas id="chart-events-accepted" style="width: 400px; height: 150px;"></canvas>
 </div>
 {% endblock %}
 
@@ -34,14 +34,14 @@
   let specific_run_number = url_param.get('run');  // Get Run number from URL, if specified
   let db = url_param.get('db') || "production";
 
-  var myChart1, myChart2;
+  var chart_delay_times, chart_events_accepted;
 
   // If specific run number was requested, display data for it.
   if (specific_run_number !== null) {
     // If run requested is NOT the latest run, disable live mode, 
     // else, enable it.
       fetch(
-          "{{ PREFIX }}api?what=get_info" + "&db=" + db,
+          `{{ PREFIX }}api?what=get_info&db=${db}`,
           { method: 'GET' }
       )
           .then(response => response.json())
@@ -54,13 +54,12 @@
   }
   function update_table(run_id, data) {
       other_runs = data[0]
-      global_data = data[1][0]; // 
+      global_data = data[1][0]; 
       clients_data = data[1][1];
 
       // Other runs info
       let p_runnext = document.getElementById("nextRuns");
       let p_content = "";
-      // console.log( other_runs );
 
       if (other_runs[1] != null) {
           if (other_runs[1] < run_id) {
@@ -69,10 +68,17 @@
               other_runs[1] = b;
           }
       };
-
-      if (other_runs[0] != null) { p_content += '<a href="{{ PREFIX }}?run=' + other_runs[0] + "&db=" + db + '"><-' + other_runs[0] + '</a> &nbsp;'; }
-      p_content += '<a href="{{ PREFIX }}?run=' + run_id + "&db=" + db + '"><strong>' + run_id + '</strong></a> &nbsp;';
-      if (other_runs[1] != null) { p_content += '<a href="{{ PREFIX }}?run=' + other_runs[1] + "&db=" + db + '">' + other_runs[1] + '-></a> &nbsp;'; }
+      
+      // Create links to next and previous run
+      if (other_runs[0] != null) {
+        p_content += `<a href="{{ PREFIX }}?run=${other_runs[0]}&db=${db}"><-${other_runs[0]}</a> &nbsp;`;
+      }
+      p_content += `<a href="{{ PREFIX }}?run=${run_id}&db=${db}"><strong>${run_id}</strong></a> &nbsp;`;
+      
+      if (other_runs[1] != null) 
+      { 
+        p_content += `<a href="{{ PREFIX }}?run=${other_runs[1]}&db=${db}">${other_runs[1]}-></a> &nbsp;`; 
+      }
       p_runnext.innerHTML = p_content;
 
       // Table
@@ -129,21 +135,20 @@
 
           let td = document.createElement("td");
           td.className = "jtc2 " + style;
-          let log_link = "{{ PREFIX }}api?what=get_logs&id=" + id + "&db=" + db;
-          td.innerHTML = "<a href=" + log_link + " target=\"_blank\"> -> </a>"; // /dqm/dqm-square-k8/logs?id=
+          let log_link = `{{ PREFIX }}api?what=get_logs&id=${id}&db=${db}`;
+          td.innerHTML = `<a href=${log_link} target=\"_blank\"> -> </a>`; 
           tr.appendChild(td);
-
           tb_main.appendChild(tr);
       }
 
       // Info
       let p_runinfo = document.getElementById("runInfo");
-      let content = 'CMSSW: <strong>' + global_data[0] + '</strong> &nbsp;&nbsp;<br> run_key: <strong>' + global_data[1] + '</strong><br>';
-      content += 'Known cmssw jobs: <strong>' + clients_data.length + '</strong> &nbsp;&nbsp;&nbsp;&nbsp;'
-      content += 'Legend: '
-      content += '<strong><span class=grun> &nbsp;&nbsp; running ' + state_G + ' &nbsp;&nbsp; </span></strong>'
-      content += '<strong><span class=yrun> &nbsp;&nbsp; stopped ' + state_Y + ' &nbsp;&nbsp; </span></strong>'
-      content += '<strong><span class=rrun> &nbsp;&nbsp; crashed ' + state_R + ' &nbsp;&nbsp; </span></strong>'
+      let content = `CMSSW: <strong>${global_data[0]}</strong> &nbsp;&nbsp;<br> run_key: <strong>${global_data[1]}</strong><br>`;
+      content += `Known cmssw jobs: <strong>${clients_data.length}</strong> &nbsp;&nbsp;&nbsp;&nbsp;`;
+      content += 'Legend: ';
+      content += '<strong><span class=grun> &nbsp;&nbsp; running ' + state_G + ' &nbsp;&nbsp; </span></strong>';
+      content += '<strong><span class=yrun> &nbsp;&nbsp; stopped ' + state_Y + ' &nbsp;&nbsp; </span></strong>';
+      content += '<strong><span class=rrun> &nbsp;&nbsp; crashed ' + state_R + ' &nbsp;&nbsp; </span></strong>';
       p_runinfo.innerHTML = content;
   };
 
@@ -151,64 +156,64 @@
   Updates both graphs (file delivery and events processed.)
   */
   function update_graph(data) {
-      const LUMI = 23.310893056;
-      if (data.length < 6) { return };
+      const LUMI = 23.310893056;  // Time duration of a lumisection, in seconds
+      if (data.length < 6) {
+        return;  
+      };
       let stream_data = data[5];
       let global_start = data[4];
 
 
       const labels = [];  // Labels for different data series
-      const data_points_array_1 = [];
-      const data_points_array_2 = [];
+      const array_delay_times = [];
+      const array_events_accepted = [];
 
       if (typeof stream_data === 'undefined') { return };
 
       for (const [stream, stream_datum] of Object.entries(stream_data)) {
           stream_name = stream.split('_')[0];
           labels.push(stream_name);
-          const data_points_1 = [];
-          const data_points_2 = [];
+          const data_delay_times = [];
+          const data_events_accepted = [];
 
           let lumis = stream_datum['lumis'];
           let mtimes = stream_datum['mtimes'];
           let evt_accepted = stream_datum['evt_accepted'];
           let delay_mtimes = Array(lumis.length);
-
           // copy paste logic from fff code
           for (index = 0; index < lumis.length; index++) { 
-              let start_offset_mtime = mtimes[index] - global_start - LUMI;
-              var lumi_offset = (lumis[index] - 1) * LUMI;
-              let delay_mtime = start_offset_mtime - lumi_offset;
-              delay_mtimes[index] = delay_mtime;
+            let start_offset_mtime = mtimes[index] - global_start - LUMI;
+            var lumi_offset = (lumis[index] - 1) * LUMI;
+            let delay_mtime = start_offset_mtime - lumi_offset;
+            delay_mtimes[index] = delay_mtime;
 
-              data_points_1.push({ 'x': lumis[index], 'y': delay_mtimes[index] });
-              data_points_2.push({ 'x': lumis[index], 'y': evt_accepted[index] });
+            data_delay_times.push({ 'x': lumis[index], 'y': delay_mtimes[index] });
+            data_events_accepted.push({ 'x': lumis[index], 'y': evt_accepted[index] });
           };
-
-          data_points_array_1.push(data_points_1);
-          data_points_array_2.push(data_points_2);
+          array_delay_times.push(data_delay_times);
+          array_events_accepted.push(data_events_accepted);
 
       }
 
       if (labels.length) {
-          const chart_data_1 = [];
-          const chart_data_2 = [];
+          const data_chart_delay_times = [];
+          const data_chart_events_accepted = [];
           const borderColors = ["#3366CC", "#DC3912", "#FF9900", "#109618", "#990099", "#3B3EAC", "#0099C6", "#DD4477", "#66AA00", "#B82E2E", "#316395", "#994499", "#22AA99", "#AAAA11", "#6633CC", "#E67300", "#8B0707", "#329262", "#5574A6", "#651067"];
           for (index = 0; index < labels.length; index++) {
-              chart_data_1.push({ label: [labels[index]], data: data_points_array_1[index], fill: false, borderColor: borderColors[index], });
-              chart_data_2.push({ label: [labels[index]], data: data_points_array_2[index], fill: false, borderColor: borderColors[index], });
+              data_chart_delay_times.push({ label: [labels[index]], data: array_delay_times[index], fill: false, borderColor: borderColors[index], });
+              data_chart_events_accepted.push({ label: [labels[index]], data: array_events_accepted[index], fill: false, borderColor: borderColors[index], });
           }
 
-          const ctx1 = document.getElementById('myChart_1');
-          const ctx2 = document.getElementById('myChart_2');
+          const ctx1 = document.getElementById('chart-delay-times');
+          const ctx2 = document.getElementById('chart-events-accepted');
 
-          if (myChart1 instanceof Chart) {
-              myChart1.data = { datasets: chart_data_1 };
-              myChart1.update();
+          if (chart_delay_times instanceof Chart) {
+              chart_delay_times.data = { datasets: data_chart_delay_times };
+              chart_delay_times.update();
           } else {
-              myChart1 = new Chart(ctx1, {
+              chart_delay_times = new Chart(ctx1, {
                   type: 'bubble',
-                  data: { datasets: chart_data_1 },
+                  data: { datasets: data_chart_delay_times },
                   options: {
                       animation: false,
                       plugins: {
@@ -236,13 +241,13 @@
           };
 
 
-          if (myChart2 instanceof Chart) {
-              myChart2.data = { datasets: chart_data_2 };
-              myChart2.update();
+          if (chart_events_accepted instanceof Chart) {
+              chart_events_accepted.data = { datasets: data_chart_events_accepted };
+              chart_events_accepted.update();
           } else {
-              myChart2 = new Chart(ctx2, {
+              chart_events_accepted = new Chart(ctx2, {
                   type: 'bubble',
-                  data: { datasets: chart_data_2 },
+                  data: { datasets: data_chart_events_accepted },
                   options: {
                       animation: false,
                       plugins: {
@@ -274,7 +279,7 @@
   /*
   Get run data for a run, from specific db
   */
-  function fetch_table_data(run_id, db) {
+  function fetch_and_update_table_data(run_id, db) {
       fetch(`{{ PREFIX }}api?what=get_run&run=${run_id}&db=${db}`)
       .then(data => data.json())
       .then(data => update_table(run_id, data))
@@ -284,7 +289,7 @@
   /*
   Get graph data for a run, from specific db
   */
-  function fetch_graph_data(run_id, db) {
+  function fetch_and_update_graph_data(run_id, db) {
       fetch(`{{ PREFIX }}api?what=get_graph&run=${run_id}&db=${db}`)
       .then(data => data.json())
       .then(data => update_graph(data))
@@ -295,8 +300,8 @@
   Fetch data for a specific run and update tables & graphs
   */
   function update_tables(run_number) {
-      fetch_table_data(run_number, db);
-      fetch_graph_data(run_number, db);
+      fetch_and_update_table_data(run_number, db);
+      fetch_and_update_graph_data(run_number, db);
   }
 
   function start_live(start) { 

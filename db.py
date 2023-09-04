@@ -224,8 +224,8 @@ class DQM2MirrorDB:
         answer = list(answer[0])
         if answer[-2]:
             answer[-2] = eval(answer[-2])  # TODO: Not secure!!!!!!
-        answer[3] = answer[3].isoformat()
-        answer[4] = answer[4].isoformat()
+        answer[3] = answer[3].timestamp()
+        answer[4] = answer[4].timestamp()
 
         return answer
 
