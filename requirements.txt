@@ -1,9 +1,10 @@
 requests
 cernrequests
-Flask<3.0.0
-SQLAlchemy<2.0.0    
+Flask<3.0
+SQLAlchemy<2.0   
 sqlalchemy-utils
 gunicorn<21.0.0
 psycopg2-binary
 werkzeug
 python-dotenv<2.0.0
+pytz

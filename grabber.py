@@ -14,7 +14,7 @@ from db import DQM2MirrorDB
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 cfg = dqmsquare_cfg.load_cfg()
 
 
@@ -34,7 +34,7 @@ def get_documents_from_fff(host: str, port: int = cfg["FFF_PORT"], runs_ids: lis
 
     jsn = {"event": "request_documents", "ids": runs_ids}
     data = json.dumps({"messages": [json.dumps(jsn)]})
-    log.debug(f"POSTing to '{url}' with data: {jsn}")
+    logger.debug(f"POSTing to '{url}' with data: {jsn}")
     r = requests.post(
         url,
         data=data,
@@ -44,7 +44,7 @@ def get_documents_from_fff(host: str, port: int = cfg["FFF_PORT"], runs_ids: lis
         cookies=cookies,
         timeout=30,
     )
-    log.debug(f"Got {len(r.content)} byte response.")
+    logger.debug(f"Got {len(r.content)} byte response.")
 
     return r.content
 
@@ -69,7 +69,7 @@ def get_headers_from_fff(host: str, port: int = cfg["FFF_PORT"], revision: int =
 
     jsn = {"event": "sync_request", "known_rev": str(revision)}
     data = json.dumps({"messages": [json.dumps(jsn)]})
-    log.debug(f"POSTing to '{url}' with data: {jsn}")
+    logger.debug(f"POSTing to '{url}' with data: {jsn}")
     r = requests.post(
         url,
         data=data,
@@ -79,7 +79,7 @@ def get_headers_from_fff(host: str, port: int = cfg["FFF_PORT"], revision: int =
         cookies=cookies,
         timeout=30,
     )
-    log.debug(f"Got response of length {len(r.content)}.")
+    logger.debug(f"Got response of length {len(r.content)}.")
 
     return r.content
 
@@ -97,7 +97,7 @@ def get_latest_info_from_host(host: str, rev: int, db: DQM2MirrorDB) -> None:
     database.
     """
     # global bad_rvs
-    log.info(f"Updating host {host}, starting from revision {str(rev)}")
+    logger.info(f"Updating host {host}, starting from revision {str(rev)}")
     if not rev:
         rev = 0
 
@@ -106,33 +106,35 @@ def get_latest_info_from_host(host: str, rev: int, db: DQM2MirrorDB) -> None:
         headers_answer = json.loads(json.loads(headers_answer)["messages"][0])
         headers = headers_answer["headers"]
         rev = headers_answer["rev"]
-        log.debug(
+        logger.debug(
             f"Got {headers_answer['total_sent']} headers, from {rev[0]} to {rev[1]}."
         )
     except Exception as e:
-        log.warning(f"Error when getting headers: {repr(e)}")
-        log.warning(f"Got response: {headers_answer}")
-        log.warning(traceback.format_exc())
+        logger.warning(f"Error when getting headers: {repr(e)}")
+        logger.warning(f"Got response: {headers_answer}")
+        logger.warning(traceback.format_exc())
         return
 
     if not len(headers):
         return
     for i, header in enumerate(headers):
         id = header["_id"]
-        log.info(f"Processing header {str(id)} ({i+1}/{len(headers)})")
+        logger.info(f"Processing header {str(id)} ({i+1}/{len(headers)})")
 
         is_bu = host[0] == "b"
         if is_bu and "analyze_files" not in id:
-            log.debug("Skip, no 'analyze_files' key")
+            logger.debug("Skip, no 'analyze_files' key")
             continue
         document_answer = get_documents_from_fff(host, runs_ids=[id])
         document = json.loads(json.loads(document_answer)["messages"][0])["documents"][
             0
         ]
-        log.debug("Filling info into DB ... ")
+        logger.debug("Filling info into DB ... ")
 
         # BU sends us file delivery graph info, FUs sends us logs and event processing rates.
-        answer = db.fill_graph(header, document) if is_bu else db.fill(header, document)
+        answer = (
+            db.fill_graph(header, document) if is_bu else db.fill_run(header, document)
+        )
         # TODO: Decide what kind of errors should be returned from the db fill functions.
         # if answer:
         #     bad_rvs += [answer]
@@ -144,7 +146,7 @@ def get_latest_info_from_hosts(hosts: list[str], db: DQM2MirrorDB) -> None:
     in hostnames, storing the new information into db.
     """
     for host in hosts:
-        log.debug(f"Getting latest rev for {host} from DB.")
+        logger.debug(f"Getting latest rev for {host} from DB.")
         rev = db.get_latest_revision(host)
         get_latest_info_from_host(host=host, rev=rev, db=db)
 
@@ -156,7 +158,7 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1 and sys.argv[1] == "playback":
         set_log_handler(
-            log,
+            logger,
             cfg["ROBBER_LOG_PATH_PLAYBACK"],
             cfg["LOGGER_ROTATION_TIME"],
             cfg["LOGGER_MAX_N_LOG_FILES"],
@@ -165,7 +167,7 @@ if __name__ == "__main__":
         run_modes = ["playback"]
     elif len(sys.argv) > 1 and sys.argv[1] == "production":
         set_log_handler(
-            log,
+            logger,
             cfg["ROBBER_LOG_PATH_PRODUCTION"],
             cfg["LOGGER_ROTATION_TIME"],
             cfg["LOGGER_MAX_N_LOG_FILES"],
@@ -174,7 +176,7 @@ if __name__ == "__main__":
         run_modes = ["production"]
     else:
         set_log_handler(
-            log,
+            logger,
             cfg["GRABBER_LOG_PATH"],
             cfg["LOGGER_ROTATION_TIME"],
             cfg["LOGGER_MAX_N_LOG_FILES"],
@@ -186,8 +188,8 @@ if __name__ == "__main__":
         handler2.setFormatter(formatter)
         level = logging.DEBUG if cfg["GRABBER_DEBUG"] else logging.INFO
         handler2.setLevel(level=level)
-        log.addHandler(handler2)
-        log.info(f"Configured logger for grabber, level={level}")
+        logger.addHandler(handler2)
+        logger.info(f"Configured logger for grabber, level={level}")
 
     ### global variables and auth cookies
     cmsweb_proxy_url = cfg["CMSWEB_FRONTEND_PROXY_URL"]
@@ -196,9 +198,9 @@ if __name__ == "__main__":
     env_secret = os.environ.get("DQM_FFF_SECRET")
     if env_secret:
         fff_secret = env_secret
-        log.debug("Found secret in environmental variables")
+        logger.debug("Found secret in environmental variables")
     else:
-        log.warning("No secret found in environmental variables")
+        logger.warning("No secret found in environmental variables")
 
     # Trailing whitespace in secret leads to crashes, strip it
     cookies = {str(cfg["FFF_SECRET_NAME"]): env_secret.strip()}
@@ -206,11 +208,11 @@ if __name__ == "__main__":
     # DB CONNECTION
     db_playback, db_production = None, None
     if "playback" in run_modes:
-        db_playback = DQM2MirrorDB(log, cfg["DB_PLAYBACK_URI"])
+        db_playback = DQM2MirrorDB(logger, cfg["DB_PLAYBACK_URI"])
     if "production" in run_modes:
-        db_production = DQM2MirrorDB(log, cfg["DB_PRODUCTION_URI"])
+        db_production = DQM2MirrorDB(logger, cfg["DB_PRODUCTION_URI"])
 
-    log.info("Starting loop for modes " + str(run_modes))
+    logger.info("Starting loop for modes " + str(run_modes))
 
     # Main Loop.
     # Fetches data for CMSSW jobs from DQM^2, and stores it into the database.
@@ -232,12 +234,12 @@ if __name__ == "__main__":
         except KeyboardInterrupt:
             break
         except Exception as error:
-            log.warning(f"Crashed in loop with error: {repr(error)}")
-            log.warning(f"Traceback: {traceback.format_exc()}")
+            logger.warning(f"Crashed in loop with error: {repr(error)}")
+            logger.warning(f"Traceback: {traceback.format_exc()}")
             continue
 
         if cfg["ENV"] != "development":
-            log.debug("z-Z-z until next iteration")
+            logger.debug("z-Z-z until next iteration")
             time.sleep(int(cfg["SLEEP_TIME"]))
 
         # if len(bad_rvs):

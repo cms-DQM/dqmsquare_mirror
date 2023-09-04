@@ -1,11 +1,21 @@
 ### DQM^2 Mirror DB === >
+import os
+import sys
+import logging
 import psycopg2
 import sqlalchemy
+from sqlalchemy import text
 from sqlalchemy_utils import database_exists
 from sqlalchemy.orm import sessionmaker
 from collections import defaultdict
 from datetime import datetime
 from exceptions import DatabaseNotFoundError
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "."))
+
+from dqmsquare_cfg import TZ, TIMEZONE
+
+DEFAULT_DATETIME = TZ.localize(datetime(2012, 3, 3, 10, 10, 10, 0))
 
 
 class DQM2MirrorDB:
@@ -15,7 +25,7 @@ class DQM2MirrorDB:
     """
 
     TB_NAME_RUNS = "runs"
-    TB_DESCRIPTION_RUNS = "( id TEXT PRIMARY KEY NOT NULL, client TEXT, run INT, rev INT, hostname TEXT, exit_code INT, events_total INT, events_rate REAL, cmssw_run INT, cmssw_lumi INT, client_path TEXT, runkey TEXT, fi_state TEXT, timestamp TIMESTAMP, vmrss TEXT, stdlog_start TEXT, stdlog_end TEXT )"
+    TB_DESCRIPTION_RUNS = "( id TEXT PRIMARY KEY NOT NULL, client TEXT, run INT, rev INT, hostname TEXT, exit_code INT, events_total INT, events_rate REAL, cmssw_run INT, cmssw_lumi INT, client_path TEXT, runkey TEXT, fi_state TEXT, timestamp TIMESTAMP WITH TIME ZONE, vmrss TEXT, stdlog_start TEXT, stdlog_end TEXT )"
     TB_DESCRIPTION_RUNS_SHORT = [
         "id",
         "client",
@@ -38,7 +48,7 @@ class DQM2MirrorDB:
     TB_DESCRIPTION_RUNS_SHORT_NOLOGS = "id , client , run , rev , hostname , exit_code , events_total , events_rate , cmssw_run , cmssw_lumi , client_path , runkey , fi_state, timestamp, vmrss"
 
     TB_NAME_GRAPHS = "graphs"
-    TB_DESCRIPTION_GRAPHS = "( run INT PRIMARY KEY NOT NULL, rev INT, id TEXT, timestamp TIMESTAMP, global_start TIMESTAMP, stream_data TEXT, hostname TEXT )"
+    TB_DESCRIPTION_GRAPHS = "( run INT PRIMARY KEY NOT NULL, rev INT, id TEXT, timestamp TIMESTAMP WITH TIME ZONE, global_start TIMESTAMP WITH TIME ZONE, stream_data TEXT, hostname TEXT )"
     TB_DESCRIPTION_GRAPHS_SHORT = [
         "run",
         "rev",
@@ -54,33 +64,32 @@ class DQM2MirrorDB:
     TB_DESCRIPTION_META_SHORT = "( name, data )"
 
     def __str__(self):
-        return f"{self.__class__.__name__}: {self.db_str}"
+        return f"{self.__class__.__name__}: {self.db_uri}"
 
-    def __init__(self, log, db=None, server=False):
+    def __init__(self, log: logging.Logger, db_uri: str = None, server: bool = False):
         """
         The server flag will determine if table creation will take place or not, upon
         initialization.
         """
         self.log = log
         self.log.info("\n\n DQM2MirrorDB ===== init ")
-        self.db_str = db
+        self.db_uri = db_uri
 
-        if not self.db_str:
-            self.db_str = ":memory:"
+        if not self.db_uri:
+            self.db_uri = ":memory:"
 
         self.engine = sqlalchemy.create_engine(
-            self.db_str,
+            url=self.db_uri,
             poolclass=sqlalchemy.pool.QueuePool,
             pool_size=20,
             max_overflow=0,
         )
         if not database_exists(self.engine.url):
             raise DatabaseNotFoundError(
-                f"Database name was not found when connecting to '{self.db_str}'"
+                f"Database name was not found when connecting to '{self.db_uri}'"
             )
 
         self.Session = sessionmaker(bind=self.engine)
-
         if not server:
             self.create_tables()
         self.db_meta = sqlalchemy.MetaData(bind=self.engine)
@@ -95,23 +104,29 @@ class DQM2MirrorDB:
             session = self.Session(bind=cur)
             try:
                 session.execute(
-                    "CREATE TABLE IF NOT EXISTS "
-                    + self.TB_NAME_RUNS
-                    + " "
-                    + self.TB_DESCRIPTION_RUNS
+                    text(
+                        "CREATE TABLE IF NOT EXISTS "
+                        + self.TB_NAME_RUNS
+                        + " "
+                        + self.TB_DESCRIPTION_RUNS
+                    )
                 )
                 session.execute(
-                    "CREATE TABLE IF NOT EXISTS "
-                    + self.TB_NAME_GRAPHS
-                    + " "
-                    + self.TB_DESCRIPTION_GRAPHS
+                    text(
+                        "CREATE TABLE IF NOT EXISTS "
+                        + self.TB_NAME_GRAPHS
+                        + " "
+                        + self.TB_DESCRIPTION_GRAPHS
+                    )
                 )
-                session.execute("DROP TABLE IF EXISTS " + self.TB_NAME_META)
+                session.execute(text(f"DROP TABLE IF EXISTS {self.TB_NAME_META};"))
                 session.execute(
-                    "CREATE TABLE IF NOT EXISTS "
-                    + self.TB_NAME_META
-                    + " "
-                    + self.TB_DESCRIPTION_META
+                    text(
+                        "CREATE TABLE IF NOT EXISTS "
+                        + self.TB_NAME_META
+                        + " "
+                        + self.TB_DESCRIPTION_META
+                    )
                 )
                 session.commit()
             except psycopg2.IntegrityError as e:
@@ -165,18 +180,21 @@ class DQM2MirrorDB:
 
         rev = header.get("_rev", -1)
         timestamp = extra.get(
-            "timestamp", datetime(2012, 3, 3, 10, 10, 10, 0).timestamp()
+            "timestamp",
+            DEFAULT_DATETIME,
         )
         global_start = extra.get(
-            "global_start", datetime(2012, 3, 3, 10, 10, 10, 0).timestamp()
+            "global_start",
+            DEFAULT_DATETIME,
         )
 
         stream_data = str(extra.get("streams", ""))
         hostname = header.get("hostname", "")
 
+        # Make timestamps TZ aware
         if not isinstance(global_start, datetime):
             try:
-                global_start = datetime.fromtimestamp(global_start)
+                global_start = TZ.localize(datetime.fromtimestamp(global_start))
             except Exception as e:
                 self.log.warning(
                     f"Could not parse {global_start} as a timestamp. Error: '{repr(e)}'"
@@ -184,7 +202,7 @@ class DQM2MirrorDB:
 
         if not isinstance(timestamp, datetime):
             try:
-                timestamp = datetime.fromtimestamp(timestamp)
+                timestamp = TZ.localize(datetime.fromtimestamp(timestamp))
             except Exception as e:
                 self.log.warning(
                     f"Could not parse {timestamp} as a timestamp. Error: '{repr(e)}'"
@@ -198,7 +216,7 @@ class DQM2MirrorDB:
             session = self.Session(bind=cur)
             try:
                 session.execute(
-                    f"DELETE FROM {self.TB_NAME_GRAPHS} WHERE id = '{str(id)}';"
+                    text(f"DELETE FROM {self.TB_NAME_GRAPHS} WHERE id = '{str(id)}';")
                 )
                 session.execute(
                     sqlalchemy.insert(self.db_meta.tables[self.TB_NAME_GRAPHS]).values(
@@ -213,11 +231,16 @@ class DQM2MirrorDB:
 
         return 0
 
-    def get_graphs_data(self, run) -> list:
+    def get_graphs_data(self, run: int) -> list:
+        """
+        Load graph data for a specific run
+        """
         self.log.debug("DQM2MirrorDB.get_graphs_data() - " + str(run))
         with self.engine.connect() as cur:
             answer = cur.execute(
-                f"SELECT * FROM {self.TB_NAME_GRAPHS} WHERE CAST(run as INTEGER) = {str(run)};"
+                text(
+                    f"SELECT * FROM {self.TB_NAME_GRAPHS} WHERE CAST(run as INTEGER) = {str(run)};"
+                )
             ).all()
         if not len(answer):
             return []
@@ -229,9 +252,9 @@ class DQM2MirrorDB:
 
         return answer
 
-    def fill(self, header: dict, document: dict) -> int:
+    def fill_run(self, header: dict, document: dict) -> int:
         """
-        fill 'runs' table with clients data
+        Fill 'runs' table with clients' data
         """
         id = header.get("_id")
         client = header.get("tag", "")
@@ -253,14 +276,17 @@ class DQM2MirrorDB:
             pass
         fi_state = document.get("fi_state", "")
         timestamp = header.get(
-            "timestamp", datetime(2012, 3, 3, 10, 10, 10, 0).timestamp()
+            "timestamp",
+            DEFAULT_DATETIME,
         )
-        try:
-            timestamp = datetime.fromtimestamp(timestamp)
-        except Exception as e:
-            self.log.warn(
-                f"Timestamp {timestamp} could not be cast to datetime: {repr(e)}"
-            )
+        if not isinstance(timestamp, datetime):
+            try:
+                # Make timestamp TZ aware
+                timestamp = TZ.localize(datetime.fromtimestamp(timestamp))
+            except Exception as e:
+                self.log.warning(
+                    f"Timestamp {timestamp} could not be cast to datetime: {repr(e)}"
+                )
         extra = document.get("extra", {})
         ps_info = extra.get("ps_info", {})
         VmRSS = ps_info.get("VmRSS", "")
@@ -288,7 +314,7 @@ class DQM2MirrorDB:
             stdlog_end,
         )
         self.log.debug(
-            f"DQM2MirrorDB.fill() - {str(values[:-2])}, {str(values[-2][:10])}..{str(values[-2][-10:])}, {str(values[-1][:10])}..{str(values[-1][-10:])}"
+            f"DQM2MirrorDB.fill_run() - {str(values[:-2])}, {str(values[-2][:10])}..{str(values[-2][-10:])}, {str(values[-1][:10])}..{str(values[-1][-10:])}"
         )
         values_dic = {}
         for val, name in zip(values, self.TB_DESCRIPTION_RUNS_SHORT):
@@ -297,8 +323,9 @@ class DQM2MirrorDB:
         with self.engine.connect() as cur:
             session = self.Session(bind=cur)
             try:
-                # cur.execute("INSERT OR REPLACE INTO " + self.TB_NAME_RUNS + " " + self.TB_DESCRIPTION_RUNS_SHORT + " VALUES " + template, values)
-                session.execute(f"DELETE FROM {self.TB_NAME_RUNS} WHERE id = '{id}';")
+                session.execute(
+                    text(f"DELETE FROM {self.TB_NAME_RUNS} WHERE id = '{id}';")
+                )
                 session.execute(
                     sqlalchemy.insert(self.db_meta.tables[self.TB_NAME_RUNS]).values(
                         values_dic
@@ -319,13 +346,15 @@ class DQM2MirrorDB:
         old_min_max = [999999999, -1]
         with self.engine.connect() as cur:
             answer = cur.execute(
-                f"SELECT data FROM {self.TB_NAME_META} WHERE name = 'min_max_runs';"
+                text(
+                    f"SELECT data FROM {self.TB_NAME_META} WHERE name = 'min_max_runs';"
+                )
             ).all()
             if answer:
                 old_min_max = eval(answer[0][0])
             else:
                 answer = cur.execute(
-                    f"SELECT MIN(run), MAX(run) FROM {self.TB_NAME_RUNS};"
+                    text(f"SELECT MIN(run), MAX(run) FROM {self.TB_NAME_RUNS};")
                 ).all()
                 if answer:
                     old_min_max = answer[0]
@@ -338,9 +367,15 @@ class DQM2MirrorDB:
 
         return 0
 
-    def get(self, run_start, run_end, bad_only=False, with_ls_only=False):
+    def get(
+        self,
+        run_start: int,
+        run_end: int,
+        bad_only: bool = False,
+        with_ls_only: bool = False,
+    ) -> list[tuple]:
         """
-        get data from 'runs' table with client's data
+        Get data from 'runs' table.
         """
         self.log.debug("DQM2MirrorDB.get() - " + str(run_start) + " " + str(run_end))
         with self.engine.connect() as cur:
@@ -351,18 +386,25 @@ class DQM2MirrorDB:
                 postfix = " AND cmssw_lumi > 0 " + postfix
             if run_start == run_end:
                 answer = cur.execute(
-                    f"SELECT {self.TB_DESCRIPTION_RUNS_SHORT_NOLOGS} FROM {self.TB_NAME_RUNS} "
-                    + f"WHERE run = {run_start} {postfix} ORDER BY client, id;"
+                    text(
+                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT {self.TB_DESCRIPTION_RUNS_SHORT_NOLOGS} FROM {self.TB_NAME_RUNS} "
+                        + f"WHERE run = {run_start} {postfix} ORDER BY client, id;"
+                    )
                 ).all()
             else:
                 answer = cur.execute(
-                    f"SELECT {self.TB_DESCRIPTION_RUNS_SHORT_NOLOGS} FROM {self.TB_NAME_RUNS} "
-                    + f"WHERE run BETWEEN {run_start} AND {run_end} {postfix}"
+                    text(
+                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT {self.TB_DESCRIPTION_RUNS_SHORT_NOLOGS} FROM {self.TB_NAME_RUNS} "
+                        + f"WHERE run BETWEEN {run_start} AND {run_end} {postfix};"
+                    )
                 ).all()
         self.log.debug(f"Read DB for runs {run_start}-{run_end}: {answer}")
         return answer
 
-    def make_mirror_entry(self, data):
+    def format_run_data(self, data):
+        """
+        Given run data from the DB, format them for the front-end.
+        """
         answer = []
         (
             id,
@@ -381,12 +423,14 @@ class DQM2MirrorDB:
             timestamp,
             VmRSS,
         ) = data
-
         client = self.get_short_client_name(client)
         # Hide part of the hostname for safety reasons
         var = hostname.split("-")
         hostname = "..".join([var[0], var[-1]])
-        td = datetime.now() - timestamp
+
+        # Timestamp is of type datetime, and is tz-aware,
+        # as it's coming straight from the DB.
+        td = TZ.localize(datetime.now()) - timestamp
         days = int(td.days)
         hours = int((td.seconds / (60 * 60)) % 24)
         minutes = int((td.seconds / 60) % 60)
@@ -421,7 +465,8 @@ class DQM2MirrorDB:
         ]
         return answer
 
-    def make_table_entry(self, data: dict):
+    def format_table_entry(self, data: dict):
+        """ """
         answer = []
         (
             _,
@@ -440,7 +485,6 @@ class DQM2MirrorDB:
             timestamp,
             _,
         ) = data
-
         client = self.get_short_client_name(client)
         # Hide part of the hostname for safety reasons
         var = hostname.split("-")
@@ -469,6 +513,7 @@ class DQM2MirrorDB:
             ),
             (cmssw_run, runkey, cmssw_v),
         ]
+
         return answer
 
     def filter_clients(self, name):
@@ -485,7 +530,7 @@ class DQM2MirrorDB:
         Returns a tuple: global_data and clients_data (???)
         """
         runs = self.get(run_number, run_number)
-        runs_out = [self.make_mirror_entry(run) for run in runs]
+        runs_out = [self.format_run_data(run) for run in runs]
         clients_data = [run[0] for run in runs_out]
         global_data = runs_out[0][1] if runs_out else []
         return global_data, clients_data
@@ -498,7 +543,7 @@ class DQM2MirrorDB:
         with_ls_only: bool = False,
     ) -> dict:
         runs = self.get(run_start, run_end, bad_only, with_ls_only)
-        runs_out = [self.make_table_entry(run) for run in runs]
+        runs_out = [self.format_table_entry(run) for run in runs]
 
         dic = defaultdict(dict)
         for run in runs_out:
@@ -530,8 +575,10 @@ class DQM2MirrorDB:
         self.log.debug("DQM2MirrorDB.get_clients()")
         with self.engine.connect() as cur:
             answer = cur.execute(
-                f"SELECT DISTINCT client FROM {self.TB_NAME_RUNS} "
-                + f"WHERE run BETWEEN {run_start} AND {run_end} ORDER BY client;"
+                text(
+                    f"SELECT DISTINCT client FROM {self.TB_NAME_RUNS} "
+                    + f"WHERE run BETWEEN {run_start} AND {run_end} ORDER BY client;"
+                )
             ).all()
         answer = [
             self.get_short_client_name(name[0])
@@ -549,11 +596,15 @@ class DQM2MirrorDB:
             session = self.Session(bind=cur)
             try:
                 session.execute(
-                    f"DELETE FROM {self.TB_NAME_META} WHERE name = 'min_max_runs';"
+                    text(
+                        f"DELETE FROM {self.TB_NAME_META} WHERE name = 'min_max_runs';"
+                    )
                 )
                 session.execute(
-                    f"INSERT INTO {self.TB_NAME_META} {self.TB_DESCRIPTION_META_SHORT} "
-                    + f"VALUES('min_max_runs', '[{new_min},{new_max}]');"
+                    text(
+                        f"INSERT INTO {self.TB_NAME_META} {self.TB_DESCRIPTION_META_SHORT} "
+                        + f"VALUES('min_max_runs', '[{new_min},{new_max}]');"
+                    )
                 )
                 session.commit()
             except Exception as e:
@@ -571,14 +622,16 @@ class DQM2MirrorDB:
 
         with self.engine.connect() as cur:
             answer = cur.execute(
-                f"SELECT data FROM {self.TB_NAME_META} WHERE name = 'min_max_runs';"
+                text(
+                    f"SELECT data FROM {self.TB_NAME_META} WHERE name = 'min_max_runs';"
+                )
             ).all()
 
             if answer:
                 return eval(answer[0][0])
 
             answer = cur.execute(
-                f"SELECT MIN(run), MAX(run) FROM {self.TB_NAME_RUNS};"
+                text(f"SELECT MIN(run), MAX(run) FROM {self.TB_NAME_RUNS};")
             ).all()
             if not answer:
                 return [-1, -1]
@@ -599,13 +652,17 @@ class DQM2MirrorDB:
         with self.engine.connect() as cur:
             if "fu" in host:
                 answer = cur.execute(
-                    f"SELECT MAX(rev) FROM {self.TB_NAME_RUNS} WHERE hostname = '{host}';"
+                    text(
+                        f"SELECT MAX(rev) FROM {self.TB_NAME_RUNS} WHERE hostname = '{host}';"
+                    )
                 ).all()
                 answer = list(answer[0])
                 return answer[0]
             else:
                 answer = cur.execute(
-                    f"SELECT MAX(rev) FROM {self.TB_NAME_GRAPHS} WHERE hostname = '{host}';"
+                    text(
+                        f"SELECT MAX(rev) FROM {self.TB_NAME_GRAPHS} WHERE hostname = '{host}';"
+                    )
                 ).all()
                 answer = list(answer[0])
                 return answer[0]
@@ -614,7 +671,9 @@ class DQM2MirrorDB:
         self.log.debug("DQM2MirrorDB.get_logs()")
         with self.engine.connect() as cur:
             answer = cur.execute(
-                f"SELECT stdlog_start, stdlog_end FROM {self.TB_NAME_RUNS} WHERE id = '{client_id}';"
+                text(
+                    f"SELECT stdlog_start, stdlog_end FROM {self.TB_NAME_RUNS} WHERE id = '{client_id}';"
+                )
             ).all()
             if not answer:
                 answer = ["None", "None"]
@@ -630,7 +689,9 @@ class DQM2MirrorDB:
         self.log.debug("DQM2MirrorDB.get_runs_around()")
         with self.engine.connect() as cur:
             answer = cur.execute(
-                f"SELECT min(run) FROM {self.TB_NAME_RUNS} WHERE run > {run} union SELECT max(run) FROM {self.TB_NAME_RUNS} WHERE run < {run};"
+                text(
+                    f"SELECT min(run) FROM {self.TB_NAME_RUNS} WHERE run > {run} union SELECT max(run) FROM {self.TB_NAME_RUNS} WHERE run < {run};"
+                )
             ).all()
             answer = [item[0] for item in answer]
         return answer

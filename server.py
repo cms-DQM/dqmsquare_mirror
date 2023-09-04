@@ -79,6 +79,7 @@ def create_app(cfg):
             PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"),
             FRONTEND_API_QUERY_INTERVAL=cfg["FRONTEND_API_QUERY_INTERVAL"],
             VERSION=cfg["VERSION"],
+            TIMEZONE=cfg["TIMEZONE"],
         )
 
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "static/<path:filename>"))

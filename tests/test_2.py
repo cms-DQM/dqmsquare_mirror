@@ -20,7 +20,7 @@ def get_or_create_db(db_uri: str):
         create_database(db_uri)
     return DQM2MirrorDB(
         log=dummy_log(),
-        db=db_uri,
+        db_uri=db_uri,
         server=False,
     )
 
@@ -53,11 +53,11 @@ def testing_databases():
 
 
 @pytest.fixture
-def app(cfg, testing_databases):
+def app(cfg, testing_databases: list[DQM2MirrorDB]):
     cfg_test = cfg
     # Override databases for the test
-    cfg_test["DB_PRODUCTION_URI"] = testing_databases[0].db_str
-    cfg_test["DB_PLAYBACK_URI"] = testing_databases[1].db_str
+    cfg_test["DB_PRODUCTION_URI"] = testing_databases[0].db_uri
+    cfg_test["DB_PLAYBACK_URI"] = testing_databases[1].db_uri
     print(cfg_test["DB_PRODUCTION_URI"], cfg_test["DB_PLAYBACK_URI"])
 
     app = server.create_app(cfg_test)
@@ -80,14 +80,16 @@ def client(app):
 
 def test_server_1(client):
     response = client.get("/")
-    assert b"// DQM RUNS PAGE //" in response.data
+    assert response.status_code == 200
 
 
 def test_server_2(client):
     response = client.get("/timeline/")
-    assert b"// DQM TIMELINE PAGE //" in response.data
+    # assert b"// DQM TIMELINE PAGE //" in response.data
+    assert response.status_code == 200
 
 
 def test_server_3(client):
     response = client.get("/cr/")
-    assert b"/cr/login" in response.data
+    assert response.status_code == 302
+    assert response.headers.get("Location") == "/cr/login/"

@@ -6,8 +6,15 @@ environment specified in environmental vars (or an .env file)
 """
 
 import os
+import pytz
 import tempfile
 from dotenv import load_dotenv
+
+# Important for converting datetime objects (from the database)
+# to timestamps. Github actions, for example, run in different timezones,
+# leading to different timestamps and failing tests.
+TIMEZONE = "Europe/Zurich"
+TZ = pytz.timezone(TIMEZONE)
 
 
 def format_db_uri(
@@ -141,7 +148,7 @@ def load_cfg() -> dict:
         port=os.environ.get("POSTGRES_PORT", 5432),
         db_name=os.environ.get("POSTGRES_PRODUCTION_DB_NAME", "postgres_production"),
     )
-
+    cfg["TIMEZONE"] = TIMEZONE
     return cfg
 
 

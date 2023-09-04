@@ -8,11 +8,11 @@ import pickle
 import pytest
 from truth_values import TEST_DB_7_TRUTH, TEST_DB_9_TRUTH
 from datetime import datetime
-from db import DQM2MirrorDB
-from sqlalchemy import create_engine, insert
+from db import DQM2MirrorDB, DEFAULT_DATETIME
+from sqlalchemy import create_engine, text
 from sqlalchemy_utils import create_database, database_exists, drop_database
 from custom_logger import dummy_log
-from dqmsquare_cfg import format_db_uri, load_cfg
+from dqmsquare_cfg import format_db_uri, TZ
 
 
 def format_entry_to_db_entry(graph_entry: list, datetime_cols: list):
@@ -29,7 +29,7 @@ def format_entry_to_db_entry(graph_entry: list, datetime_cols: list):
 
 
 @pytest.fixture
-def testing_database():
+def testing_database() -> DQM2MirrorDB:
     db_uri = format_db_uri(
         username=os.environ.get("POSTGRES_USERNAME", "postgres"),
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
@@ -43,7 +43,7 @@ def testing_database():
         create_database(db_uri)
     db = DQM2MirrorDB(
         log=dummy_log(),
-        db=db_uri,
+        db_uri=db_uri,
         server=False,
     )
 
@@ -64,7 +64,9 @@ def testing_database():
         for run in runs:
             try:
                 session.execute(
-                    f"""INSERT into runs ({str(db.TB_DESCRIPTION_RUNS_SHORT).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(run, [13])})"""
+                    text(
+                        f"""INSERT into runs ({str(db.TB_DESCRIPTION_RUNS_SHORT).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(run, [13])})"""
+                    )
                 )
                 session.commit()
             except Exception as e:
@@ -74,7 +76,9 @@ def testing_database():
         for graph in graphs:
             try:
                 session.execute(
-                    f"""INSERT into graphs ({str(db.TB_DESCRIPTION_GRAPHS_SHORT).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(graph, [3, 4])})"""
+                    text(
+                        f"""INSERT into graphs ({str(db.TB_DESCRIPTION_GRAPHS_SHORT).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(graph, [3, 4])})"""
+                    )
                 )
                 session.commit()
             except Exception as e:
@@ -93,7 +97,7 @@ pytest.production = [
 ]
 
 
-def test_db_1(testing_database):
+def test_db_1(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.get_latest_revision()")
     revs = [
         6001382,
@@ -111,7 +115,7 @@ def test_db_1(testing_database):
     )
 
 
-def test_db_2(testing_database):
+def test_db_2(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.get_runs_around()")
     test_runs = [358788, 358791, 358792]
     truth_answers = [
@@ -130,7 +134,7 @@ def test_db_2(testing_database):
     assert all(answers)
 
 
-def test_db_3(testing_database):
+def test_db_3(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.get_logs()")
     test_ids = [
         "dqm-source-state-run358788-hostfu-c2f11-11-04-pid041551",
@@ -153,13 +157,13 @@ def test_db_3(testing_database):
             assert logs[0] == truth and logs[1] == truth
 
 
-def test_db_4(testing_database):
+def test_db_4(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.get_info()")
     minmax = testing_database.get_info()
     assert minmax[0] == 358788 and minmax[1] == 358792
 
 
-def test_db_5(testing_database):
+def test_db_5(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.update_min_max() & DQM2MirrorDB.get_info()")
     testing_database.update_min_max(350000, 360000)
     minmax = testing_database.get_info()
@@ -167,7 +171,7 @@ def test_db_5(testing_database):
     assert minmax[0] == 350000 and minmax[1] == 360000
 
 
-def test_db_6(testing_database):
+def test_db_6(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.get_clients()")
     clients_truth = [
         "beam",
@@ -207,14 +211,15 @@ def test_db_6(testing_database):
     assert all([c1 == c2 for c1, c2 in zip(clients, clients_truth)])
 
 
-def test_db_7(testing_database):
+def test_db_7(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.get_timeline_data()")
     truth = TEST_DB_7_TRUTH
     answer = json.dumps(testing_database.get_timeline_data(358791, 358791))
+    print("ANSWER\n\n", answer)
     assert truth == answer
 
 
-def test_db_8(testing_database):
+def test_db_8(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.get_mirror_data()")
     truth = "''''(),11112223333333334445566899999________ccimnorsu"  # Literally WTF
     answer = testing_database.get_mirror_data(358788)[0]
@@ -222,21 +227,29 @@ def test_db_8(testing_database):
     assert truth == answer
 
 
-def test_db_9(testing_database):
+def test_db_9(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.get_graphs_data()")
     truth = TEST_DB_9_TRUTH
-    answer = json.dumps(testing_database.get_graphs_data(358792))
-    assert truth == answer
+    answer = testing_database.get_graphs_data(358792)
+    for i, item in enumerate(truth):
+        if isinstance(item, float):  # timestamp
+            assert TZ.localize(datetime.fromtimestamp(item)) == TZ.localize(
+                datetime.fromtimestamp(answer[i])
+            )
+        elif isinstance(answer[i], dict):
+            assert item == json.dumps(answer[i])
+        else:
+            assert item == answer[i]
 
 
-def test_db_10(testing_database):
+def test_db_10(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.fill_graph()")
     truth = [
         123456,
         -1,
         "id",
-        datetime(2012, 3, 3, 10, 10, 10).isoformat(),
-        datetime(2012, 3, 3, 10, 10, 10).isoformat(),
+        DEFAULT_DATETIME.timestamp(),
+        DEFAULT_DATETIME.timestamp(),
         "",
         "",
     ]
@@ -247,8 +260,8 @@ def test_db_10(testing_database):
     assert all([c1 == c2 for c1, c2 in zip(truth, answer)])
 
 
-def test_db_11(testing_database):
-    print("Check DQM2MirrorDB.fill() & get()")
+def test_db_11(testing_database: DQM2MirrorDB):
+    print("Check DQM2MirrorDB.fill_run() & get()")
     truth = (
         "id",
         "",
@@ -263,22 +276,23 @@ def test_db_11(testing_database):
         "",
         "",
         "",
-        datetime(2012, 3, 3, 10, 10, 10),
+        DEFAULT_DATETIME,
         "",
     )
     header = {"_id": "id", "run": "123456"}
     document = {}
-    testing_database.fill(header, document)
-    answer = testing_database.get(123456, 123456)[0]
-
+    testing_database.fill_run(header, document)
+    answer = testing_database.get(run_start=123456, run_end=123456)[0]
     with testing_database.engine.connect() as cur:
         session = testing_database.Session(bind=cur)
         session.execute(
-            "DELETE FROM "
-            + testing_database.TB_NAME_RUNS
-            + " WHERE run = "
-            + str(123456)
-            + ""
+            text(
+                "DELETE FROM "
+                + testing_database.TB_NAME_RUNS
+                + " WHERE run = "
+                + str(123456)
+                + ";"
+            )
         )
         session.commit()
 

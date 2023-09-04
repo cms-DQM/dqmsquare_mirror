@@ -105,41 +105,44 @@
       let state_G = 0;
       let state_Y = 0;
       let state_R = 0;
-      for (let client_data of clients_data) { // (timestamp, td, hostname, fi_state, client, cmssw_lumi, VmRSS, events_total, id, events_rate)
-          tr = document.createElement("tr");
-          client_data[0] = new Date(client_data[0]).toLocaleString('en-GB', { hour12: false, timeZone: 'Europe/Zurich' });
-          // console.log(client_data)
-          if (client_data[9] < 0) client_data[9] = 0
-          client_data[7] = client_data[7] + " (" + client_data[9].toFixed(1) + " ev/s)"
+      
+      // (timestamp, td, hostname, fi_state, client, cmssw_lumi, VmRSS, events_total, id, events_rate)
+      for (let client_data of clients_data) { 
+        tr = document.createElement("tr");
+        // Timestamp that client was running
+        client_data[0] = new Date(client_data[0]).toLocaleString('en-GB', { hour12: false, timeZone: '{{ TIMEZONE }}' });
+        // console.log(client_data)
+        if (client_data[9] < 0) client_data[9] = 0
+        //   Event process speed
+        client_data[7] = client_data[7] + " (" + client_data[9].toFixed(1) + " ev/s)"
+        
+        id = client_data[8]
 
-          id = client_data[8]
+        let ec = client_data[3];
+        let state = ec;
+        let style = "rrun";
 
-          let ec = client_data[3];
-          let state = ec;
-          let style = "rrun";
+        if ((ec === null) || (ec === undefined) || (ec === -1)) { state = "R"; style = "grun"; state_G += 1; }
+        else if ((ec === 0) || (ec === "0")) { style = "yrun"; state_Y += 1; }
+        else { state_R += 1; }
+        client_data[3] = state;
+            // Populate table
+        for (const [i, data] of client_data.entries()) {
+            if (i == 8 || i == 9) continue;
+            let td = document.createElement("td");
+            td.className = "jtc2 " + style;
+            if (i % 2 != 0) { td.className += "D"; } // Color alternating columns darker
+            td.innerText = data;
+            tr.appendChild(td);
+        }
 
-          if ((ec === null) || (ec === undefined) || (ec === -1)) { state = "R"; style = "grun"; state_G += 1; }
-          else if ((ec === 0) || (ec === "0")) { style = "yrun"; state_Y += 1; }
-          else { state_R += 1; }
-          client_data[3] = state;
-
-          for (const [i, data] of client_data.entries()) {
-              if (i == 8) continue;
-              if (i == 9) continue;
-              let td = document.createElement("td");
-              td.className = "jtc2 " + style;
-              if (i % 2 != 0) { td.className += "D"; }
-              td.innerText = data;
-              tr.appendChild(td);
-          }
-
-          let td = document.createElement("td");
-          td.className = "jtc2 " + style;
-          let log_link = `{{ PREFIX }}api?what=get_logs&id=${id}&db=${db}`;
-          td.innerHTML = `<a href=${log_link} target=\"_blank\"> -> </a>`; 
-          tr.appendChild(td);
-          tb_main.appendChild(tr);
-      }
+        let td = document.createElement("td");
+        td.className = "jtc2 " + style;
+        let log_link = `{{ PREFIX }}api?what=get_logs&id=${id}&db=${db}`;
+        td.innerHTML = `<a href=${log_link} target=\"_blank\"> -> </a>`; 
+        tr.appendChild(td);
+        tb_main.appendChild(tr);
+    }
 
       // Info
       let p_runinfo = document.getElementById("runInfo");
