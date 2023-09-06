@@ -2,6 +2,8 @@
 
 {%block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
+<title>DQM&sup2; Mirror</title>
+
 {% endblock %}
 {% block extra_mirror_links %}
 <button class="btn-navbar" id="btn_production" onclick="init_load_production()">production</button>
@@ -10,16 +12,48 @@
 
 {% block content %}
 <p style="clear:both;margin-bottom:25px"></p>
+<div class="btn-group" role="group" aria-label="Run navigation" id="nextRuns">
 
-<p id="nextRuns" style="margin-bottom:1px"></p>
-<table id="runTable" style="text-align:center;margin-top:10px;margin-bottom:10px;font-size: 14px;" border=1 frame=hsides
-  rules=rows></table>
-<p id="runInfo" style="margin-bottom:1px"></p>
+</div>
+<div class="col">
+  <div class="row">
+    <table id="runTable" style="text-align:center;margin-top:10px;margin-bottom:10px;font-size: 14px;" border=1 frame=hsides
+    rules=rows>
+  </table>
+  </div>
+  <div class="row">
+    <div class="col-5">
+      <table class="table">
+        <tbody>
+          <tr>
+            <th scope="row">CMSSW version</th>
+            <td id="run-info-cmssw-version"></td>
+          </tr>
+          <tr>
+            <th scope="row"><pre>run_key</pre></th>
+            <td id="run-info-key"></td>
+          </tr>
+          <tr>
+            <th scope="row">Known jobs</th>
+            <td id="run-info-known-jobs"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <!-- Graphs -->
+  <!-- <div class="chart-container" style="position: relative; height:60vh; width:60vw"> -->
+  <div class="row">
+    <div class="col-8">
+      <canvas id="chart-delay-times" style="width: 400px; height: 150px;"></canvas>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-8">
+      <canvas id="chart-events-accepted" style="width: 400px; height: 150px;"></canvas>
+    </div>
+  </div>
 
-<p style="clear:both;margin-bottom:25px"></p>
-<div class="chart-container" style="position: relative; height:60vh; width:60vw">
-  <canvas id="chart-delay-times" style="width: 400px; height: 150px;"></canvas>
-  <canvas id="chart-events-accepted" style="width: 400px; height: 150px;"></canvas>
 </div>
 {% endblock %}
 
@@ -52,14 +86,16 @@
     // No run number requested, start live mode.
       start_live(true);
   }
+
+  
   function update_table(run_id, data) {
       other_runs = data[0]
       global_data = data[1][0]; 
       clients_data = data[1][1];
 
       // Other runs info
-      let p_runnext = document.getElementById("nextRuns");
-      let p_content = "";
+      let el_nextRuns = document.getElementById("nextRuns");
+      el_nextRuns.innerHTML = ""; // Clear all links 
 
       if (other_runs[1] != null) {
           if (other_runs[1] < run_id) {
@@ -71,21 +107,32 @@
       
       // Create links to next and previous run
       if (other_runs[0] != null) {
-        p_content += `<a href="{{ PREFIX }}?run=${other_runs[0]}&db=${db}"><-${other_runs[0]}</a> &nbsp;`;
+        let prev = document.createElement("a");
+        prev.setAttribute("href",`{{ PREFIX }}?run=${other_runs[0]}&db=${db}`);
+        prev.innerHTML = `<i class="bi bi-arrow-left"></i> ${other_runs[0]}`;
+        prev.classList.add("btn", "btn-link");
+        el_nextRuns.appendChild(prev);
       }
-      p_content += `<a href="{{ PREFIX }}?run=${run_id}&db=${db}"><strong>${run_id}</strong></a> &nbsp;`;
+      let current = document.createElement("a");
+      current.setAttribute("href",`{{ PREFIX }}?run=${run_id}&db=${db}`);
+      current.innerHTML = `${run_id}`;
+      current.classList.add("btn", "btn-link");
+      el_nextRuns.appendChild(current);
       
       if (other_runs[1] != null) 
       { 
-        p_content += `<a href="{{ PREFIX }}?run=${other_runs[1]}&db=${db}">${other_runs[1]}-></a> &nbsp;`; 
+        let next = document.createElement("a");
+        next.setAttribute("href",`{{ PREFIX }}?run=${other_runs[1]}&db=${db}`);
+        next.innerHTML = `${other_runs[1]}<i class="bi bi-arrow-right"></i>`;
+        next.classList.add("btn", "btn-link");
+        el_nextRuns.appendChild(next);
       }
-      p_runnext.innerHTML = p_content;
 
-      // Table
+      // Table creation
       let tb_main = document.getElementById("runTable");
       tb_main.innerHTML = '';
 
-      // Table header ...
+      // Table header
       for (let j = 0; j < static_headers.length; ++j) {
           let col = document.createElement("col");
           tb_main.appendChild(col);
@@ -101,7 +148,6 @@
       tb_main.appendChild(tr);
 
       // Table clients ...
-      // console.log( clients_data );
       let state_G = 0;
       let state_Y = 0;
       let state_R = 0;
@@ -139,20 +185,19 @@
         let td = document.createElement("td");
         td.className = "jtc2 " + style;
         let log_link = `{{ PREFIX }}api?what=get_logs&id=${id}&db=${db}`;
-        td.innerHTML = `<a href=${log_link} target=\"_blank\"> -> </a>`; 
+        td.innerHTML = `<a title="Open log in a new tab" href=${log_link} target=\"_blank\"><i class="bi bi-file-earmark-text"></i> </a>`; 
         tr.appendChild(td);
         tb_main.appendChild(tr);
-    }
+      }
 
-      // Info
-      let p_runinfo = document.getElementById("runInfo");
-      let content = `CMSSW: <strong>${global_data[0]}</strong> &nbsp;&nbsp;<br> run_key: <strong>${global_data[1]}</strong><br>`;
-      content += `Known cmssw jobs: <strong>${clients_data.length}</strong> &nbsp;&nbsp;&nbsp;&nbsp;`;
-      content += 'Legend: ';
-      content += '<strong><span class=grun> &nbsp;&nbsp; running ' + state_G + ' &nbsp;&nbsp; </span></strong>';
-      content += '<strong><span class=yrun> &nbsp;&nbsp; stopped ' + state_Y + ' &nbsp;&nbsp; </span></strong>';
-      content += '<strong><span class=rrun> &nbsp;&nbsp; crashed ' + state_R + ' &nbsp;&nbsp; </span></strong>';
-      p_runinfo.innerHTML = content;
+      // Run info table update
+      let el_cmssw_version = document.getElementById("run-info-cmssw-version");
+      el_cmssw_version.innerHTML = `${global_data[0]}`;
+      let el_run_key = document.getElementById("run-info-key");
+      el_run_key.innerHTML = `${global_data[1]}`;
+      let el_known_jobs = document.getElementById("run-info-known-jobs");
+      el_known_jobs.innerHTML = `${clients_data.length}`;
+    
   };
 
   /*
@@ -172,7 +217,7 @@
       const array_events_accepted = [];
 
       if (typeof stream_data === 'undefined') { return };
-
+      // For each stream, create two timeseries: delay times and events accepted
       for (const [stream, stream_datum] of Object.entries(stream_data)) {
           stream_name = stream.split('_')[0];
           labels.push(stream_name);
@@ -328,7 +373,7 @@
               error => console.error('error:', error)
           );
       window.timer_load_production = setTimeout(load_production, reload_time);
-      document.getElementById("btn_production").classList.add('active');
+      document.getElementById("btn_production").classList.add('active-glamour');
   };
 
   async function load_playback() {
@@ -345,7 +390,7 @@
         );
 
       window.timer_load_playback = setTimeout(load_playback, reload_time);
-      document.getElementById("btn_playback").classList.add('active');
+      document.getElementById("btn_playback").classList.add('active-glamour');
   };
 
   // Unused, AFAIK

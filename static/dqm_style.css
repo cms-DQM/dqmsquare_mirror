@@ -16,7 +16,7 @@
   float: right;
 }
 
-.active {
+.active-glamour {
   background-color: #52BE80;
   color: #f2f2f2;
   -webkit-animation: glowing 2500ms infinite;
@@ -81,7 +81,7 @@
   }
 }
 
-.btn:hover {
+.btn-glamour:hover {
   background-color: #239b56;
   color: #d4ac0d;
 }
@@ -201,9 +201,9 @@ col:nth-child(2n) {
   overflow: scroll;
 }
 
-.btn {
+/* .btn {
   font-weight: bold;
-}
+} */
 
 .column {
   float: left;

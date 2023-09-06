@@ -17,10 +17,10 @@
     <div id="myBar"></div>
   </div>
 
-  <button class="btn" id="btn_get_dqm_machines" onclick="cr_get_dqm_machines()">Print DQM machines</button>
-  <button class="btn" id="btn_get_hltd_version" onclick="cr_get_hltd_version()">Print HLTD versions</button>
-  <button class="btn" id="btn_get_fff_version" onclick="cr_get_fff_version()">Print FFF versions</button>
-  <button class="btn" id="btn_get_cmssw_info" onclick="cr_get_cmssw_info()">Print CMSSW info</button>
+  <button class="btn btn-secondary" id="btn_get_dqm_machines" onclick="cr_get_dqm_machines()">Print DQM machines</button>
+  <button class="btn btn-secondary" id="btn_get_hltd_version" onclick="cr_get_hltd_version()">Print HLTD versions</button>
+  <button class="btn btn-secondary" id="btn_get_fff_version" onclick="cr_get_fff_version()">Print FFF versions</button>
+  <button class="btn btn-secondary" id="btn_get_cmssw_info" onclick="cr_get_cmssw_info()">Print CMSSW info</button>
 
   <div class="row">
     <div class="column">
@@ -32,7 +32,7 @@
     <div class="column">
       <div id="playback_run"> </div>
       <strong>Playback simulations:</strong> <br>
-      <button class="btn" id="btn_get_simulator_config" onclick="cr_get_simulator_config()">Print Simulator
+      <button class="btn btn-secondary" id="btn_get_simulator_config" onclick="cr_get_simulator_config()">Print Simulator
         config</button> <br>
       Select playback run: <select id="run_number" name="run_number"
         onchange="update_oms_link( this.options[this.selectedIndex].value )"></select> <br>
@@ -40,14 +40,14 @@
         target="_blank">OMS link run 349963</a> <br>
       Select run class: <select id="run_key" name="run_key"></select><br>
       Set LS number: <input type="number" id="LS_number" name="LS_number" min="1" max="10000" size="7"><br>
-      <button class="btn" id="btn_start_playback_run" onclick="cr_start_playback_run()">Start new run</button><br><br>
+      <button class="btn btn-secondary" id="btn_start_playback_run" onclick="cr_start_playback_run()">Start new run</button><br><br>
 
       <strong>Productions runs:</strong> <br>
       Select production run: <select id="run_number_prod" name="run_number_prod"></select>
-      <button class="btn" id="btn_get_production_runs" onclick="cr_get_production_runs()">refresh</button> <br>
+      <button class="btn btn-secondary" id="btn_get_production_runs" onclick="cr_get_production_runs()">refresh</button> <br>
       Set LS number to copy: <input type="number" id="LS_number_prod" name="LS_number_prod" min="1" max="10000"
         size="7"><br>
-      <button class="btn" id="btn_copy_production_runs" onclick="cr_copy_production_runs()">Copy production
+      <button class="btn btn-secondary" id="btn_copy_production_runs" onclick="cr_copy_production_runs()">Copy production
         run</button><br>
     </div>
   </div>
@@ -400,22 +400,22 @@
       // get logs hltd 
       text += "hltd logs: <br>";
       dqm_machines_pl.forEach(function (item, index, array) {
-        text += "<button class=\"btn\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
+        text += "<button class=\"btn btn-secondary\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
       })
       // restart hltd 
       text += "<br> hltd restart: <br>";
       dqm_machines_pl.forEach(function (item, index, array) {
-        text += "<button class=\"btn\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
+        text += "<button class=\"btn btn-secondary\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
       })
       // get fff hltd 
       text += "<br> fff logs: <br>";
       dqm_machines_pl.forEach(function (item, index, array) {
-        text += "<button class=\"btn\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
+        text += "<button class=\"btn btn-secondary\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
       })
       // restart fff 
       text += "<br> fff restart: <br>";
       dqm_machines_pl.forEach(function (item, index, array) {
-        text += "<button class=\"btn\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
+        text += "<button class=\"btn btn-secondary\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
       })
       document.getElementById("hltd_playback").innerHTML = text;
 
@@ -448,22 +448,22 @@
       // get logs
       text += "hltd logs: <br>"
       dqm_machines_pr.forEach(function (item, index, array) {
-        text += "<button class=\"btn\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
+        text += "<button class=\"btn btn-secondary\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
       })
       // restart hltd
       text += "<br> hltd restart: <br>"
       dqm_machines_pr.forEach(function (item, index, array) {
-        text += "<button class=\"btn\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
+        text += "<button class=\"btn btn-secondary\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
       })
       // get fff hltd
       text += "<br> fff logs: <br>"
       dqm_machines_pr.forEach(function (item, index, array) {
-        text += "<button class=\"btn\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
+        text += "<button class=\"btn btn-secondary\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
       })
       // restart fff
       text += "<br> fff restart: <br>"
       dqm_machines_pr.forEach(function (item, index, array) {
-        text += "<button class=\"btn\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
+        text += "<button class=\"btn btn-secondary\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
       })
 
       document.getElementById("hltd_production").innerHTML = text;
