@@ -114,7 +114,7 @@ def load_cfg() -> dict:
             "SERVER_GRID_KEY_PATH", os.path.expanduser("~/.globus/userkey.pem")
         )
     )
-    cfg["SERVER_SIMULATOR_RUN_KEYS"] = "cosmic_run,pp_run,hi_run,commisioning_run"
+    cfg["SERVER_SIMULATOR_RUN_KEYS"] = "cosmic_run,pp_run,hi_run"
 
     cfg["ROBBER_LOG_PATH_PRODUCTION"] = (
         os.path.join("/", mount_path, "log/robber1.log")

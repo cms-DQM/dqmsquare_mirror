@@ -176,17 +176,17 @@ if __name__ == "__main__":
                     clients_dic_bad[clinet_name] += [run]
 
         results = {}
-        for clinet in clients:
-            g = set(clients_dic_good[clinet])
-            b = set(clients_dic_bad[clinet])
-            s = set(clients_dic_stuck[clinet])
+        for client in clients:
+            g = set(clients_dic_good[client])
+            b = set(clients_dic_bad[client])
+            s = set(clients_dic_stuck[client])
 
             g = [x for x in g if x not in b]
             g = [x for x in g if x not in s]
 
             s = [x for x in s if x not in b]
 
-            results[clinet.split("_")[0]] = [len(b), len(g), len(s)]
+            results[client.split("_")[0]] = [len(b), len(g), len(s)]
 
         category_names = ["Crash", "Good", "Stuck"]
 
@@ -279,16 +279,16 @@ if __name__ == "__main__":
 
         results = []
         clients_names = []
-        for clinet in clients:
-            b = set(clients_dic_bad[clinet])
-            s = set(clients_dic_stuck[clinet])
+        for client in clients:
+            b = set(clients_dic_bad[client])
+            s = set(clients_dic_stuck[client])
 
             s = [x for x in s if x not in b]
 
             if len(b):
-                clients_names += [clinet.split("_")[0]]
+                clients_names += [client.split("_")[0]]
                 results += [len(b)]
-                print(clinet.split("_")[0], b)
+                print(client.split("_")[0], b)
 
         outname = "clients_bad"
         print(results)
@@ -346,11 +346,11 @@ if __name__ == "__main__":
     if "all" in mode or "p5" in mode:
         print("Create plot # 5 ...")
 
-        for clinet in clients:
-            if clinet == "hlt_dqm_clientPB-live":
+        for client in clients:
+            if client == "hlt_dqm_clientPB-live":
                 continue
-            print(clinet)
-            df_clients = df_good[df_good["client"] == clinet]
+            print(client)
+            df_clients = df_good[df_good["client"] == client]
             # df_clients = df_clients[ df_clients["cmssw_lumi"] > 200]
             df_clients = df_clients[df_clients["events_rate"] > 0]
             df_clients_pp = df_clients[df_clients["runkey"] == "runkey=pp_run"]
@@ -359,7 +359,7 @@ if __name__ == "__main__":
             x_points = df_clients_co["run"]
             y_points_pp = df_clients_pp["events_rate"]
             x_points_pp = df_clients_pp["run"]
-            # print( clinet, "info\n", y_points_pp.describe() )
+            # print( client, "info\n", y_points_pp.describe() )
 
             plt.plot(
                 x_points,
@@ -380,7 +380,7 @@ if __name__ == "__main__":
             plt.xlabel("Run Number")
             plt.ylabel("Event Rate (evt/s)")
             plt.title(
-                label="Event rate of " + clinet.split("_")[0] + " client",
+                label="Event rate of " + client.split("_")[0] + " client",
                 bbox={"facecolor": "0.8", "pad": 5},
             )
             plt.legend(loc="lower left")
@@ -388,7 +388,7 @@ if __name__ == "__main__":
             plt.yscale("log")
 
             plt.savefig(
-                path_out + "/XXXEvR_" + clinet.split("_")[0] + ".pdf",
+                path_out + "/XXXEvR_" + client.split("_")[0] + ".pdf",
                 bbox_inches="tight",
             )
             plt.show()
@@ -416,7 +416,7 @@ if __name__ == "__main__":
             plt.ylabel("Event Rate (evt/s)")
             plt.title(
                 label="Event rate vs Number of LS of "
-                + clinet.split("_")[0]
+                + client.split("_")[0]
                 + " client",
                 bbox={"facecolor": "0.8", "pad": 5},
             )
@@ -425,7 +425,7 @@ if __name__ == "__main__":
             plt.yscale("log")
 
             plt.savefig(
-                path_out + "/XXXEvR_vs_LS_" + clinet.split("_")[0] + ".pdf",
+                path_out + "/XXXEvR_vs_LS_" + client.split("_")[0] + ".pdf",
                 bbox_inches="tight",
             )
 
