@@ -23,36 +23,47 @@
   </div>
   <div class="row">
     <div class="col-5">
-      <table class="table">
-        <tbody>
+        <h4>Jobs configuration and status</h4>
+        <table class="table">
+            <tbody>
           <tr>
             <th scope="row">CMSSW version</th>
             <td id="run-info-cmssw-version"></td>
           </tr>
           <tr>
-            <th scope="row"><pre>run_key</pre></th>
+              <th scope="row"><pre>run_key</pre></th>
             <td id="run-info-key"></td>
-          </tr>
+        </tr>
           <tr>
-            <th scope="row">Known jobs</th>
+            <th scope="row">Status</th>
+            <td>
+                <div class="row">
+                    <div class="col grun"><strong>Running: </strong><span id="jobs-running"></span></div>
+                    <div class="col yrun"><strong>Stopped: </strong><span id="jobs-stopped"></span></div>
+                    <div class="col rrun"><strong>Crashed: </strong><span id="jobs-crashed"></span></div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <th scope="row">Total jobs</th>
             <td id="run-info-known-jobs"></td>
           </tr>
         </tbody>
       </table>
     </div>
-  </div>
-  <!-- Graphs -->
-  <!-- <div class="chart-container" style="position: relative; height:60vh; width:60vw"> -->
-  <div class="row">
+</div>
+<!-- Graphs -->
+<!-- <div class="chart-container" style="position: relative; height:60vh; width:60vw"> -->
+<div class="row">
     <div class="col-8">
-      <canvas id="chart-delay-times" style="width: 400px; height: 150px;"></canvas>
+        <canvas id="chart-delay-times" style="width: 400px; height: 150px;"></canvas>
     </div>
-  </div>
-  <div class="row">
+</div>
+<div class="row">
     <div class="col-8">
-      <canvas id="chart-events-accepted" style="width: 400px; height: 150px;"></canvas>
+        <canvas id="chart-events-accepted" style="width: 400px; height: 150px;"></canvas>
     </div>
-  </div>
+</div>
 
 </div>
 {% endblock %}
@@ -197,6 +208,13 @@
       el_run_key.innerHTML = `${global_data[1]}`;
       let el_known_jobs = document.getElementById("run-info-known-jobs");
       el_known_jobs.innerHTML = `${clients_data.length}`;
+
+      let el_jobs_running = document.getElementById("jobs-running");
+      el_jobs_running.innerHTML=state_G;
+      let el_jobs_stopped = document.getElementById("jobs-stopped");
+      el_jobs_stopped.innerHTML=state_Y;
+      let el_jobs_crashed = document.getElementById("jobs-crashed");
+      el_jobs_crashed.innerHTML=state_R;
     
   };
 
