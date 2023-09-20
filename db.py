@@ -18,6 +18,16 @@ from dqmsquare_cfg import TZ, TIMEZONE
 DEFAULT_DATETIME = TZ.localize(datetime(2012, 3, 3, 10, 10, 10, 0))
 
 
+def _censor_hostname(hostname: str) -> str:
+    """Hide part of the hostname for safety reasons"""
+    var = hostname.split("-")
+    return (
+        f"{var[0]}-{var[1]}-.."
+        if hostname.startswith("dqm")
+        else "..".join([var[0], var[-1]])
+    )
+
+
 class DQM2MirrorDB:
     """
     DB Schema description.
@@ -425,9 +435,7 @@ class DQM2MirrorDB:
         ) = data
         client = self.get_short_client_name(client)
         # Hide part of the hostname for safety reasons
-        var = hostname.split("-")
-        hostname = "..".join([var[0], var[-1]])
-
+        hostname = _censor_hostname(hostname)
         # Timestamp is of type datetime, and is tz-aware,
         # as it's coming straight from the DB.
         td = TZ.localize(datetime.now()) - timestamp
@@ -486,9 +494,7 @@ class DQM2MirrorDB:
             _,
         ) = data
         client = self.get_short_client_name(client)
-        # Hide part of the hostname for safety reasons
-        var = hostname.split("-")
-        hostname = "..".join([var[0], var[-1]])
+        hostname = _censor_hostname(hostname)
         runkey = runkey[len("runkey=") :]
 
         cmssw_path = ""
