@@ -34,7 +34,7 @@ def get_documents_from_fff(host: str, port: int = cfg["FFF_PORT"], runs_ids: lis
 
     jsn = {"event": "request_documents", "ids": runs_ids}
     data = json.dumps({"messages": [json.dumps(jsn)]})
-    logger.debug(f"POSTing to '{url}' with data: {jsn}")
+    logger.debug(f"POSTing to '{url}' with data: {data}")
     r = requests.post(
         url,
         data=data,
@@ -45,7 +45,6 @@ def get_documents_from_fff(host: str, port: int = cfg["FFF_PORT"], runs_ids: lis
         timeout=30,
     )
     logger.debug(f"Got {len(r.content)} byte response.")
-
     return r.content
 
 
@@ -121,7 +120,7 @@ def get_latest_info_from_host(host: str, rev: int, db: DQM2MirrorDB) -> None:
         id = header["_id"]
         logger.info(f"Processing header {str(id)} ({i+1}/{len(headers)})")
 
-        is_bu = host[0] == "b"
+        is_bu = host.startswith("bu") or host.startswith("dqmrubu")
         if is_bu and "analyze_files" not in id:
             logger.debug("Skip, no 'analyze_files' key")
             continue
