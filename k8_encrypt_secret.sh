@@ -4,25 +4,24 @@
 # Might have many bugs!!!
 
 # Unencoded file to read secrets from
-IN_FILE=k8_secret.yaml
+IN_FILE=${1:-k8_secret.yaml}
 
-# File to write output to
-OUT_FILE=k8_secret_encrypted.yaml
-
-# Files can also be passed as arguments to the script
-if [ -n "$1" ]; then
-    IN_FILE=$1
+if [ ! -f $IN_FILE ]; then
+    echo "File $IN_FILE not found"
 fi
 
-if [ -n "$2" ]; then
-    OUT_FILE=$2
+# File to write output to
+OUT_FILE=${2:-k8_secret_encrypted.yaml}
+if [ ! -f $OUT_FILE ]; then
+    echo "File $OUT_FILE not found"
 fi
 
 # Do not split with spaces in for loop
 IFS=$'\n'
 
 # Copy input file to output, so that we can start replacing it in-place.
-cat "$IN_FILE" >"$OUT_FILE"
+cp "$IN_FILE" "$OUT_FILE"
+
 # Use awk to get the secrets out of k8_secret, found under the "data" section in the yaml.
 for i in $(awk '/^[^ ]/{ f=/^data:/; next } f{ if (match($0, /^\s+[a-zA-Z0-9_]+\s*:.+/)) { print $0 }}' $OUT_FILE); do
     # For each line containing a secret, encode its value in the OUT_FILE in place.
