@@ -3,3 +3,9 @@
 *.pyc
 tmp/*
 __pycache__/
+.vscode/
+dqm2m_production.db_test
+*.env*
+*.pkl
+*.log.*
+*.yaml

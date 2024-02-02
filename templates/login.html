@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="login_form">
+    <form action="{{ PREFIX }}cr/login/" method="post">
+        Username: <input name="username" type="text" />
+        Password: <input name="password" type="password" />
+        <input value="Login" type="submit" />
+    </form>
+</div>
+{% endblock %}

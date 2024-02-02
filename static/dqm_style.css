@@ -1,255 +1,309 @@
-      
-    /* btns style */
-    .btn {
-      border: none;
-      outline: none;
-      padding: 4px 25px;
-      background-color:  #5dade2 ;
-      color: #f2f2f2;
-      cursor: pointer;
-      font-size: 18px;
-      color:  #d4e6f1 ;
-      font-weight: bold;
-    }
+/* btns style */
+.btn-navbar {
+  border: none;
+  outline: none;
+  padding: 4px 25px;
+  background-color: #5dade2;
+  color: #f2f2f2;
+  cursor: pointer;
+  font-size: 18px;
+  color: #d4e6f1;
+  font-weight: bold;
+}
 
-    .active {
-      background-color: #52BE80;
-      color: #f2f2f2;
-      -webkit-animation: glowing 2500ms infinite;
-      -moz-animation: glowing 2500ms infinite;
-      -o-animation: glowing 2500ms infinite;
-      animation: glowing 2500ms infinite;
-    }
-    @-webkit-keyframes glowing {
-      0% { background-color:  #1e8449;    }
-      50% { background-color: #17a589 ;    }
-      100% { background-color:  #1e8449;  }
-    }
+.version_string {
+  color: f2f2f2;
+  float: right;
+}
 
-    @-moz-keyframes glowing {
-      0% { background-color: #1e8449;    }
-      50% { background-color: #17a589 ;   }
-      100% { background-color: #1e8449;  }
-    }
+.active-glamour {
+  background-color: #52BE80;
+  color: #f2f2f2;
+  -webkit-animation: glowing 2500ms infinite;
+  -moz-animation: glowing 2500ms infinite;
+  -o-animation: glowing 2500ms infinite;
+  animation: glowing 2500ms infinite;
+}
 
-    @-o-keyframes glowing {
-      0% { background-color: #1e8449;    }
-      50% { background-color: #17a589 ;   }
-      100% { background-color: #1e8449;  }
-    }
+@-webkit-keyframes glowing {
+  0% {
+    background-color: #1e8449;
+  }
 
-    @keyframes glowing {
-      0% { background-color: #1e8449;    }
-      50% { background-color: #17a589 ;   }
-      100% { background-color: #1e8449;  }
-    }
+  50% {
+    background-color: #17a589;
+  }
 
-    .btn:hover{
-      background-color:  #239b56 ;
-      color:  #d4ac0d  ;
-    }
+  100% {
+    background-color: #1e8449;
+  }
+}
 
-      .server_table_cell{
-        padding:0 15px 0 15px;
-      }
+@-moz-keyframes glowing {
+  0% {
+    background-color: #1e8449;
+  }
 
-      .job_table_cell{
-        padding:0 15px 0 15px;
-      }
+  50% {
+    background-color: #17a589;
+  }
 
-      .jtc2{
-        padding:0 15px 0 15px;
-      }
+  100% {
+    background-color: #1e8449;
+  }
+}
 
-      .jtc{
-      }
+@-o-keyframes glowing {
+  0% {
+    background-color: #1e8449;
+  }
 
-      col:nth-child(2n) {background: #e1e1e1}
+  50% {
+    background-color: #17a589;
+  }
 
-      /* to show hover over table elements */
-      .ttip {
-        position: relative;
-        display: inline-block;
-      }
+  100% {
+    background-color: #1e8449;
+  }
+}
 
-      .ttip .ttext {
-        visibility: hidden;
-        display: flex;
-        flex-wrap: wrap;
-        white-space: nowrap;
-        background-color: black;
-        color: #fff;
-        text-align: center;
-        border-radius: 6px;
-        padding: 5px 5px;
-        
-        /* Position the tooltip */
-        position: absolute;
-        z-index: 1;
-        top: -5px;
-        left: 105%;
-      }
+@keyframes glowing {
+  0% {
+    background-color: #1e8449;
+  }
 
-      .ttip:hover .ttext {
-        text-align: center;
-        visibility: visible;
-      }
+  50% {
+    background-color: #17a589;
+  }
 
-      .rrun { 
-        background-color: #EC7063;
-      }
-      .grun { 
-        background-color: #52BE80;
-      }
-      .yrun { 
-        background-color: #F4D03F;
-      }
-      .rrunD { 
-        background-color: #d26459;
-      }
-      .grunD { 
-        background-color: #4aa872;
-      }
-      .yrunD { 
-        background-color: #dfbe3a;
-      }
+  100% {
+    background-color: #1e8449;
+  }
+}
 
-      .rtext { 
-        color: #991717;
-        display: inline;
-      }
-      .gtext { 
-        color: green;
-        display: inline;
-      }
-      .ytext { 
-        color: #f7f458;
-        display: inline;
-      }
+.btn-glamour:hover {
+  background-color: #239b56;
+  color: #d4ac0d;
+}
 
-      .tb_header {
-        overflow: hidden;
-        white-space: nowrap;
-        max-width: 10px;
-      }
+.server_table_cell {
+  padding: 0 15px 0 15px;
+}
 
-      /* -------------------------------- */
+.job_table_cell {
+  padding: 0 15px 0 15px;
+}
 
-	  .title {
-        padding-left: 16px;
-        padding-top: 7px;
-        padding-right: 16px;
-        padding-bottom: 7px;
-        text-decoration: none;
-        font-size: 18px;
-        background-color: #2471a3;
-        color:  #d4e6f1 ;
-        font-weight: bold;
-      }
+.jtc2 {
+  padding: 0 15px 0 15px;
+}
+
+col:nth-child(2n) {
+  background: #e1e1e1
+}
+
+/* to show hover over table elements */
+.ttip {
+  position: relative;
+  display: inline-block;
+}
+
+.ttip .ttext {
+  visibility: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  white-space: nowrap;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 5px;
+
+  /* Position the tooltip */
+  position: absolute;
+  z-index: 1;
+  top: -5px;
+  left: 105%;
+}
+
+.ttip:hover .ttext {
+  text-align: center;
+  visibility: visible;
+}
+
+/* Job error */
+.rrun {
+  background-color: #EC7063;
+}
+
+/* Ongoing job */
+.grun {
+  background-color: #52BE80;
+}
+
+/* Job finished */
+.yrun {
+  background-color: #F4D03F;
+}
+
+/* Dark variations for alternating column colors */
+.rrunD {
+  background-color: #d26459;
+}
+
+.grunD {
+  background-color: #4aa872;
+}
+
+.yrunD {
+  background-color: #dfbe3a;
+}
+
+.rtext {
+  color: #991717;
+  display: inline;
+}
+
+.gtext {
+  color: green;
+  display: inline;
+}
+
+.ytext {
+  color: #f7f458;
+  display: inline;
+}
+
+.tb_header {
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 10px;
+}
+
+/* -------------------------------- */
+
+.title {
+  padding-left: 16px;
+  padding-top: 7px;
+  padding-right: 16px;
+  padding-bottom: 7px;
+  text-decoration: none;
+  font-size: 18px;
+  background-color: #2471a3;
+  color: #d4e6f1;
+  font-weight: bold;
+}
 
 
-      .techtext {
-        background-color:gainsboro;  
-        max-height: 600px;
-        overflow:scroll;
-      }
+.techtext {
+  background-color: gainsboro;
+  max-height: 600px;
+  overflow: scroll;
+}
 
-      .btn {
-        font-weight:bold;
-      }
+/* .btn {
+  font-weight: bold;
+} */
 
-      .column {
-        float: left;
-        width: 15%;
-      }
+.column {
+  float: left;
+  width: 15%;
+}
 
-      .column2 {
-        float: left;
-        width: 40%;
-      }
+.column2 {
+  float: left;
+  width: 40%;
+}
 
-      .row:after {
-        content: "";
-        display: table;
-        clear: both;
-      }
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+}
 
-     /* Style the tab */
-    .tab {
-      overflow: hidden;
-    }
+/* Style the tab */
+.tab {
+  overflow: hidden;
+}
 
-    /* Style the buttons that are used to open the tab content */
-    .tab button {
-      background-color: #c1c1c1;
-      float: left;
-      border: none;
-      outline: none;
-      cursor: pointer;
-      padding: 14px 16px;
-      transition: 0.3s;
-    }
+/* Style the buttons that are used to open the tab content */
+.tab button {
+  background-color: #c1c1c1;
+  float: left;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  transition: 0.3s;
+}
 
-    /* Change background color of buttons on hover */
-    .tab button:hover {
-      background-color: #ccc;
-    }
+/* Change background color of buttons on hover */
+.tab button:hover {
+  background-color: #ccc;
+}
 
-    /* Create an active/current tablink class */
-    .tab button.active {
-      background-color: #ccc;
-    }
+/* Create an active/current tablink class */
+.tab button.active {
+  background-color: #ccc;
+}
 
-    /* Style the tab content */
-    .tabcontent {
-      display: none;
-      padding: 6px 12px;
-      border: 1px solid #ccc;
-      border-top: none;
-    } 
+/* Style the tab content */
+.tabcontent {
+  display: none;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-top: none;
+}
 
-    .tablinks {
-      font-size: 12px;
-      font-weight: bold;
-    }
+.tablinks {
+  font-size: 12px;
+  font-weight: bold;
+}
 
-    .tablinks.activetab {
-      font-size: 15px;
-      font-weight: bold;
-    }
+.tablinks.activetab {
+  font-size: 15px;
+  font-weight: bold;
+}
 
-    /* progress bars */
-    #myProgress {
-      width: 100%;
-      background-color: #ddd;
-    }
+/* progress bars */
+#myProgress {
+  width: 100%;
+  background-color: #ddd;
+}
 
-    #myBar {
-      width: 1%;
-      height: 5px;
-      background-color: #2471a3;
-    }
+#myBar {
+  width: 1%;
+  height: 5px;
+  background-color: #2471a3;
+}
 
-    a.mlink {
-      color: #d4e6f1 ;
-      text-align: center;
-      text-decoration: none;
-      display: inline-block;
-    }
+a.mlink {
+  color: #d4e6f1;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+}
 
-    a.mlink:hover, a:active {
-      color: white;
-    }
+a.mlink:hover,
+a:active {
+  color: white;
+}
 
-    /* progress bars */
-    #timelineProgress {
-      width: 100%;
-      background-color: #ddd;
-    }
+/* progress bars */
+#timelineProgress {
+  width: 100%;
+  background-color: #ddd;
+}
 
-    #timelineBar {
-      width: 1%;
-      height: 5px;
-      background-color: #2471a3;
-    }
+#timelineBar {
+  width: 1%;
+  height: 5px;
+  background-color: #2471a3;
+}
 
+.login_form {
+  margin-left: 16px;
+  margin-top: 7px;
+  margin-right: 16px;
+  margin-bottom: 6px;
+}

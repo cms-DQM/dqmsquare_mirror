@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+
+{%block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
+<title>DQM&sup2; Mirror</title>
+
+{% endblock %}
+{% block extra_mirror_links %}
+<button class="btn-navbar" id="btn_production" onclick="init_load_production()">production</button>
+<button class="btn-navbar" id="btn_playback" onclick="init_load_playback()">playback</button>
+{%endblock%}
+
+{% block content %}
+<p style="clear:both;margin-bottom:25px"></p>
+<div class="btn-group" role="group" aria-label="Run navigation" id="nextRuns">
+
+</div>
+<div class="col">
+  <div class="row">
+    <table id="runTable" style="text-align:center;margin-top:10px;margin-bottom:10px;font-size: 14px;" border=1 frame=hsides
+    rules=rows>
+  </table>
+  </div>
+  <div class="row">
+    <div class="col-5">
+        <h4>Jobs configuration and status</h4>
+        <table class="table">
+            <tbody>
+          <tr>
+            <th scope="row">CMSSW version</th>
+            <td id="run-info-cmssw-version"></td>
+          </tr>
+          <tr>
+              <th scope="row"><pre>run_key</pre></th>
+            <td id="run-info-key"></td>
+        </tr>
+          <tr>
+            <th scope="row">Status</th>
+            <td>
+                <div class="row">
+                    <div class="col grun"><strong>Running: </strong><span id="jobs-running"></span></div>
+                    <div class="col yrun"><strong>Stopped: </strong><span id="jobs-stopped"></span></div>
+                    <div class="col rrun"><strong>Crashed: </strong><span id="jobs-crashed"></span></div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <th scope="row">Total jobs</th>
+            <td id="run-info-known-jobs"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+</div>
+<!-- Graphs -->
+<!-- <div class="chart-container" style="position: relative; height:60vh; width:60vw"> -->
+<div class="row">
+    <div class="col-8">
+        <canvas id="chart-delay-times" style="width: 400px; height: 150px;"></canvas>
+    </div>
+</div>
+<div class="row">
+    <div class="col-8">
+        <canvas id="chart-events-accepted" style="width: 400px; height: 150px;"></canvas>
+    </div>
+</div>
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  // DQM RUNS PAGE //
+  const reload_time = Number("{{ FRONTEND_API_QUERY_INTERVAL }}")
+  let static_headers = ["Timestamp", "Time Diff", "Hostname", "State", "Tag", "LS", "RSS", "Total Ev.", "LOGS"];
+
+  // console.log( window.location.href ); // like http://0.0.0.0:8887/dqm/dqm-square-k8/runs?run=501450
+  const url_param = new URLSearchParams(window.location.search);
+  let specific_run_number = url_param.get('run');  // Get Run number from URL, if specified
+  let db = url_param.get('db') || "production";
+
+  var chart_delay_times, chart_events_accepted;
+
+  // If specific run number was requested, display data for it.
+  if (specific_run_number !== null) {
+    // If run requested is NOT the latest run, disable live mode, 
+    // else, enable it.
+      fetch(
+          `{{ PREFIX }}api?what=get_info&db=${db}`,
+          { method: 'GET' }
+      )
+          .then(response => response.json())
+          .then(data => start_live(String(data[1]) === specific_run_number))
+          .catch(error => console.error('error:', error));
+      update_tables(specific_run_number);
+  } else {
+    // No run number requested, start live mode.
+      start_live(true);
+  }
+
+  
+  function update_table(run_id, data) {
+      other_runs = data[0]
+      global_data = data[1][0]; 
+      clients_data = data[1][1];
+
+      // Other runs info
+      let el_nextRuns = document.getElementById("nextRuns");
+      el_nextRuns.innerHTML = ""; // Clear all links 
+
+      if (other_runs[1] != null) {
+          if (other_runs[1] < run_id) {
+              var b = other_runs[0];
+              other_runs[0] = other_runs[1];
+              other_runs[1] = b;
+          }
+      };
+      
+      // Create links to next and previous run
+      if (other_runs[0] != null) {
+        let prev = document.createElement("a");
+        prev.setAttribute("href",`{{ PREFIX }}?run=${other_runs[0]}&db=${db}`);
+        prev.innerHTML = `<i class="bi bi-arrow-left"></i> ${other_runs[0]}`;
+        prev.classList.add("btn", "btn-link");
+        el_nextRuns.appendChild(prev);
+      }
+      let current = document.createElement("a");
+      current.setAttribute("href",`{{ PREFIX }}?run=${run_id}&db=${db}`);
+      current.innerHTML = `${run_id}`;
+      current.classList.add("btn", "btn-link");
+      el_nextRuns.appendChild(current);
+      
+      if (other_runs[1] != null) 
+      { 
+        let next = document.createElement("a");
+        next.setAttribute("href",`{{ PREFIX }}?run=${other_runs[1]}&db=${db}`);
+        next.innerHTML = `${other_runs[1]}<i class="bi bi-arrow-right"></i>`;
+        next.classList.add("btn", "btn-link");
+        el_nextRuns.appendChild(next);
+      }
+
+      // Table creation
+      let tb_main = document.getElementById("runTable");
+      tb_main.innerHTML = '';
+
+      // Table header
+      for (let j = 0; j < static_headers.length; ++j) {
+          let col = document.createElement("col");
+          tb_main.appendChild(col);
+      }
+
+      let tr = document.createElement("tr");
+      for (let header of static_headers) {
+          let td = document.createElement("th");
+          td.className = "jtc2 "
+          td.innerText = header;
+          tr.appendChild(td);
+      }
+      tb_main.appendChild(tr);
+
+      // Table clients ...
+      let state_G = 0;
+      let state_Y = 0;
+      let state_R = 0;
+      
+      // (timestamp, td, hostname, fi_state, client, cmssw_lumi, VmRSS, events_total, id, events_rate)
+      for (let client_data of clients_data) { 
+        tr = document.createElement("tr");
+        // Timestamp that client was running
+        client_data[0] = new Date(client_data[0]).toLocaleString('en-GB', { hour12: false, timeZone: '{{ TIMEZONE }}' });
+        // console.log(client_data)
+        if (client_data[9] < 0) client_data[9] = 0
+        //   Event process speed
+        client_data[7] = client_data[7] + " (" + client_data[9].toFixed(1) + " ev/s)"
+        
+        id = client_data[8]
+
+        let ec = client_data[3];
+        let state = ec;
+        let style = "rrun";
+
+        if ((ec === null) || (ec === undefined) || (ec === -1)) { state = "R"; style = "grun"; state_G += 1; }
+        else if ((ec === 0) || (ec === "0")) { style = "yrun"; state_Y += 1; }
+        else { state_R += 1; }
+        client_data[3] = state;
+            // Populate table
+        for (const [i, data] of client_data.entries()) {
+            if (i == 8 || i == 9) continue;
+            let td = document.createElement("td");
+            td.className = "jtc2 " + style;
+            if (i % 2 != 0) { td.className += "D"; } // Color alternating columns darker
+            td.innerText = data;
+            tr.appendChild(td);
+        }
+
+        let td = document.createElement("td");
+        td.className = "jtc2 " + style;
+        let log_link = `{{ PREFIX }}api?what=get_logs&id=${id}&db=${db}`;
+        td.innerHTML = `<a title="Open log in a new tab" href=${log_link} target=\"_blank\"><i class="bi bi-file-earmark-text"></i> </a>`; 
+        tr.appendChild(td);
+        tb_main.appendChild(tr);
+      }
+
+      // Run info table update
+      let el_cmssw_version = document.getElementById("run-info-cmssw-version");
+      el_cmssw_version.innerHTML = `${global_data[0]}`;
+      let el_run_key = document.getElementById("run-info-key");
+      el_run_key.innerHTML = `${global_data[1]}`;
+      let el_known_jobs = document.getElementById("run-info-known-jobs");
+      el_known_jobs.innerHTML = `${clients_data.length}`;
+
+      let el_jobs_running = document.getElementById("jobs-running");
+      el_jobs_running.innerHTML=state_G;
+      let el_jobs_stopped = document.getElementById("jobs-stopped");
+      el_jobs_stopped.innerHTML=state_Y;
+      let el_jobs_crashed = document.getElementById("jobs-crashed");
+      el_jobs_crashed.innerHTML=state_R;
+    
+  };
+
+  /*
+  Updates both graphs (file delivery and events processed.)
+  */
+  function update_graph(data) {
+      const LUMI = 23.310893056;  // Time duration of a lumisection, in seconds
+      if (data.length < 6) {
+        return;  
+      };
+      let stream_data = data[5];
+      let global_start = data[4];
+
+
+      const labels = [];  // Labels for different data series
+      const array_delay_times = [];
+      const array_events_accepted = [];
+
+      if (typeof stream_data === 'undefined') { return };
+      // For each stream, create two timeseries: delay times and events accepted
+      for (const [stream, stream_datum] of Object.entries(stream_data)) {
+          stream_name = stream.split('_')[0];
+          labels.push(stream_name);
+          const data_delay_times = [];
+          const data_events_accepted = [];
+
+          let lumis = stream_datum['lumis'];
+          let mtimes = stream_datum['mtimes'];
+          let evt_accepted = stream_datum['evt_accepted'];
+          let delay_mtimes = Array(lumis.length);
+          // copy paste logic from fff code
+          for (index = 0; index < lumis.length; index++) { 
+            let start_offset_mtime = mtimes[index] - global_start - LUMI;
+            var lumi_offset = (lumis[index] - 1) * LUMI;
+            let delay_mtime = start_offset_mtime - lumi_offset;
+            delay_mtimes[index] = delay_mtime;
+
+            data_delay_times.push({ 'x': lumis[index], 'y': delay_mtimes[index] });
+            data_events_accepted.push({ 'x': lumis[index], 'y': evt_accepted[index] });
+          };
+          array_delay_times.push(data_delay_times);
+          array_events_accepted.push(data_events_accepted);
+
+      }
+
+      if (labels.length) {
+          const data_chart_delay_times = [];
+          const data_chart_events_accepted = [];
+          const borderColors = ["#3366CC", "#DC3912", "#FF9900", "#109618", "#990099", "#3B3EAC", "#0099C6", "#DD4477", "#66AA00", "#B82E2E", "#316395", "#994499", "#22AA99", "#AAAA11", "#6633CC", "#E67300", "#8B0707", "#329262", "#5574A6", "#651067"];
+          for (index = 0; index < labels.length; index++) {
+              data_chart_delay_times.push({ label: [labels[index]], data: array_delay_times[index], fill: false, borderColor: borderColors[index], });
+              data_chart_events_accepted.push({ label: [labels[index]], data: array_events_accepted[index], fill: false, borderColor: borderColors[index], });
+          }
+
+          const ctx1 = document.getElementById('chart-delay-times');
+          const ctx2 = document.getElementById('chart-events-accepted');
+
+          if (chart_delay_times instanceof Chart) {
+              chart_delay_times.data = { datasets: data_chart_delay_times };
+              chart_delay_times.update();
+          } else {
+              chart_delay_times = new Chart(ctx1, {
+                  type: 'bubble',
+                  data: { datasets: data_chart_delay_times },
+                  options: {
+                      animation: false,
+                      plugins: {
+                          title: {
+                              display: true,
+                              text: 'DQM File Delivery'
+                          }
+                      },
+                      scales: {
+                          x: {
+                              title: {
+                                  display: true,
+                                  text: "LS"
+                              }
+                          },
+                          y: {
+                              title: {
+                                  display: true,
+                                  text: "File delivery delay, s"
+                              }
+                          },
+                      },
+                  }
+              });
+          };
+
+
+          if (chart_events_accepted instanceof Chart) {
+              chart_events_accepted.data = { datasets: data_chart_events_accepted };
+              chart_events_accepted.update();
+          } else {
+              chart_events_accepted = new Chart(ctx2, {
+                  type: 'bubble',
+                  data: { datasets: data_chart_events_accepted },
+                  options: {
+                      animation: false,
+                      plugins: {
+                          title: {
+                              display: true,
+                              text: 'DQM Event Rate'
+                          },
+                      },
+                      scales: {
+                          x: {
+                              title: {
+                                  display: true,
+                                  text: "LS"
+                              }
+                          },
+                          y: {
+                              title: {
+                                  display: true,
+                                  text: "Accepted events"
+                              }
+                          },
+                      },
+                  }
+              });
+          }
+      };
+  };
+
+  /*
+  Get run data for a run, from specific db
+  */
+  function fetch_and_update_table_data(run_id, db) {
+      fetch(`{{ PREFIX }}api?what=get_run&run=${run_id}&db=${db}`)
+      .then(data => data.json())
+      .then(data => update_table(run_id, data))
+      .catch(error => console.log(`Error when getting table data: ${error}`));
+  }
+
+  /*
+  Get graph data for a run, from specific db
+  */
+  function fetch_and_update_graph_data(run_id, db) {
+      fetch(`{{ PREFIX }}api?what=get_graph&run=${run_id}&db=${db}`)
+      .then(data => data.json())
+      .then(data => update_graph(data))
+      .catch(error => console.log(`Error when getting graph data: ${error}`));
+  }
+
+  /*
+  Fetch data for a specific run and update tables & graphs
+  */
+  function update_tables(run_number) {
+      fetch_and_update_table_data(run_number, db);
+      fetch_and_update_graph_data(run_number, db);
+  }
+
+  function start_live(start) { 
+      if (!start) { return; };
+      window.timer_load_production = 0;
+      window.timer_load_playback = 0;
+      if (db == "playback") load_playback();
+      if (db == "production") load_production();
+  }
+
+  async function load_production() {
+      db = "production";
+      await fetch(
+          `{{ PREFIX }}api?what=get_info&db=${db}`,
+          { method: 'GET' })
+          .then(
+              response => response.json())
+          .then(
+              data => update_tables(data[1])
+          ).catch(
+              error => console.error('error:', error)
+          );
+      window.timer_load_production = setTimeout(load_production, reload_time);
+      document.getElementById("btn_production").classList.add('active-glamour');
+  };
+
+  async function load_playback() {
+      db = "playback";
+      await fetch(
+        `{{ PREFIX }}api?what=get_info&db=${db}`,
+        { method: 'GET' })
+      .then(
+        response => response.json()
+        ).then(
+        (data) => update_tables(data[1])
+        ).catch(
+        error => console.error('error:', error)
+        );
+
+      window.timer_load_playback = setTimeout(load_playback, reload_time);
+      document.getElementById("btn_playback").classList.add('active-glamour');
+  };
+
+  // Unused, AFAIK
+  // function reset_btn() {
+  //     if (window.timer_load_production) {
+  //         clearTimeout(window.timer_load_production);
+  //         window.timer_load_production = 0;
+  //     }
+  //     if (window.timer_load_playback) {
+  //         clearTimeout(window.timer_load_playback);
+  //         window.timer_load_playback = 0;
+  //     }
+
+  //     document.getElementById("btn_production").classList = ["btn"];
+  //     document.getElementById("btn_playback").classList = ["btn"];
+  // }
+
+  function init_load_playback() {
+      window.location = '{{ PREFIX }}?db=playback';
+  }
+
+  function init_load_production() {
+      window.location = '{{ PREFIX }}?db=production';
+  }
+</script>
+
+{% endblock %}
