@@ -11,7 +11,7 @@ LOGS_DIR=/cinder/dqmsquare/log/
 PVC_DIR=/cinder/dqmsquare
 
 echo "Creating logs dir $LOGS_DIR ..."
-sudo mkdir -p $LOGS_DIR
+mkdir -p $LOGS_DIR
 
 echo "Changing permissions for PVC claim $PVC_DIR ..."
 if ! chown -R dqm $PVC_DIR; then
