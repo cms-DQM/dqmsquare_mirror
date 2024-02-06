@@ -40,7 +40,7 @@ def create_app(cfg):
         cr_usernames = {username: password}
     except Exception as e:
         log.error(
-            f"No Control Room credentials configured! Please set the DQM_CR_USERNAMES env var: {repr}"
+            f"No Control Room credentials configured! Please set the DQM_CR_USERNAMES env var: {repr(e)}"
         )
         raise e
 
@@ -287,7 +287,7 @@ def create_app(cfg):
             r = requests.get(url, cert=CERT_PATH, verify=False, cookies=cookies)
             dqm2_answer = r.content
         except Exception as e:
-            log.warning("cr_exe() initial request : " + repr(e))
+            log.warning(f"cr_exe() initial request: {repr(e)}")
             return repr(e), 400
 
         if what in ["get_production_runs"]:
@@ -344,7 +344,7 @@ def create_app(cfg):
                     answer = json.loads(dqm2_answer)
 
             except Exception as e:
-                log.warning("cr_exe() change format to be printable : " + repr(e))
+                log.warning(f"cr_exe() change format to be printable: {repr(e)}")
                 return repr(e), 400
 
             return answer
@@ -356,9 +356,7 @@ def create_app(cfg):
             try:
                 data = json.loads(dqm2_answer)
             except Exception as e:
-                log.warning(
-                    "cr_exe() : can't json.loads from DQM^2 data " + dqm2_answer
-                )
+                log.warning(f"cr_exe(): json.loads failed on data {dqm2_answer}")
                 log.warning(repr(e))
                 return repr(e), 400
 
@@ -385,9 +383,8 @@ def create_app(cfg):
                     )
                 except Exception as e:
                     log.warning(
-                        "cr_exe() : error in dqmsquare_cfg.dump_tmp_file for file:"
+                        f"cr_exe() : error in dqmsquare_cfg.dump_tmp_file for file: {repr(e)}"
                     )
-                    log.warning(repr(e))
                     continue
                 file_urls += [
                     os.path.join(
