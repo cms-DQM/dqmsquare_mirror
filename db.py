@@ -235,7 +235,7 @@ class DQM2MirrorDB:
                 )
                 session.commit()
             except Exception as e:
-                self.log.error("Error occurred: ", e)
+                self.log.error(f"Error occurred: {repr(e)}")
                 session.rollback()
                 return 1
 
