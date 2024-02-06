@@ -54,6 +54,9 @@ def load_cfg() -> dict:
 
     # Flask server config
     cfg["SERVER_DEBUG"] = os.environ.get("SERVER_DEBUG", False)
+    # MACHETE
+    if isinstance(cfg["SERVER_DEBUG"], str):
+        cfg["SERVER_DEBUG"] = True if cfg["SERVER_DEBUG"] == "True" else False
     cfg["SERVER_HOST"] = "0.0.0.0"
     cfg["SERVER_PORT"] = 8084 if cfg["ENV"] != "development" else 8887
 
@@ -139,6 +142,9 @@ def load_cfg() -> dict:
         else "log/grabber.log"
     )
     cfg["GRABBER_DEBUG"] = os.environ.get("GRABBER_DEBUG", False)
+    # MACHETE
+    if isinstance(cfg["GRABBER_DEBUG"], str):
+        cfg["GRABBER_DEBUG"] = True if cfg["GRABBER_DEBUG"] == "True" else False
 
     cfg["DB_PLAYBACK_URI"] = format_db_uri(
         username=os.environ.get("POSTGRES_USERNAME", "postgres"),
