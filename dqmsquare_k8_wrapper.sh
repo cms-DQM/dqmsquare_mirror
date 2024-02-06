@@ -18,8 +18,6 @@ if ! chown -R dqm $PVC_DIR; then
   echo "Failed to update permissions!"
 fi
 
-python3 dqmsquare_cfg.py k8
-
 if [[ $service ]] && [[ $service = "server" ]]; then
   python3 grabber.py production &
   python3 grabber.py playback &

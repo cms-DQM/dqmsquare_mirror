@@ -1,4 +1,4 @@
-""" 
+"""
 Original Author: ~Mandrik, IHEP, https://github.com/pmandrik
 
 Python file responsible for generating configuration data, depending on the
@@ -72,13 +72,19 @@ def load_cfg() -> dict:
     cfg["CMSWEB_FRONTEND_PROXY_URL"] = os.environ.get(
         "CMSWEB_FRONTEND_PROXY_URL",
         # If value is not found in .env
-        "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
-        if cfg["ENV"] == "testbed"
-        else "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
-        if cfg["ENV"] == "production"
-        else "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
-        if cfg["ENV"] == "test4"
-        else "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu",
+        (
+            "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
+            if cfg["ENV"] == "testbed"
+            else (
+                "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
+                if cfg["ENV"] == "production"
+                else (
+                    "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
+                    if cfg["ENV"] == "test4"
+                    else "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
+                )
+            )
+        ),
     )
 
     # FFF simulator machine
@@ -150,15 +156,6 @@ def load_cfg() -> dict:
     )
     cfg["TIMEZONE"] = TIMEZONE
     return cfg
-
-
-### Print values === >
-if __name__ == "__main__":
-    cfg_ = load_cfg()
-    items = list(cfg_.items())
-    items = sorted(items, key=lambda x: x[0])
-    for item in items:
-        print(item)
 
 
 ### Other
