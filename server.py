@@ -375,9 +375,11 @@ def create_app(cfg):
                     # For non-development, the SERVER_DATA_PATH is considered an absolute path.
                     fname = dqmsquare_cfg.dump_tmp_file(
                         data=item,
-                        path=os.path.join(SERVER_DATA_PATH, "tmp")
-                        if cfg["ENV"] == "development"
-                        else os.path.join("/", SERVER_DATA_PATH, "tmp"),
+                        path=(
+                            os.path.join(SERVER_DATA_PATH, "tmp")
+                            if cfg["ENV"] == "development"
+                            else os.path.join("/", SERVER_DATA_PATH, "tmp")
+                        ),
                         prefix=what,
                         postfix=".txt",
                     )

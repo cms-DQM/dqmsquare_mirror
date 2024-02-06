@@ -2,28 +2,24 @@
 
 FROM python:3.11
 
-RUN apt update \
-    && apt upgrade -y \
-    && apt-get update --fix-missing \
-    && apt install -y libgtk-3-0 iputils-ping sudo nano python3-psycopg2
-
 COPY . /dqmsquare_mirror
 WORKDIR dqmsquare_mirror
-
-RUN python3 -m pip install -U pip \
-  && python3 -m pip install -r requirements.txt \
-  && mkdir -p /dqmsquare_mirror/log
 
 # set CERN time zone
 ENV TZ="Europe/Zurich"
 
 # add new user, add user to sudoers file, switch to user
-RUN useradd dqm \
-    && echo "%dqm ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+RUN apt update \
+    && apt upgrade -y \
+    && apt-get update --fix-missing \
+    && apt install -y python3-psycopg2 python3-pip \
+    && python3 -m pip install -r requirements.txt \
+    && useradd dqm \
+    && mkdir -p /dqmsquare_mirror/log \
     && mkdir -p /home/dqm/ \
-    && chmod 777 /home/dqm/ \
-    && find /dqmsquare_mirror -type d -exec chmod 777 {} \; \
-    && find /dqmsquare_mirror -type f -exec chmod 777 {} \;
+    && chown -R dqm /home/dqm/ \
+    && find /dqmsquare_mirror -type d -exec chown -R dqm {} \; \
+    && find /dqmsquare_mirror -type f -exec chown -R dqm {} \;
 USER dqm
 
 # Entrypoint, will be replaced with the one listed here:
