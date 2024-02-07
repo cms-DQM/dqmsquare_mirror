@@ -70,7 +70,7 @@ def load_cfg() -> dict:
     # This is used both as part of URLs and local filenames, so it must not start with a "/"
     cfg["SERVER_DATA_PATH"] = mount_path if cfg["ENV"] != "development" else ""
     cfg["SERVER_URL_PREFIX"] = (
-        os.path.join("dqm", "dqm-square-k8") if cfg["ENV"] != "development" else ""
+        os.path.join("dqm", "dqm-square") if cfg["ENV"] != "development" else ""
     )
     cfg["CMSWEB_FRONTEND_PROXY_URL"] = os.environ.get(
         "CMSWEB_FRONTEND_PROXY_URL",
