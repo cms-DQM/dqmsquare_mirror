@@ -69,6 +69,9 @@ def load_cfg() -> dict:
 
     # This is used both as part of URLs and local filenames, so it must not start with a "/"
     cfg["SERVER_DATA_PATH"] = mount_path if cfg["ENV"] != "development" else ""
+    # The prefix is appended to the base URL, to create relative URLs.
+    # Since the k8s deployment is served at /dqm/dqm-square, we always need to append
+    # to the base URL (cmsweb.cern.ch) to have relative URLs.
     cfg["SERVER_URL_PREFIX"] = (
         os.path.join("dqm", "dqm-square") if cfg["ENV"] != "development" else ""
     )
