@@ -73,7 +73,9 @@ def load_cfg() -> dict:
     # Since the k8s deployment is served at /dqm/dqm-square, we always need to append
     # to the base URL (cmsweb.cern.ch) to have relative URLs.
     cfg["SERVER_URL_PREFIX"] = (
-        os.path.join("dqm", "dqm-square") if cfg["ENV"] != "development" else ""
+        os.environ.get("SERVER_URL_PREFIX", os.path.join("dqm", "dqm-square"))
+        if cfg["ENV"] != "development"
+        else ""
     )
     cfg["CMSWEB_FRONTEND_PROXY_URL"] = os.environ.get(
         "CMSWEB_FRONTEND_PROXY_URL",
