@@ -3,26 +3,27 @@
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
 <script src="{{ url_for('static', filename='canvasslider.js') }}"></script>
+<title>DQM&sup2; Mirror — Timeline</title>
 {% endblock %}
 
 {% block content %}
-  <br>
-  <label>Runs range:</label>
-  <input type="number" id="runMin" min="0" max="0" onchange="update_runs_range(this.id, this.value, -1)">
-  <input type="number" id="runMax" min="0" max="0" onchange="update_runs_range(this.id, -1, this.value)">
-  <button type="button" onclick="update_table()">Apply</button>
-  <input type="checkbox" id="check_badonly" name="check_badonly" value=""><label for="check_badonly">exit_code !=
-    0</label>
-  <input type="checkbox" id="check_ls" name="check_ls" value=""><label for="check_ls">N(LS) > 0</label>
-  <a href="{{ PREFIX }}timeline/?db=production">Production-></a>
-  <a href="{{ PREFIX }}timeline/?db=playback">Playback-></a>
-  <br>
-  <canvas id="runRangeSlider" title="Run range" width=800 height=80></canvas>
-  <div id="timelineProgress">
-    <div id="timelineBar"></div>
-  </div>
-  <table id="runTable" style="text-align:center;margin-top:1px;margin-bottom:10px" border=1 frame=hsides rules=rows>
-  </table>
+<br>
+<label>Runs range:</label>
+<input type="number" id="runMin" min="0" max="0" onchange="update_runs_range(this.id, this.value, -1)">
+<input type="number" id="runMax" min="0" max="0" onchange="update_runs_range(this.id, -1, this.value)">
+<button type="button" onclick="update_table()">Apply</button>
+<input type="checkbox" id="check_badonly" name="check_badonly" value=""><label for="check_badonly">exit_code !=
+  0</label>
+<input type="checkbox" id="check_ls" name="check_ls" value=""><label for="check_ls">N(LS) > 0</label>
+<a href="{{ PREFIX }}timeline/?db=production">Production-></a>
+<a href="{{ PREFIX }}timeline/?db=playback">Playback-></a>
+<br>
+<canvas id="runRangeSlider" title="Run range" width=800 height=80></canvas>
+<div id="timelineProgress">
+  <div id="timelineBar"></div>
+</div>
+<table id="runTable" style="text-align:center;margin-top:1px;margin-bottom:10px" border=1 frame=hsides rules=rows>
+</table>
 {% endblock %}
 
 {% block script %}
@@ -100,7 +101,7 @@
     // Nine Zeroes for Billions
     return Math.abs(Number(labelValue)) >= 1.0e+9
       ? (Math.abs(Number(labelValue)) / 1.0e+9).toFixed(0) + "B"
-      // Six Zeroes for Millions 
+      // Six Zeroes for Millions
       : Math.abs(Number(labelValue)) >= 1.0e+6
         ? (Math.abs(Number(labelValue)) / 1.0e+6).toFixed(0) + "M"
         // Three Zeroes for Thousands

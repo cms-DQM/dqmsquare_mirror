@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{%block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
+<script src="{{ url_for('static', filename='index_utils.js') }}"></script>
+<title>DQM&sup2; Mirror</title>
+{% endblock %}
+
+{% block extra_navbar_links %}
+<li class="nav-item">
+    <button title="Show current production machines status" class="btn btn-secondary" id="btnProduction"
+        onclick="init_load_production('{{ PREFIX}}')">Production
+    </button>
+</li>
+<li class="nav-item">
+    <button title="Show current playback machines status" class="btn btn-secondary" id="btnPlayback"
+        onclick="init_load_playback('{{ PREFIX }}')">
+        Playback
+    </button>
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="btn-group mt-2" role="group" aria-label="Run navigation" id="runNavigation">
+</div>
+<div class="accordion mt-2" id="jeSuisUnAccordeon">
+    <!-- Jobs list -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingTwo">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                data-bs-target="#collapseTwo" aria-expanded="true" aria-controls="collapseTwo">
+                Jobs list
+                <span title="CMSSW version" class="ms-1 badge bg-theme" id="cmssw-version-badge"></span>
+                <span title="run_key" class="font-monospace ms-1 badge bg-secondary" id="run-info-key-badge"></span>
+                <span title="Total jobs currently running" class="ms-1 badge grun" id="jobs-running-badge"></span>
+                <span title="Total jobs finished" class="ms-1 badge yrun" id="jobs-stopped-badge"></span>
+                <span title="Total jobs crashed" class="ms-1 badge rrun" id="jobs-crashed-badge"></span>
+            </button>
+        </h2>
+        <div id="collapseTwo" class="accordion-collapse collapse show" aria-labelledby="headingTwo">
+            <div class="accordion-body">
+                <table class="table table-hover custom-table custom-table-striped-columns">
+                    <caption>Timestamps are displayed in {{ TIMEZONE }} timezone</caption>
+                    <tbody id="runTable">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- Cluster status -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingThree">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                data-bs-target="#collapseThree" aria-expanded="true" aria-controls="collapseTwo">
+                Cluster status
+            </button>
+        </h2>
+        <div id="collapseThree" class="accordion-collapse collapse show" aria-labelledby="headingThree">
+            <div class="accordion-body">
+                <div class="col-md-3 col-sm-6 pl-0">
+                    <h4></h4>
+                    <table class="table table-hover custom-table">
+                        <div class="d-flex justify-content-center" id="clusterStatusSpinner">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Waiting for cluster status...</span>
+                            </div>
+                        </div>
+                        <tbody id="clusterStatus">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Graphs -->
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingFour">
+            <button class="accordion-button collapsed show" type="button" data-bs-toggle="collapse"
+                data-bs-target="#collapseFour" aria-expanded="true" aria-controls="collapseTwo">
+                File Delivery and Event Processing Rate Graphs
+            </button>
+        </h2>
+        <div id="collapseFour" class="accordion-collapse collapse show" aria-labelledby="headingFour">
+            <div class="accordion-body">
+                <div class="row">
+                    <div class="d-flex justify-content-center m-5" id="chartsSpinner">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Waiting for graphs data...</span>
+                        </div>
+                    </div>
+                    <div class="col-xl-6 col-lg-12 col-md-12 col-sm-12" id="chartDelayTimes">
+                    </div>
+                    <div class="col-xl-6 col-lg-12 col-md-12 col-sm-12" id="chartEventsAccepted">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+
+<script>
+    // DQM RUNS PAGE //
+    const RELOAD_TIME = Number("{{ FRONTEND_API_QUERY_INTERVAL }}")
+    const TIMEZONE = "{{ TIMEZONE }}";
+    const PREFIX = "{{ PREFIX }}";
+    // An object which acts like a configuration for the columns of the Runs table
+    const runs_table_config = [
+        { "title": "Last update", "hovertext": "Last job status update", "extra_classes": ["d-none", "d-md-block"] },
+        { "title": "Time Diff", "hovertext": "Time passed since last job's status update" , "format_function": (data) => {return get_time_diff_str(get_time_diff(data)) + " ago"}, "extra_classes": ["text-truncate"]},
+        { "title": "Hostname", "hovertext": "Host machine where job is running", "extra_classes": ["custom-narrow-col","text-truncate"] },
+        { "title": "State" },
+        { "title": "Tag" },
+        { "title": "LS", "hovertext": "Number of lumisections processed by this job" },
+        { "title": "RSS", "extra_classes": ["custom-narrow-col", "text-truncate"] },
+        { "title": "Total Ev.", "hovertext": "Total events processed (Event process rate)" },
+        { "skip": true },
+        { "skip": true },
+        { "title": "Logs" }
+    ];
+
+
+    // console.log( window.location.href ); // like http://0.0.0.0:8887/dqm/dqm-square-k8/runs?run=501450
+    const url_param = new URLSearchParams(window.location.search);
+    let specific_run_number = url_param.get('run');  // Get Run number from URL, if specified
+    let db = url_param.get('db') || "production";
+
+    let chart_delay_times, chart_events_accepted;
+
+    // If specific run number was requested, display data for it.
+    if (specific_run_number !== null) {
+        // If run requested is NOT the latest run, disable live mode,
+        // else, enable it.
+        fetch(
+            `${PREFIX}api?what=get_info&db=${db}`,
+            { method: 'GET' }
+        )
+            .then(response => response.json())
+            .then(data => start_live(String(data[1]) === specific_run_number))
+            .catch(error => console.error('error:', error));
+        update_tables(specific_run_number);
+    } else {
+        // No run number requested, start live mode.
+        start_live(true);
+    }
+
+
+
+    // Hosts status updater
+    addEventListener("load", (event) => {
+        get_cluster_status(db).then(data => update_cluster_status(data));
+        setInterval(
+            function () {
+                get_cluster_status(db).then(data => update_cluster_status(data))
+            },
+            Number("{{ FRONTEND_API_QUERY_INTERVAL }}"));
+    });
+</script>
+
+
+{% endblock %}
