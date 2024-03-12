@@ -8,7 +8,7 @@ WORKDIR dqmsquare_mirror
 # set CERN time zone
 ENV TZ="Europe/Zurich"
 
-# add new user, add user to sudoers file, switch to user
+# add new user switch to user
 RUN apt update \
     && apt upgrade -y \
     && apt-get update --fix-missing \

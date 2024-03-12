@@ -65,7 +65,7 @@ def testing_database() -> DQM2MirrorDB:
             try:
                 session.execute(
                     text(
-                        f"""INSERT into runs ({str(db.TB_DESCRIPTION_RUNS_SHORT).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(run, [13])})"""
+                        f"""INSERT into runs ({str(db.TB_DESCRIPTION_RUNS_COLS).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(run, [13])})"""
                     )
                 )
                 session.commit()
@@ -77,7 +77,7 @@ def testing_database() -> DQM2MirrorDB:
             try:
                 session.execute(
                     text(
-                        f"""INSERT into graphs ({str(db.TB_DESCRIPTION_GRAPHS_SHORT).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(graph, [3, 4])})"""
+                        f"""INSERT into graphs ({str(db.TB_DESCRIPTION_GRAPHS_COLS).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(graph, [3, 4])})"""
                     )
                 )
                 session.commit()
@@ -282,7 +282,7 @@ def test_db_11(testing_database: DQM2MirrorDB):
     header = {"_id": "id", "run": "123456"}
     document = {}
     testing_database.fill_run(header, document)
-    answer = testing_database.get(run_start=123456, run_end=123456)[0]
+    answer = testing_database.get_run(run_start=123456, run_end=123456)[0]
     with testing_database.engine.connect() as cur:
         session = testing_database.Session(bind=cur)
         session.execute(

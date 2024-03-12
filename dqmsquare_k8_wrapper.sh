@@ -14,7 +14,7 @@ echo "Creating logs dir $LOGS_DIR ..."
 mkdir -p $LOGS_DIR
 
 echo "Changing permissions for PVC claim $PVC_DIR ..."
-if ! chown -R dqm $PVC_DIR; then
+if ! chown -R dqm $PVC_DIR >/dev/null 2>&1; then
   echo "Failed to update permissions!"
 fi
 

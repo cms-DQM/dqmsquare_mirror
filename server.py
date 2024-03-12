@@ -1,7 +1,6 @@
 # P.S.~Mandrik, IHEP, https://github.com/pmandrik
 
 import os
-import sys
 import json
 import flask
 import logging
@@ -11,7 +10,7 @@ from flask import Flask, render_template, redirect
 from dotenv import load_dotenv
 from db import DQM2MirrorDB
 from decorators import check_login, check_auth
-from custom_logger import set_log_handler, custom_formatter
+from custom_logger import set_log_handler
 
 load_dotenv()  # Load environmental variables from .env file, if present
 
@@ -75,7 +74,7 @@ def create_app(cfg):
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"))
     def greet():
         return render_template(
-            "runs.html",
+            "index.html",
             PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"),
             FRONTEND_API_QUERY_INTERVAL=cfg["FRONTEND_API_QUERY_INTERVAL"],
             VERSION=cfg["VERSION"],
@@ -149,13 +148,13 @@ def create_app(cfg):
             run_data = db_.get_mirror_data(run)
             runs_around = db_.get_runs_around(run)
             return json.dumps([runs_around, run_data])
-        if what == "get_graph":
+        elif what == "get_graph":
             run = flask.request.args.get("run", default=0)
             db_name = flask.request.args.get("db", default="")
             db_ = databases.get(db_name, db_playback)
             graph_data = db_.get_graphs_data(run)
             return json.dumps(graph_data)
-        if what == "get_runs":
+        elif what == "get_runs":
             run_from = flask.request.args.get("from", default=0)
             run_to = flask.request.args.get("to", default=0)
             bad_only = flask.request.args.get("bad_only", default=0)
@@ -169,26 +168,35 @@ def create_app(cfg):
                 int(with_ls_only),
             )
             return json.dumps(answer)
-        if what == "get_clients":
+        elif what == "get_clients":
             run_from = flask.request.args.get("from", default=0)
             run_to = flask.request.args.get("to", default=0)
             db_name = flask.request.args.get("db", default="")
             db_ = databases.get(db_name, db_playback)
             answer = db_.get_clients(run_from, run_to)
             return json.dumps(answer)
-        if what == "get_info":
+        elif what == "get_info":
             db_name = flask.request.args.get("db", default="")
             db_ = databases.get(db_name, db_playback)
             answer = db_.get_info()
             return json.dumps(answer)
-        if what == "get_logs":
+        elif what == "get_logs":
             client_id = flask.request.args.get("id", default=0)
             db_name = flask.request.args.get("db", default="")
             db_ = databases.get(db_name, db_playback)
             answer = db_.get_logs(client_id)
-            a1 = "".join(eval(answer[0]))
-            a2 = "".join(eval(answer[1]))
-            return "<plaintext>" + a1 + "\n ... \n\n" + a2
+            a1 = a2 = ""
+            if answer[0]:
+                a1 = "".join(eval(answer[0]))
+            if answer[1]:
+                a2 = "".join(eval(answer[1]))
+            return "<pre>" + a1 + "\n ... \n\n" + a2 + "</pre>"
+        elif what == "get_cluster_status":
+            # WIP
+            cluster = flask.request.args.get("cluster", default="playback")
+            db_ = databases.get(cluster, db_playback)
+            answer = db_.get_cluster_status()
+            return json.dumps(answer)
 
     ### TIMELINE ###
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "timeline/"))
@@ -285,10 +293,10 @@ def create_app(cfg):
         answer = None
         try:
             r = requests.get(url, cert=CERT_PATH, verify=False, cookies=cookies)
-            dqm2_answer = r.content
+            dqm2_answer = r.content.decode("utf-8")
         except Exception as e:
-            log.warning(f"cr_exe() initial request: {repr(e)}")
-            return repr(e), 400
+            log.warning(f"cr_exe@{what} initial request: {repr(e)}")
+            return f"Error querying fff_dqmtools: {repr(e)}", 400
 
         if what in ["get_production_runs"]:
             return ",".join(
@@ -334,18 +342,20 @@ def create_app(cfg):
                         for host, version in sorted(lst.items()):
                             answer += host + " " + version
 
-                if what == "get_dqm_machines" and format:
+                elif what == "get_dqm_machines" and format:
                     answer = ""
                     data = json.loads(dqm2_answer)
                     for key, lst in sorted(data.items()):
                         answer += "<strong>" + key + "</strong> " + str(lst) + "\n"
 
-                if what == "get_simulator_config":
+                elif what == "get_simulator_config":
                     answer = json.loads(dqm2_answer)
 
             except Exception as e:
-                log.warning(f"cr_exe() change format to be printable: {repr(e)}")
-                return repr(e), 400
+                log.warning(
+                    f"cr_exe@{what}: Error when reading answer: {repr(e)}. Answer was: {answer}"
+                )
+                return f"Error parsing fff_dqmtools answer: {repr(e)}", 400
 
             return answer
 
@@ -356,9 +366,9 @@ def create_app(cfg):
             try:
                 data = json.loads(dqm2_answer)
             except Exception as e:
-                log.warning(f"cr_exe(): json.loads failed on data {dqm2_answer}")
+                log.warning(f"cr_exe@{what}: json.loads failed on data {dqm2_answer}")
                 log.warning(repr(e))
-                return repr(e), 400
+                return f"Error parsing fff_dqmtools answer: {repr(e)}", 400
 
             file_urls = []
             for item in data:
@@ -383,7 +393,7 @@ def create_app(cfg):
                     )
                 except Exception as e:
                     log.warning(
-                        f"cr_exe() : error in dqmsquare_cfg.dump_tmp_file for file: {repr(e)}"
+                        f"cr_exe@{what}: error in dqmsquare_cfg.dump_tmp_file for file: {repr(e)}"
                     )
                     continue
                 file_urls += [
@@ -395,8 +405,8 @@ def create_app(cfg):
             return str(file_urls)
 
         # default answer
-        log.warning(f"cr_exe() : No actions defined for request: '{repr(what)}'")
-        return "No actions defined for that request"
+        log.warning(f"cr_exe@{what} : No actions defined for request.")
+        return f"No actions defined for request {what}"
 
     return app
 
