@@ -10,10 +10,10 @@ parse it, removing sensitive information, and show selections outside the P5 are
 The architecture is sequential:
 
 * `grabber.py` - Runs in the background, fetching information from each FU and BU machine.
-* `server.py` - Simple server to serve the front-end, including the Control Room.  
+* `server.py` - Simple server to serve the front-end, including the Control Room.
 * `dqmsquare_cfg.py` - Called from both `grabber` and `server`, it loads environment settings and creates a configuration object, which is used by the application. See [`.env_sample`](./.env_sample_production) for available settings.
 
-The work is periodic: `grabber.py` retrieves information for each machine specified in `FFF_PLAYBACK_MACHINES` or `FFF_PRODUCTION_MACHINES` (depending on the arguments the grabber is launched with) through the `SERVER_FFF_MACHINE`, storing it into the database. 
+The work is periodic: `grabber.py` retrieves information for each machine specified in `FFF_PLAYBACK_MACHINES` or `FFF_PRODUCTION_MACHINES` (depending on the arguments the grabber is launched with) through the `SERVER_FFF_MACHINE`, storing it into the database.
 
 Other scripts/files:
 
@@ -42,7 +42,7 @@ Environment variable values are attached to the k8s cluster using an Opaque Secr
 To store `log` and `tmp`, we mount CephFS. The claim for CephFS is defined in `k8_claim_testbed.yaml` for the testbed cluster. In production and preproduction cluster, the CephFS volume is created by the cmsweb team.
 Also, they requested that the Docker image created does not use the `root` user. The Docker source image is `python:3.11`.
 
-1. `cd dqmsquare_mirror; docker build -t registry.cern.ch/cmsweb/dqmsquare_mirror:<tag> .` 
+1. `cd dqmsquare_mirror; docker build -t registry.cern.ch/cmsweb/dqmsquare_mirror:<tag> .`
 2. `docker login registry.cern.ch`
 3. `docker push registry.cern.ch/cmsweb/dqmsquare_mirror:<tag>`
 
@@ -61,7 +61,7 @@ to login into a pod:
 
 ```bash
   kubectl get pods -n dqm
-  # find the pod name which looks like dqm-square-mirror-server-<something> 
+  # find the pod name which looks like dqm-square-mirror-server-<something>
   kubectl exec <pod name> -it -n dqm -- bash
 ```
 
@@ -74,17 +74,3 @@ https://cms-http-group.docs.cern.ch/k8s_cluster/cmsweb_production_cluster_doc/
 
 CR is a place to simplify the operations of DQM services. It send requests to DQM^2 on one of the playback machine at P5 where requests are executed.
 Secrets and versions of DQM^2 need to match DQM^2 Mirror requirements, please check for more info https://github.com/cms-DQM/fff_dqmtools
-
-### Scripts
-
-1. `dqmsquare_cert.sh` imports `.pem` certificates provided by cmsweb k8 cluster into `.p12` format and then into NSS sql DB used by firefox without master password.
-
-### Useful extras
-
-* `bottle`'s built-in default server is not for a heavy server load, just for 3-5 shifters
-* Number of logs created by `dqmsquare_robber.py`/`dqmsquare_robber_oldruns.py`/`dqmsquare_parser.py`/`dqmsquare_server.py`/`dqmsquare_server_flash.py` is limited by `TimedRotatingFileHandler`
-* `dqmsquare_robber.py` spawns lot of firefox subprocesses. In case of the `dqmsquare_robber.py` process is killed they may persist, requiring the manual killing to free the resources.
-* To build:
- `./dqmsquare_deploy.sh build`
-* at p5 for installation, for example  
-  `sudo rpm -e dqmsquare_mirror; sudo rpm -i /nfshome0/pmandrik/dqmsquare_mirror-1.0.0-1.x86_64.rpm`

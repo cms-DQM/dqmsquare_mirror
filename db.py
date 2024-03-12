@@ -10,33 +10,37 @@ from sqlalchemy.orm import sessionmaker
 from collections import defaultdict
 from datetime import datetime
 from exceptions import DatabaseNotFoundError
+from utils.common import _censor_hostname
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "."))
 
 from dqmsquare_cfg import TZ, TIMEZONE
+from utils.common import (
+    get_short_client_name,
+    filter_clients,
+    format_table_entry,
+    format_run_data,
+)
 
 DEFAULT_DATETIME = TZ.localize(datetime(2012, 3, 3, 10, 10, 10, 0))
-
-
-def _censor_hostname(hostname: str) -> str:
-    """Hide part of the hostname for safety reasons"""
-    var = hostname.split("-")
-    return (
-        f"{var[0]}-{var[1]}-.."
-        if hostname.startswith("dqm")
-        else "..".join([var[0], var[-1]])
-    )
 
 
 class DQM2MirrorDB:
     """
     DB Schema description.
-    Three tables: runs, graphs, meta
     """
 
     TB_NAME_RUNS = "runs"
-    TB_DESCRIPTION_RUNS = "( id TEXT PRIMARY KEY NOT NULL, client TEXT, run INT, rev INT, hostname TEXT, exit_code INT, events_total INT, events_rate REAL, cmssw_run INT, cmssw_lumi INT, client_path TEXT, runkey TEXT, fi_state TEXT, timestamp TIMESTAMP WITH TIME ZONE, vmrss TEXT, stdlog_start TEXT, stdlog_end TEXT )"
-    TB_DESCRIPTION_RUNS_SHORT = [
+    TB_DESCRIPTION_RUNS = (
+        "( id TEXT PRIMARY KEY NOT NULL, "
+        "client TEXT, run INT, rev INT, hostname TEXT, "
+        "exit_code INT, events_total INT, events_rate REAL, "
+        "cmssw_run INT, cmssw_lumi INT, client_path TEXT, "
+        "runkey TEXT, fi_state TEXT, "
+        "timestamp TIMESTAMP WITH TIME ZONE, vmrss TEXT, "
+        "stdlog_start TEXT, stdlog_end TEXT )"
+    )
+    TB_DESCRIPTION_RUNS_COLS = [
         "id",
         "client",
         "run",
@@ -55,11 +59,16 @@ class DQM2MirrorDB:
         "stdlog_start",
         "stdlog_end",
     ]
-    TB_DESCRIPTION_RUNS_SHORT_NOLOGS = "id , client , run , rev , hostname , exit_code , events_total , events_rate , cmssw_run , cmssw_lumi , client_path , runkey , fi_state, timestamp, vmrss"
+    TB_DESCRIPTION_RUNS_COLS_NOLOGS = "id , client , run , rev , hostname , exit_code , events_total , events_rate , cmssw_run , cmssw_lumi , client_path , runkey , fi_state, timestamp, vmrss"
 
     TB_NAME_GRAPHS = "graphs"
-    TB_DESCRIPTION_GRAPHS = "( run INT PRIMARY KEY NOT NULL, rev INT, id TEXT, timestamp TIMESTAMP WITH TIME ZONE, global_start TIMESTAMP WITH TIME ZONE, stream_data TEXT, hostname TEXT )"
-    TB_DESCRIPTION_GRAPHS_SHORT = [
+    TB_DESCRIPTION_GRAPHS = (
+        "( run INT PRIMARY KEY NOT NULL, rev INT, "
+        "id TEXT, timestamp TIMESTAMP WITH TIME ZONE, "
+        "global_start TIMESTAMP WITH TIME ZONE, "
+        "stream_data TEXT, hostname TEXT )"
+    )
+    TB_DESCRIPTION_GRAPHS_COLS = [
         "run",
         "rev",
         "id",
@@ -72,6 +81,24 @@ class DQM2MirrorDB:
     TB_NAME_META = "meta"  # Metadata table, storing data on stored runs, unclear if it's used or not
     TB_DESCRIPTION_META = "( name TEXT PRIMARY KEY NOT NULL, data TEXT )"
     TB_DESCRIPTION_META_SHORT = "( name, data )"
+
+    # Store status for each cluster host
+    TB_NAME_HOST_NAME = "hostnames"
+    TB_DESCRIPTION_HOST_NAME = (
+        "( id SERIAL PRIMARY KEY, name VARCHAR(50) NOT NULL UNIQUE )"
+    )
+    TB_DESCRIPTION_HOST_NAME_COLS = ["name"]
+
+    TB_NAME_HOST_STATUS = "hoststatuses"
+    TB_DESCRIPTION_HOST_STATUS = (
+        "( id SERIAL PRIMARY KEY, "
+        "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(), "
+        "host_id INT NOT NULL, "
+        "CONSTRAINT fk_host FOREIGN KEY(host_id) REFERENCES hostnames(id) ON DELETE CASCADE, "
+        "is_up BOOLEAN NOT NULL, "
+        "message VARCHAR)"
+    )
+    TB_DESCRIPTION_HOST_STATUS_COLS = ["host_id", "is_up"]
 
     def __str__(self):
         return f"{self.__class__.__name__}: {self.db_uri}"
@@ -113,6 +140,7 @@ class DQM2MirrorDB:
         with self.engine.connect() as cur:
             session = self.Session(bind=cur)
             try:
+                self.log.info(f"Creating table {self.TB_NAME_RUNS}")
                 session.execute(
                     text(
                         "CREATE TABLE IF NOT EXISTS "
@@ -121,6 +149,11 @@ class DQM2MirrorDB:
                         + self.TB_DESCRIPTION_RUNS
                     )
                 )
+            except psycopg2.IntegrityError as e:
+                self.log.error("Error occurred: ", e)
+                session.rollback()
+            try:
+                self.log.info(f"Creating table {self.TB_NAME_GRAPHS}")
                 session.execute(
                     text(
                         "CREATE TABLE IF NOT EXISTS "
@@ -129,6 +162,38 @@ class DQM2MirrorDB:
                         + self.TB_DESCRIPTION_GRAPHS
                     )
                 )
+            except psycopg2.IntegrityError as e:
+                self.log.error("Error occurred: ", e)
+                session.rollback()
+
+            try:
+                self.log.info(f"Creating table {self.TB_NAME_HOST_NAME}")
+                session.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS "
+                        + self.TB_NAME_HOST_NAME
+                        + " "
+                        + self.TB_DESCRIPTION_HOST_NAME
+                    )
+                )
+            except psycopg2.IntegrityError as e:
+                self.log.error("Error occurred: ", e)
+                session.rollback()
+            try:
+                self.log.info(f"Creating table {self.TB_NAME_HOST_STATUS}")
+                session.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS "
+                        + self.TB_NAME_HOST_STATUS
+                        + " "
+                        + self.TB_DESCRIPTION_HOST_STATUS
+                    )
+                )
+            except psycopg2.IntegrityError as e:
+                self.log.error("Error occurred: ", e)
+                session.rollback()
+            try:
+                self.log.info(f"Creating table {self.TB_NAME_META}")
                 session.execute(text(f"DROP TABLE IF EXISTS {self.TB_NAME_META};"))
                 session.execute(
                     text(
@@ -138,6 +203,19 @@ class DQM2MirrorDB:
                         + self.TB_DESCRIPTION_META
                     )
                 )
+            except psycopg2.IntegrityError as e:
+                self.log.error("Error occurred: ", e)
+                session.rollback()
+
+            try:
+                self.log.info(f'Running "migrations"')
+                with open("./sql/migrations/0001_indexes.sql") as f:
+                    session.execute(text(f.read()))
+            except psycopg2.IntegrityError as e:
+                self.log.error(f"Error occurred: ", e)
+                session.rollback()
+
+            try:
                 session.commit()
             except psycopg2.IntegrityError as e:
                 self.log.error("Error occurred: ", e)
@@ -219,7 +297,7 @@ class DQM2MirrorDB:
                 )
         values = [run, rev, id, timestamp, global_start, stream_data, hostname]
         values_dic = {}
-        for val, name in zip(values, self.TB_DESCRIPTION_GRAPHS_SHORT):
+        for val, name in zip(values, self.TB_DESCRIPTION_GRAPHS_COLS):
             values_dic[name] = val
 
         with self.engine.connect() as cur:
@@ -327,7 +405,7 @@ class DQM2MirrorDB:
             f"DQM2MirrorDB.fill_run() - {str(values[:-2])}, {str(values[-2][:10])}..{str(values[-2][-10:])}, {str(values[-1][:10])}..{str(values[-1][-10:])}"
         )
         values_dic = {}
-        for val, name in zip(values, self.TB_DESCRIPTION_RUNS_SHORT):
+        for val, name in zip(values, self.TB_DESCRIPTION_RUNS_COLS):
             values_dic[name] = val
 
         with self.engine.connect() as cur:
@@ -377,7 +455,51 @@ class DQM2MirrorDB:
 
         return 0
 
-    def get(
+    def fill_cluster_status(self, cluster_status: dict):
+        """
+        Function to store data received after running get_cluster_status into the DB.
+        """
+        assert isinstance(cluster_status, dict)
+        assert len(cluster_status.keys()) > 0
+        self.log.debug(f"Filling data: {cluster_status}")
+        with self.engine.connect() as cur:
+            for hostname, status in cluster_status.items():
+                assert isinstance(status, dict)
+                assert "up" in status
+                assert "msg" in status
+                result = cur.execute(
+                    text(
+                        f"SELECT id FROM {self.TB_NAME_HOST_NAME} WHERE name='{hostname}'"
+                    )
+                ).all()
+
+                if len(result) == 0:
+                    cur.execute(
+                        sqlalchemy.insert(
+                            self.db_meta.tables[self.TB_NAME_HOST_NAME]
+                        ).values({self.TB_DESCRIPTION_HOST_NAME_COLS[0]: hostname})
+                    )
+                    result = cur.execute(
+                        text(
+                            f"SELECT id FROM {self.TB_NAME_HOST_NAME} WHERE name='{hostname}'"
+                        )
+                    ).all()
+
+                host_id = result[0][0]  # id of host in db
+                result = cur.execute(
+                    sqlalchemy.insert(
+                        self.db_meta.tables[self.TB_NAME_HOST_STATUS]
+                    ).values(
+                        dict(
+                            zip(
+                                self.TB_DESCRIPTION_HOST_STATUS_COLS,
+                                [host_id, status["up"], status["msg"]],
+                            )
+                        )
+                    )
+                )
+
+    def get_run(
         self,
         run_start: int,
         run_end: int,
@@ -397,137 +519,19 @@ class DQM2MirrorDB:
             if run_start == run_end:
                 answer = cur.execute(
                     text(
-                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT {self.TB_DESCRIPTION_RUNS_SHORT_NOLOGS} FROM {self.TB_NAME_RUNS} "
+                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT {self.TB_DESCRIPTION_RUNS_COLS_NOLOGS} FROM {self.TB_NAME_RUNS} "
                         + f"WHERE run = {run_start} {postfix} ORDER BY client, id;"
                     )
                 ).all()
             else:
                 answer = cur.execute(
                     text(
-                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT {self.TB_DESCRIPTION_RUNS_SHORT_NOLOGS} FROM {self.TB_NAME_RUNS} "
+                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT {self.TB_DESCRIPTION_RUNS_COLS_NOLOGS} FROM {self.TB_NAME_RUNS} "
                         + f"WHERE run BETWEEN {run_start} AND {run_end} {postfix};"
                     )
                 ).all()
         self.log.debug(f"Read DB for runs {run_start}-{run_end}: {answer}")
         return answer
-
-    def format_run_data(self, data):
-        """
-        Given run data from the DB, format them for the front-end.
-        """
-        answer = []
-        (
-            id,
-            client,
-            _,
-            _,
-            hostname,
-            exit_code,
-            events_total,
-            events_rate,
-            _,
-            cmssw_lumi,
-            client_path,
-            runkey,
-            _,
-            timestamp,
-            VmRSS,
-        ) = data
-        client = self.get_short_client_name(client)
-        # Hide part of the hostname for safety reasons
-        hostname = _censor_hostname(hostname)
-        # Timestamp is of type datetime, and is tz-aware,
-        # as it's coming straight from the DB.
-        td = TZ.localize(datetime.now()) - timestamp
-        days = int(td.days)
-        hours = int((td.seconds / (60 * 60)) % 24)
-        minutes = int((td.seconds / 60) % 60)
-        seconds = int(td.seconds % 60)
-        td = "%02d:%02d" % (minutes, seconds)
-        td = "%02d:" % (hours) + td
-        td = "%d days " % (days) + td
-
-        cmssw_path = ""
-        subfolders = client_path.split("/")
-        for folder in subfolders:
-            if "CMSSW" in folder:
-                cmssw_path = folder
-                break
-        cmssw_v = cmssw_path.split("CMSSW_")[1]
-        runkey = runkey[len("runkey=") :]
-
-        answer = [
-            (
-                timestamp.isoformat(),
-                td,
-                hostname,
-                exit_code,
-                client,
-                cmssw_lumi,
-                VmRSS,
-                events_total,
-                id,
-                events_rate,
-            ),
-            (cmssw_v, runkey),
-        ]
-        return answer
-
-    def format_table_entry(self, data: dict):
-        """ """
-        answer = []
-        (
-            _,
-            client,
-            run,
-            _,
-            hostname,
-            exit_code,
-            events_total,
-            _,
-            cmssw_run,
-            cmssw_lumi,
-            client_path,
-            runkey,
-            fi_state,
-            timestamp,
-            _,
-        ) = data
-        client = self.get_short_client_name(client)
-        hostname = _censor_hostname(hostname)
-        runkey = runkey[len("runkey=") :]
-
-        cmssw_path = ""
-        subfolders = client_path.split("/")
-        for folder in subfolders:
-            if "CMSSW" in folder:
-                cmssw_path = folder
-                break
-
-        cmssw_v = cmssw_path.split("CMSSW_")[1]
-
-        answer = [
-            run,
-            client,
-            (
-                hostname,
-                events_total,
-                cmssw_lumi,
-                fi_state,
-                exit_code,
-                timestamp.isoformat(),
-            ),
-            (cmssw_run, runkey, cmssw_v),
-        ]
-
-        return answer
-
-    def filter_clients(self, name):
-        if not name:
-            return False
-        if name == "__init__":
-            return False
-        return True
 
     def get_mirror_data(self, run_number: int) -> tuple:
         """
@@ -535,8 +539,8 @@ class DQM2MirrorDB:
 
         Returns a tuple: global_data and clients_data (???)
         """
-        runs = self.get(run_number, run_number)
-        runs_out = [self.format_run_data(run) for run in runs]
+        runs = self.get_run(run_number, run_number)
+        runs_out = [format_run_data(run) for run in runs]
         clients_data = [run[0] for run in runs_out]
         global_data = runs_out[0][1] if runs_out else []
         return global_data, clients_data
@@ -548,8 +552,8 @@ class DQM2MirrorDB:
         bad_only: bool = False,
         with_ls_only: bool = False,
     ) -> dict:
-        runs = self.get(run_start, run_end, bad_only, with_ls_only)
-        runs_out = [self.format_table_entry(run) for run in runs]
+        runs = self.get_run(run_start, run_end, bad_only, with_ls_only)
+        runs_out = [format_table_entry(run) for run in runs]
 
         dic = defaultdict(dict)
         for run in runs_out:
@@ -570,12 +574,27 @@ class DQM2MirrorDB:
 
         return dict(dic)
 
-    def get_short_client_name(self, client):
-        return (
-            client[: -len("_dqm_sourceclient-live")]
-            if "_dqm_sourceclient-live" in client
-            else client
-        )
+    def get_cluster_status(
+        self, timestamp_from: datetime = None, timestamp_to: datetime = None
+    ):
+        self.log.debug("DQM2MirrorDB.get_cluster_status()")
+        with self.engine.connect() as cur:
+            answer = cur.execute(
+                text(
+                    f"SELECT hostnames.name, hoststatuses.is_up, hoststatuses.message, max(hoststatuses.created_at) "
+                    + f"FROM {self.TB_NAME_HOST_STATUS} "
+                    + f"INNER JOIN {self.TB_NAME_HOST_NAME} "
+                    + "ON hoststatuses.host_id = hostnames.id "
+                    + "GROUP BY hoststatuses.host_id, hostnames.id, hoststatuses.is_up, hoststatuses.message"
+                )
+            ).all()
+
+        answer = [
+            # hostname, is_up, message, timestamp
+            (_censor_hostname(a[0]), a[1], a[2], datetime.timestamp(a[3]))
+            for a in answer
+        ]
+        return answer
 
     def get_clients(self, run_start: int, run_end: int) -> list:
         self.log.debug("DQM2MirrorDB.get_clients()")
@@ -587,9 +606,7 @@ class DQM2MirrorDB:
                 )
             ).all()
         answer = [
-            self.get_short_client_name(name[0])
-            for name in answer
-            if self.filter_clients(name[0])
+            get_short_client_name(name[0]) for name in answer if filter_clients(name[0])
         ]
         # self.log.debug( "return " + str(answer) )
         return answer

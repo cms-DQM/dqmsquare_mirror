@@ -5,12 +5,13 @@ import json
 import time, sys
 import requests
 import urllib3
+from urllib.parse import urljoin, urlencode
 import logging
 import traceback
 import dqmsquare_cfg
 from custom_logger import custom_formatter, set_log_handler
 from db import DQM2MirrorDB
-
+import threading
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -139,6 +140,38 @@ def get_latest_info_from_host(host: str, rev: int, db: DQM2MirrorDB) -> None:
         #     bad_rvs += [answer]
 
 
+def get_cluster_status(db: DQM2MirrorDB, cluster: str = "playback"):
+    """
+    Function that queries the gateway playback machine periodically to get the status of the
+    production or playback cluster machines.
+    """
+    url = urljoin(
+        cfg["CMSWEB_FRONTEND_PROXY_URL"] + "/",
+        "cr/exe?" + urlencode({"cluster": cluster, "what": "get_cluster_status"}),
+    )
+    response = requests.get(
+        url,
+        cookies={str(cfg["FFF_SECRET_NAME"]): os.environ.get("DQM_FFF_SECRET").strip()},
+        verify=False,
+        cert=([cfg["SERVER_GRID_CERT_PATH"], cfg["SERVER_GRID_KEY_PATH"]]),
+    )
+    if response.status_code != 200:
+        logger.error(
+            f"fff_dqmtools ({url}) returned {response.status_code}. Response: "
+            f"{response.text}"
+        )
+        raise Exception(
+            f"Failed to fetch {cluster} status. Got ({response.status_code}) {response.text}"
+        )
+
+    try:
+        response = response.json()
+    except Exception as e:
+        logger.error(f"Exception {e} when parsing: {response.text}")
+        raise Exception(f"Failed to parse {cluster} status. Got {response.text}")
+    db.fill_cluster_status(response)
+
+
 def get_latest_info_from_hosts(hosts: list[str], db: DQM2MirrorDB) -> None:
     """
     Function that gets updated information on each of the hosts specified
@@ -158,7 +191,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "playback":
         set_log_handler(
             logger,
-            cfg["ROBBER_LOG_PATH_PLAYBACK"],
+            cfg["GRABBER_LOG_PATH_PLAYBACK"],
             cfg["LOGGER_ROTATION_TIME"],
             cfg["LOGGER_MAX_N_LOG_FILES"],
             cfg["GRABBER_DEBUG"],
@@ -167,7 +200,7 @@ if __name__ == "__main__":
     elif len(sys.argv) > 1 and sys.argv[1] == "production":
         set_log_handler(
             logger,
-            cfg["ROBBER_LOG_PATH_PRODUCTION"],
+            cfg["GRABBER_LOG_PATH_PRODUCTION"],
             cfg["LOGGER_ROTATION_TIME"],
             cfg["LOGGER_MAX_N_LOG_FILES"],
             cfg["GRABBER_DEBUG"],
@@ -223,23 +256,93 @@ if __name__ == "__main__":
     # Once the loop goes over all the hosts and modes, it will have info for at most 1000 "headers" for each
     # host. Using the latest revision on each header, it asks for 1000 more headers on the next
     # iteration. This goes on forever, until the latest documents are fetched.
-    while True:
-        try:
-            ### get content from active sites
-            if "playback" in run_modes:
-                get_latest_info_from_hosts(playback_machines, db_playback)
-            if "production" in run_modes:
-                get_latest_info_from_hosts(production_machines, db_production)
-        except KeyboardInterrupt:
-            break
-        except Exception as error:
-            logger.warning(f"Crashed in loop with error: {repr(error)}")
-            logger.warning(f"Traceback: {traceback.format_exc()}")
-            continue
+    def loop_info(
+        machines: list[str],
+        db: DQM2MirrorDB,
+        timeout: int = cfg["GRABBER_SLEEP_TIME_INFO"],
+    ):
+        while True:
+            try:
+                get_latest_info_from_hosts(machines, db)
+            except Exception as error:
+                logger.warning(f"Crashed in info loop with error: {repr(error)}")
+                logger.warning(f"Traceback: {traceback.format_exc()}")
+                continue
+            logger.debug(f"Sleeping for {timeout}s")
+            time.sleep(timeout)
 
-        if cfg["ENV"] != "development":
-            logger.debug("z-Z-z until next iteration")
-            time.sleep(int(cfg["SLEEP_TIME"]))
+    # Loop for fetching cluster status.
+    def loop_status(
+        db: DQM2MirrorDB,
+        cluster: str = "playback",
+        timeout: int = cfg["GRABBER_SLEEP_TIME_STATUS"],
+    ):
+        while True:
+            try:
+                get_cluster_status(db, cluster)
+            except Exception as error:
+                logger.warning(f"Crashed in status loop with error: {repr(error)}")
+                logger.warning(f"Traceback: {traceback.format_exc()}")
+                continue
+            logger.debug(f"Sleeping for {timeout}s")
+            time.sleep(timeout)
+
+    active_threads = []
+    if "playback" in run_modes:
+        active_threads.append(
+            threading.Thread(
+                target=loop_info,
+                args=[playback_machines, db_playback, cfg["GRABBER_SLEEP_TIME_INFO"]],
+                daemon=True,
+            )
+        )
+        active_threads.append(
+            threading.Thread(
+                target=loop_status,
+                args=[db_playback, "playback", cfg["GRABBER_SLEEP_TIME_STATUS"]],
+                daemon=True,
+            )
+        )
+    if "production" in run_modes:
+        active_threads.append(
+            threading.Thread(
+                target=loop_info,
+                args=[
+                    production_machines,
+                    db_production,
+                    cfg["GRABBER_SLEEP_TIME_INFO"],
+                ],
+                daemon=True,
+            )
+        )
+        active_threads.append(
+            threading.Thread(
+                target=loop_status,
+                args=[db_production, "production", cfg["GRABBER_SLEEP_TIME_STATUS"]],
+                daemon=True,
+            )
+        )
+    for thread in active_threads:
+        logger.info(f"Starting thread {thread._name}")
+        thread.start()
+    while True:
+        time.sleep(1)
+        # try:
+        #     ### get content from active sites
+        #     if "playback" in run_modes:
+        #         # get_latest_info_from_hosts(playback_machines, db_playback)
+        #         get_cluster_status(db_playback, "playback")
+        #     if "production" in run_modes:
+        #         # get_latest_info_from_hosts(production_machines, db_production)
+        #         get_cluster_status(db_production, "production")
+        # except KeyboardInterrupt:
+        #     break
+        # except Exception as error:
+        #     logger.warning(f"Crashed in loop with error: {repr(error)}")
+        #     logger.warning(f"Traceback: {traceback.format_exc()}")
+        #     continue
+
+        # time.sleep(int(cfg["GRABBER_SLEEP_TIME_INFO"]))
 
         # if len(bad_rvs):
         #     log.info(f"BAD REVISIONS: {bad_rvs}")

@@ -40,10 +40,18 @@ def load_cfg() -> dict:
 
     ### default values === >
     cfg = {}
-    cfg["VERSION"] = "1.2.0"
+    cfg["VERSION"] = "1.3.0"
 
     cfg["ENV"] = os.environ.get("ENV", "development")
-    cfg["SLEEP_TIME"] = 5  # sec, int
+
+    # How often to try to get CMSSW jobs info
+    # sec, int
+    cfg["GRABBER_SLEEP_TIME_INFO"] = os.environ.get("GRABBER_SLEEP_TIME_INFO", 5)
+
+    # How often to ping the cluster machines for their status.
+    # Keep it above 30 secs.
+    # sec, int
+    cfg["GRABBER_SLEEP_TIME_STATUS"] = os.environ.get("GRABBER_SLEEP_TIME_STATUS", 30)
 
     cfg["LOGGER_ROTATION_TIME"] = 24  # h, int
     cfg["LOGGER_MAX_N_LOG_FILES"] = 10  # int
@@ -130,15 +138,15 @@ def load_cfg() -> dict:
     )
     cfg["SERVER_SIMULATOR_RUN_KEYS"] = "cosmic_run,pp_run,hi_run"
 
-    cfg["ROBBER_LOG_PATH_PRODUCTION"] = (
-        os.path.join("/", mount_path, "log/robber1.log")
+    cfg["GRABBER_LOG_PATH_PRODUCTION"] = (
+        os.path.join("/", mount_path, "log/grabber_production.log")
         if cfg["ENV"] != "development"
-        else "log/robber1.log"
+        else "log/grabber_production.log"
     )
-    cfg["ROBBER_LOG_PATH_PLAYBACK"] = (
-        os.path.join("/", mount_path, "log/robber2.log")
+    cfg["GRABBER_LOG_PATH_PLAYBACK"] = (
+        os.path.join("/", mount_path, "log/grabber_playback.log")
         if cfg["ENV"] != "development"
-        else "log/robber2.log"
+        else "log/grabber_playback.log"
     )
 
     cfg["GRABBER_LOG_PATH"] = (

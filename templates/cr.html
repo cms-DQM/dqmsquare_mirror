@@ -2,70 +2,104 @@
 
 {% block head%}
 <link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
+<title>DQM&sup2; Mirror — Control Room</title>
 {% endblock %}
 
 {% block extra_navbar_links %}
-<a class="mlink" href="{{ PREFIX }}cr/logout/">&#x25A0; Logout</a>
+<li class="nav-item">
+  <a class="nav-link mlink" href="{{ PREFIX }}cr/logout/">Logout</a>
+</li>
 {% endblock %}
 
 {% block content %}
-<div>
+<div class="row">
   <strong>Output:</strong>
+</div>
+<div class="row">
   <pre id="console" class="techtext"> </pre>
-
-  <div id="myProgress">
-    <div id="myBar"></div>
+</div>
+<div class="row">
+  <div class="progress custom-progress" id="myProgress">
+    <div class="progress-bar" role="progressbar" id="myBar"></div>
   </div>
-
-  <button class="btn btn-secondary" id="btn_get_dqm_machines" onclick="cr_get_dqm_machines()">Print DQM machines</button>
-  <button class="btn btn-secondary" id="btn_get_hltd_version" onclick="cr_get_hltd_version()">Print HLTD versions</button>
-  <button class="btn btn-secondary" id="btn_get_fff_version" onclick="cr_get_fff_version()">Print FFF versions</button>
-  <button class="btn btn-secondary" id="btn_get_cmssw_info" onclick="cr_get_cmssw_info()">Print CMSSW info</button>
-
-  <div class="row">
-    <div class="column">
-      <div id="hltd_production"> </div>
-    </div>
-    <div class="column">
-      <div id="hltd_playback"> </div>
-    </div>
-    <div class="column">
-      <div id="playback_run"> </div>
-      <strong>Playback simulations:</strong> <br>
-      <button class="btn btn-secondary" id="btn_get_simulator_config" onclick="cr_get_simulator_config()">Print Simulator
-        config</button> <br>
-      Select playback run: <select id="run_number" name="run_number"
-        onchange="update_oms_link( this.options[this.selectedIndex].value )"></select> <br>
-      <a id="oms_link" href="https://cmsoms.cern.ch/cms/runs/report?cms_run=349963&cms_run_sequence=GLOBAL-RUN"
-        target="_blank">OMS link run 349963</a> <br>
-      Select run class: <select id="run_key" name="run_key"></select><br>
-      Set LS number: <input type="number" id="LS_number" name="LS_number" min="1" max="10000" size="7"><br>
-      <button class="btn btn-secondary" id="btn_start_playback_run" onclick="cr_start_playback_run()">Start new run</button><br><br>
-
-      <strong>Productions runs:</strong> <br>
-      Select production run: <select id="run_number_prod" name="run_number_prod"></select>
-      <button class="btn btn-secondary" id="btn_get_production_runs" onclick="cr_get_production_runs()">refresh</button> <br>
-      Set LS number to copy: <input type="number" id="LS_number_prod" name="LS_number_prod" min="1" max="10000"
-        size="7"><br>
-      <button class="btn btn-secondary" id="btn_copy_production_runs" onclick="cr_copy_production_runs()">Copy production
-        run</button><br>
-    </div>
+</div>
+<div class="row mt-2">
+  <div class="col-2">
+    <button class="btn btn-dark bg-theme" title="Get a list of all DQM machines at P5" id="btn_get_dqm_machines"
+      onclick="cr_get_dqm_machines()">Print DQM
+      machines</button>
   </div>
-  <p style="clear:both;margin-bottom:25px"></p>
-
-  <!-- Tab links -->
-  <div class="row">
-    <div class="column2">
-      <div class="tab" id="clients_production"></div>
-      <div id="clients_production_tabs"></div>
-    </div>
-    <div class="column2">
-      <div class="tab" id="clients_playback"></div>
-      <div id="clients_playback_tabs"> </div>
-    </div>
+  <div class="col-2">
+    <button class="btn btn-dark bg-theme" title="Print the hltd version installed on the P5 machines"
+      id="btn_get_hltd_version" onclick="cr_get_hltd_version()">Print HLTD
+      versions</button>
+  </div>
+  <div class="col-2">
+    <button class="btn btn-dark bg-theme" id="btn_get_fff_version" onclick="cr_get_fff_version()">Print FFF
+      versions</button>
+  </div>
+  <div class="col-2">
+    <button class="btn btn-dark bg-theme" id="btn_get_cmssw_info" onclick="cr_get_cmssw_info()">Print CMSSW info</button>
   </div>
 </div>
 
+
+<div class="row">
+  <div class="col">
+    <div id="hltd_production"> </div>
+  </div>
+  <div class="col">
+    <div id="hltd_playback"> </div>
+  </div>
+  <div class="col">
+    <!-- <div id="playback_run"> </div> -->
+    <div class="row">
+      <strong>Playback simulations:</strong>
+    </div>
+    <div class="row">
+      <button class="btn btn-dark bg-theme" id="btn_get_simulator_config" onclick="cr_get_simulator_config()">Print
+        Simulator
+        config</button>
+    </div>
+    <div class="row">
+      <div class="col-3">
+        Select playback run:
+      </div>
+      <div class="col-9">
+        <select id="run_number" name="run_number"
+          onchange="update_oms_link( this.options[this.selectedIndex].value )"></select>
+      </div>
+    </div>
+    <a id="oms_link" href="https://cmsoms.cern.ch/cms/runs/report?cms_run=349963&cms_run_sequence=GLOBAL-RUN"
+      target="_blank">OMS link run 349963</a> <br>
+    Select run class: <select id="run_key" name="run_key"></select><br>
+    Set LS number: <input type="number" id="LS_number" name="LS_number" min="1" max="10000" size="7"><br>
+    <button class="btn btn-dark bg-theme" id="btn_start_playback_run" onclick="cr_start_playback_run()">Start new
+      run</button><br><br>
+
+    <strong>Productions runs:</strong> <br>
+    Select production run: <select id="run_number_prod" name="run_number_prod"></select>
+    <button class="btn btn-dark bg-theme" id="btn_get_production_runs" onclick="cr_get_production_runs()">refresh</button>
+    <br>
+    Set LS number to copy: <input type="number" id="LS_number_prod" name="LS_number_prod" min="1" max="10000"
+      size="7"><br>
+    <button class="btn btn-dark bg-theme" id="btn_copy_production_runs" onclick="cr_copy_production_runs()">Copy
+      production
+      run</button><br>
+  </div>
+</div>
+
+<!-- Tab links -->
+<div class="row mt-4 mb-3">
+  <div class="col">
+    <div class="tab" id="clients_production"></div>
+    <div id="clients_production_tabs"></div>
+  </div>
+  <div class="col">
+    <div class="tab" id="clients_playback"></div>
+    <div id="clients_playback_tabs"> </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block script %}
@@ -110,26 +144,29 @@
   }
 
   // load bar
-  var bar_N_req = 0;
-  var bar_N_done = 0;
+  let bar_N_req = 0;
+  let bar_N_done = 0;
   function updateBar(done) {
-    if (done) bar_N_done += 1;
-    else bar_N_req += 1;
+    if (done) {
+      bar_N_done += 1;
+    } else {
+      bar_N_req += 1;
+    }
     var elem = document.getElementById("myBar");
     elem.style.width = Math.min(bar_N_done / Math.max(bar_N_req, 1) * 100, 100) + "%";
   }
 
   // console
-  var MAX_CONSOLE_SIZE = 80
+  let MAX_CONSOLE_SIZE = 80
 
-  var console_content = [];
+  let console_content = [];
   for (let i = 0; i <= MAX_CONSOLE_SIZE; ++i) console_content.push(". . .\n");
 
   function countLines() {
-    var el = document.getElementById('content');
-    var divHeight = el.offsetHeight
-    var lineHeight = parseInt(el.style.lineHeight);
-    var lines = divHeight / lineHeight;
+    let el = document.getElementById('content');
+    let divHeight = el.offsetHeight
+    let lineHeight = parseInt(el.style.lineHeight);
+    let lines = divHeight / lineHeight;
     alert("Lines: " + lines);
   }
 
@@ -297,20 +334,20 @@
 
   // buttons constructor functions
   function cr_restart_hltd(machine) {
-    set_and_process_cr_button("btn hltd restart " + machine, "{{ PREFIX }}cr/exe?what=restart_hltd&host=" + machine);
+    set_and_process_cr_button("btn btn-dark bg-theme hltd restart " + machine, "{{ PREFIX }}cr/exe?what=restart_hltd&host=" + machine);
   }
 
   function cr_restart_fff(machine) {
-    set_and_process_cr_button("btn fff restart " + machine, "{{ PREFIX }}cr/exe?what=restart_fff&host=" + machine);
+    set_and_process_cr_button("btn btn-dark bg-theme fff restart " + machine, "{{ PREFIX }}cr/exe?what=restart_fff&host=" + machine);
   }
 
   // buttons constructor functions to open tabs with logs
   function cr_get_hltd_logs(machine) {
-    set_and_process_cr_log_button("btn hltd logs " + machine, "{{ PREFIX }}cr/exe?what=get_hltd_logs&host=" + machine);
+    set_and_process_cr_log_button("btn btn-dark bg-theme hltd logs " + machine, "{{ PREFIX }}cr/exe?what=get_hltd_logs&host=" + machine);
   }
 
   function cr_get_fff_logs(machine) {
-    set_and_process_cr_log_button("btn fff logs " + machine, "{{ PREFIX }}cr/exe?what=get_fff_logs&host=" + machine);
+    set_and_process_cr_log_button("btn btn-dark bg-theme fff logs " + machine, "{{ PREFIX }}cr/exe?what=get_fff_logs&host=" + machine);
   }
 
   // buttons with actions
@@ -397,29 +434,29 @@
       dqm_machines_pl = eval(xhttp_def_pl.responseText);
 
       let text = "<strong>Playback machines:</strong> <br>";
-      // get logs hltd 
+      // get logs hltd
       text += "hltd logs: <br>";
       dqm_machines_pl.forEach(function (item, index, array) {
-        text += "<button class=\"btn btn-secondary\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
+        text += "<button class=\"btn btn-dark bg-theme\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
       })
-      // restart hltd 
+      // restart hltd
       text += "<br> hltd restart: <br>";
       dqm_machines_pl.forEach(function (item, index, array) {
-        text += "<button class=\"btn btn-secondary\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
+        text += "<button class=\"btn btn-dark bg-theme\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
       })
-      // get fff hltd 
+      // get fff hltd
       text += "<br> fff logs: <br>";
       dqm_machines_pl.forEach(function (item, index, array) {
-        text += "<button class=\"btn btn-secondary\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
+        text += "<button class=\"btn btn-dark bg-theme\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
       })
-      // restart fff 
+      // restart fff
       text += "<br> fff restart: <br>";
       dqm_machines_pl.forEach(function (item, index, array) {
-        text += "<button class=\"btn btn-secondary\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
+        text += "<button class=\"btn btn-dark bg-theme\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
       })
       document.getElementById("hltd_playback").innerHTML = text;
 
-      // clients 
+      // clients
       let text_clients = "<strong>Playback clients:</strong> <br>";
       dqm_machines_pl.forEach(function (item, index, array) {
         if (item.charAt(0) == "b") return;
@@ -448,22 +485,22 @@
       // get logs
       text += "hltd logs: <br>"
       dqm_machines_pr.forEach(function (item, index, array) {
-        text += "<button class=\"btn btn-secondary\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
+        text += "<button class=\"btn btn-dark bg-theme\" id=\"btn hltd logs " + item + "\" onclick=\"cr_get_hltd_logs(\'" + item + "\')\">Get HLTD logs from " + item + "</button>";
       })
       // restart hltd
       text += "<br> hltd restart: <br>"
       dqm_machines_pr.forEach(function (item, index, array) {
-        text += "<button class=\"btn btn-secondary\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
+        text += "<button class=\"btn btn-dark bg-theme\" id=\"btn hltd restart " + item + "\" onclick=\"cr_restart_hltd(\'" + item + "\')\">Restart HLTD at " + item + "</button>";
       })
       // get fff hltd
       text += "<br> fff logs: <br>"
       dqm_machines_pr.forEach(function (item, index, array) {
-        text += "<button class=\"btn btn-secondary\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
+        text += "<button class=\"btn btn-dark bg-theme\" id=\"btn fff logs " + item + "\" onclick=\"cr_get_fff_logs(\'" + item + "\')\">Get FFF logs from " + item + "</button>";
       })
       // restart fff
       text += "<br> fff restart: <br>"
       dqm_machines_pr.forEach(function (item, index, array) {
-        text += "<button class=\"btn btn-secondary\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
+        text += "<button class=\"btn btn-dark bg-theme\" id=\"btn fff restart " + item + "\" onclick=\"cr_restart_fff(\'" + item + "\')\">Restart FFF at " + item + "</button>";
       })
 
       document.getElementById("hltd_production").innerHTML = text;
@@ -472,7 +509,7 @@
       let text_clients = "<strong>Production clients:</strong> <br>";
       dqm_machines_pr.forEach(function (item, index, array) {
         if (item.charAt(0) == "b") return;
-        // text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_open_tab(event, \'tab " + item + "\')\">" + item + "</button>";    
+        // text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_open_tab(event, \'tab " + item + "\')\">" + item + "</button>";
         //cr_get_dqm_clients_tabe_content( item, "0", "clients_production_tabs" );
         text_clients += "<button class=\"tablinks\" id=\"btn fff clients " + item + "\" onclick=\"cr_get_dqm_clients_tabe_content(event, \'tab " + item + "\', \'" + item + "\', \'0\', \'clients_production_tabs\')\">" + item + "</button>";
       });
