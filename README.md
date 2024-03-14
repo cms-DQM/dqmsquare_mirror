@@ -1,8 +1,7 @@
+# DQM<sup>2</sup> Mirror
 
-# DQM^2 Mirror
-
-> **Note**
-> More up-to-date information can be found in the [Wiki](./wiki)
+> [!NOTE]
+> More detailed information can be found in the [Wiki](./wiki)
 
 This is a system to grab the information about DQM jobs from DQM^2 site,
 parse it, removing sensitive information, and show selections outside the P5 are.
