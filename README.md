@@ -1,7 +1,7 @@
 # DQM<sup>2</sup> Mirror
 
 > [!NOTE]
-> More detailed information can be found in the [Wiki](./wiki)
+> More detailed information can be found in the [Wiki](https://github.com/cms-DQM/dqmsquare_mirror/wiki).
 
 This is a system to grab the information about DQM jobs from DQM^2 site,
 parse it, removing sensitive information, and show selections outside the P5 are.
