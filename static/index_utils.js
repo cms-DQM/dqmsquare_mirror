@@ -80,6 +80,9 @@ function update_table(run_id, data) {
     let num_clients_running = 0;
     let num_clients_stopped = 0;
     let num_clients_crashed = 0;
+    let num_clients_stuck = 0;
+
+    let diff_warning = runs_table_config.find(obj => obj.title == 'Time Diff').diff_warning
 
     // (timestamp, td, hostname, fi_state, client, cmssw_lumi, VmRSS, events_total, id, events_rate)
     for (let client_data of clients_data) {
@@ -95,24 +98,35 @@ function update_table(run_id, data) {
         let exit_code = client_data[3];
         let state = exit_code;
         let is_process_running = false;
+        let base_css_class;
+        let custom_css_class;
 
         if ((exit_code === null) || (exit_code === undefined) || (exit_code === -1)) {
             is_process_running = true;
-            tr.classList.add("table-success");
-            tr.classList.add("table-success-custom");
-            num_clients_running += 1; // Count running processes
+            if (client_data[0] >= diff_warning) {
+                base_css_class = "table-dark";
+                custom_css_clas = "table-dark-custom";
+                num_clients_stuck += 1;
+            } else {
+                base_css_class = "table-success";
+                custom_css_class = "table-success-custom";
+                num_clients_running += 1; // Count running processes
+            }
         } else if ((exit_code === 0) || (exit_code === "0")) {
-            tr.classList.add("table-warning");
-            tr.classList.add("table-warning-custom");
+            base_css_class = "table-warning";
+            custom_css_class = "table-warning-custom";
             num_clients_stopped += 1; // Count stopped processes
             client_data[3] = state;
         } else {
-            tr.classList.add("table-danger");
-            tr.classList.add("table-danger-custom");
+            base_css_class = "table-danger";
+            custom_css_class = "table-danger-custom";
             num_clients_crashed += 1; // Count failed processes
             client_data[3] = state;
-
         }
+
+        tr.classList.add(base_css_class);
+        tr.classList.add(custom_css_class);
+
         // Populate table
         for (const [i, data] of client_data.entries()) {
             if (runs_table_config[i].skip === true) {
@@ -176,9 +190,11 @@ function update_table(run_id, data) {
     let el_jobs_stopped = document.getElementById("jobs-stopped-badge");
     el_jobs_stopped.innerHTML = num_clients_stopped;
 
-
     let el_jobs_crashed = document.getElementById("jobs-crashed-badge");
     el_jobs_crashed.innerHTML = num_clients_crashed;
+    
+    let el_jobs_stuck = document.getElementById("jobs-stuck-badge");
+    el_jobs_stuck.innerHTML = num_clients_stuck;
 
 };
 // timedelta is in ms
