@@ -9,3 +9,4 @@ dqm2m_production.db_test
 *.pkl
 *.log.*
 *.yaml
+.venv
