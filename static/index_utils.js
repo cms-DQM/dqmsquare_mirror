@@ -103,7 +103,7 @@ function update_table(run_id, data) {
 
         if ((exit_code === null) || (exit_code === undefined) || (exit_code === -1)) {
             is_process_running = true;
-            if (client_data[0] >= diff_warning) {
+            if (client_data[1] >= diff_warning) {
                 base_css_class = "table-dark";
                 custom_css_clas = "table-dark-custom";
                 num_clients_stuck += 1;
@@ -123,7 +123,7 @@ function update_table(run_id, data) {
             num_clients_crashed += 1; // Count failed processes
             client_data[3] = state;
         }
-
+        
         tr.classList.add(base_css_class);
         tr.classList.add(custom_css_class);
 

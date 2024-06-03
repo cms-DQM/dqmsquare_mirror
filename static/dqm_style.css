@@ -150,6 +150,11 @@ a.hidden-link-dark {
   background-color: #F4D03F;
 }
 
+/* Job finished */
+.srun {
+  background-color: #343a40;
+}
+
 /* Dark variations for alternating column colors */
 .rrunD {
   background-color: #d26459;
