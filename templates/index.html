@@ -35,7 +35,7 @@
                 <span title="Total jobs currently running" class="ms-1 badge grun" id="jobs-running-badge"></span>
                 <span title="Total jobs finished" class="ms-1 badge yrun" id="jobs-stopped-badge"></span>
                 <span title="Total jobs crashed" class="ms-1 badge rrun" id="jobs-crashed-badge"></span>
-                <span title="Total jobs stuck" class="ms-1 badge srun" id="jobs-stuck-badge"></span>
+                <span title="Total jobs probably stuck" class="ms-1 badge srun" id="jobs-stuck-badge"></span>
             </button>
         </h2>
         <div id="collapseTwo" class="accordion-collapse collapse show" aria-labelledby="headingTwo">
@@ -111,7 +111,7 @@
     // An object which acts like a configuration for the columns of the Runs table
     const runs_table_config = [
         { "title": "Last update", "hovertext": "Last job status update", "extra_classes": ["d-none", "d-md-block"] },
-        { "title": "Time Diff", "hovertext": "Time passed since last job's status update" , "format_function": (data) => {return get_time_diff_str(get_time_diff(data)) + " ago"}, "extra_classes": ["text-truncate"], "diff_warning": 600},
+        { "title": "Time Diff", "hovertext": "Time passed since last job's status update" , "format_function": (data) => {return get_time_diff_str(get_time_diff(data)) + " ago"}, "extra_classes": ["text-truncate"], "diff_warning": 900},
         { "title": "Hostname", "hovertext": "Host machine where job is running", "extra_classes": ["custom-narrow-col","text-truncate"] },
         { "title": "State" },
         { "title": "Tag" },
