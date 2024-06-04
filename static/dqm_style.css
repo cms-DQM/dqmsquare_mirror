@@ -150,6 +150,11 @@ a.hidden-link-dark {
   background-color: #F4D03F;
 }
 
+/* Job finished */
+.srun {
+  background-color: #343a40;
+}
+
 /* Dark variations for alternating column colors */
 .rrunD {
   background-color: #d26459;
@@ -289,6 +294,15 @@ table.table tbody tr td.table-warning-custom {
 
 table.table.custom-table-striped-columns tr.table-warning-custom td:nth-child(even) {
   background-color: #dfbe3a;
+}
+
+table tr.table-dark-custom td,
+table.table tbody tr td.table-dark-custom {
+  background-color: #343a40;
+}
+
+table.table.custom-table-striped-columns tr.table-dark-custom td:nth-child(even) {
+  background-color: #2c3035;
 }
 
 /* Style the buttons that are used to open the tab content */
