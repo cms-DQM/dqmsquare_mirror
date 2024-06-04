@@ -40,7 +40,7 @@ def load_cfg() -> dict:
 
     ### default values === >
     cfg = {}
-    cfg["VERSION"] = "1.3.0"
+    cfg["VERSION"] = "1.3.1"
 
     cfg["ENV"] = os.environ.get("ENV", "development")
 
