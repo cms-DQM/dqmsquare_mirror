@@ -1,5 +1,14 @@
 **/*.log
 **/*.db
 **/*.pdf
+.env*
+.venv
+.git
+.pytest_cache
+.vscode
 tmp
 __pycache__
+tests
+docs
+log
+other
