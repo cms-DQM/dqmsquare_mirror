@@ -103,17 +103,42 @@ class DQM2MirrorDB:
     def __str__(self):
         return f"{self.__class__.__name__}: {self.db_uri}"
 
-    def __init__(self, log: logging.Logger, db_uri: str = None, server: bool = False):
+    def __init__(
+        self,
+        log: logging.Logger,
+        username: str = "postgres",
+        password: str = "postgres",
+        host: str = "postgres",
+        port: int = 5432,
+        db_name: str = "postgres",
+        server: bool = False,
+    ):
         """
         The server flag will determine if table creation will take place or not, upon
         initialization.
         """
-        self.log = log
-        self.log.info("\n\n DQM2MirrorDB ===== init ")
-        self.db_uri = db_uri
+        self.password: str = password
+        self.username: str = username
+        self.host: str = host
+        self.port: int = port
+        self.db_name: str = db_name
 
-        if not self.db_uri:
+        self.log: logging.Logger = log
+        self.log.info("\n\n DQM2MirrorDB ===== init ")
+        self.db_uri: str = self.format_db_uri(
+            host=self.host,
+            port=self.port,
+            username=self.username,
+            password=self.password,
+            db_name=self.db_name,
+        )
+
+        if self.host == ":memory:":
             self.db_uri = ":memory:"
+
+        self.log.info(
+            f"Connecting to database {self.db_name} on {self.username}@{self.host}:{self.port}"
+        )
 
         self.engine = sqlalchemy.create_engine(
             url=self.db_uri,
@@ -123,7 +148,7 @@ class DQM2MirrorDB:
         )
         if not database_exists(self.engine.url):
             raise DatabaseNotFoundError(
-                f"Database name was not found when connecting to '{self.db_uri}'"
+                f"Database {self.db_name} was not found on '{self.host}:{self.port}'"
             )
 
         self.Session = sessionmaker(bind=self.engine)
@@ -131,6 +156,19 @@ class DQM2MirrorDB:
             self.create_tables()
         self.db_meta = sqlalchemy.MetaData(bind=self.engine)
         self.db_meta.reflect()
+
+    @staticmethod
+    def format_db_uri(
+        username: str = "postgres",
+        password: str = "postgres",
+        host: str = "postgres",
+        port: int = 5432,
+        db_name="postgres",
+    ) -> str:
+        """
+        Helper function to format the DB URI for SQLAclhemy
+        """
+        return f"postgresql://{username}:{password}@{host}:{port}/{db_name}"
 
     def create_tables(self):
         """

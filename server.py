@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 log.info("start_server() call ... ")
 
 
-def create_app(cfg):
+def create_app(cfg: dict):
     app = Flask(
         __name__, static_url_path=os.path.join("/", cfg["SERVER_URL_PREFIX"], "static")
     )
@@ -56,8 +56,24 @@ def create_app(cfg):
         ).strip()
     }
 
-    db_playback = DQM2MirrorDB(log, cfg["DB_PLAYBACK_URI"], server=True)
-    db_production = DQM2MirrorDB(log, cfg["DB_PRODUCTION_URI"], server=True)
+    db_playback = DQM2MirrorDB(
+        log=log,
+        host=cfg.get("DB_PLAYBACK_HOST"),
+        port=cfg.get("DB_PLAYBACK_PORT"),
+        username=cfg.get("DB_PLAYBACK_USERNAME"),
+        password=cfg.get("DB_PLAYBACK_PASSWORD"),
+        db_name=cfg.get("DB_PLAYBACK_NAME"),
+        server=True,
+    )
+    db_production = DQM2MirrorDB(
+        log=log,
+        host=cfg.get("DB_PRODUCTION_HOST"),
+        port=cfg.get("DB_PRODUCTION_PORT"),
+        username=cfg.get("DB_PRODUCTION_USERNAME"),
+        password=cfg.get("DB_PRODUCTION_PASSWORD"),
+        db_name=cfg.get("DB_PRODUCTION_NAME"),
+        server=True,
+    )
     databases = {
         "playback": db_playback,
         "production": db_production,

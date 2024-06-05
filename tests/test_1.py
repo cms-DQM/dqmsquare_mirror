@@ -12,7 +12,7 @@ from db import DQM2MirrorDB, DEFAULT_DATETIME
 from sqlalchemy import create_engine, text
 from sqlalchemy_utils import create_database, database_exists, drop_database
 from custom_logger import dummy_log
-from dqmsquare_cfg import format_db_uri, TZ
+from dqmsquare_cfg import TZ
 
 
 def format_entry_to_db_entry(graph_entry: list, datetime_cols: list):
@@ -29,21 +29,24 @@ def format_entry_to_db_entry(graph_entry: list, datetime_cols: list):
 
 
 @pytest.fixture
-def testing_database() -> DQM2MirrorDB:
-    db_uri = format_db_uri(
+def testing_database():
+    db_uri = DQM2MirrorDB.format_db_uri(
         username=os.environ.get("POSTGRES_USERNAME", "postgres"),
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
         host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
         port=os.environ.get("POSTGRES_PORT", 5432),
         db_name="postgres_test",
     )
-
     engine = create_engine(db_uri)
     if not database_exists(engine.url):
         create_database(db_uri)
     db = DQM2MirrorDB(
         log=dummy_log(),
-        db_uri=db_uri,
+        username=os.environ.get("POSTGRES_USERNAME", "postgres"),
+        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
+        port=os.environ.get("POSTGRES_PORT", 5432),
+        db_name="postgres_test",
         server=False,
     )
 

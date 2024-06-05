@@ -17,41 +17,31 @@ TIMEZONE = "Europe/Zurich"
 TZ = pytz.timezone(TIMEZONE)
 
 
-def format_db_uri(
-    username: str = "postgres",
-    password: str = "postgres",
-    host: str = "postgres",
-    port: int = 5432,
-    db_name="postgres",
-) -> str:
-    """
-    Helper function to format the DB URI for SQLAclhemy
-    """
-    return f"postgresql://{username}:{password}@{host}:{port}/{db_name}"
-
-
 def load_cfg() -> dict:
     """
     Prepare configuration, using .env file
     """
 
     load_dotenv()
+    # No leading slash: cinder/dqmsquare
     mount_path = os.path.join("cinder", "dqmsquare")
 
-    ### default values === >
+    ### default values
     cfg = {}
-    cfg["VERSION"] = "1.3.1"
+    cfg["VERSION"] = "1.3.2"
 
     cfg["ENV"] = os.environ.get("ENV", "development")
 
     # How often to try to get CMSSW jobs info
     # sec, int
-    cfg["GRABBER_SLEEP_TIME_INFO"] = os.environ.get("GRABBER_SLEEP_TIME_INFO", 5)
+    cfg["GRABBER_SLEEP_TIME_INFO"] = int(os.environ.get("GRABBER_SLEEP_TIME_INFO", 5))
 
     # How often to ping the cluster machines for their status.
     # Keep it above 30 secs.
     # sec, int
-    cfg["GRABBER_SLEEP_TIME_STATUS"] = os.environ.get("GRABBER_SLEEP_TIME_STATUS", 30)
+    cfg["GRABBER_SLEEP_TIME_STATUS"] = int(
+        os.environ.get("GRABBER_SLEEP_TIME_STATUS", 30)
+    )
 
     cfg["LOGGER_ROTATION_TIME"] = 24  # h, int
     cfg["LOGGER_MAX_N_LOG_FILES"] = 10  # int
@@ -61,7 +51,7 @@ def load_cfg() -> dict:
     cfg["FFF_PORT"] = "9215"
 
     # Flask server config
-    cfg["SERVER_DEBUG"] = os.environ.get("SERVER_DEBUG", False)
+    cfg["SERVER_DEBUG"] = bool(os.environ.get("SERVER_DEBUG", False))
     # MACHETE
     if isinstance(cfg["SERVER_DEBUG"], str):
         cfg["SERVER_DEBUG"] = True if cfg["SERVER_DEBUG"] == "True" else False
@@ -89,15 +79,15 @@ def load_cfg() -> dict:
         "CMSWEB_FRONTEND_PROXY_URL",
         # If value is not found in .env
         (
-            "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
+            "https://cmsweb.cern.ch/dqm/dqm-square-origin"
             if cfg["ENV"] == "testbed"
             else (
-                "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
+                "https://cmsweb.cern.ch/dqm/dqm-square-origin"
                 if cfg["ENV"] == "production"
                 else (
-                    "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
+                    "https://cmsweb.cern.ch/dqm/dqm-square-origin"
                     if cfg["ENV"] == "test4"
-                    else "https://cmsweb-testbed.cern.ch/dqm/dqm-square-origin-rubu"
+                    else "https://cmsweb.cern.ch/dqm/dqm-square-origin"
                 )
             )
         ),
@@ -159,20 +149,20 @@ def load_cfg() -> dict:
     if isinstance(cfg["GRABBER_DEBUG"], str):
         cfg["GRABBER_DEBUG"] = True if cfg["GRABBER_DEBUG"] == "True" else False
 
-    cfg["DB_PLAYBACK_URI"] = format_db_uri(
-        username=os.environ.get("POSTGRES_USERNAME", "postgres"),
-        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
-        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
-        port=os.environ.get("POSTGRES_PORT", 5432),
-        db_name=os.environ.get("POSTGRES_PLAYBACK_DB_NAME", "postgres"),
+    cfg["DB_PLAYBACK_USERNAME"] = os.environ.get("POSTGRES_USERNAME", "postgres")
+    cfg["DB_PLAYBACK_PASSWORD"] = os.environ.get("POSTGRES_PASSWORD", "postgres")
+    cfg["DB_PLAYBACK_HOST"] = os.environ.get("POSTGRES_HOST", "127.0.0.1")
+    cfg["DB_PLAYBACK_PORT"] = os.environ.get("POSTGRES_PORT", 5432)
+    cfg["DB_PLAYBACK_NAME"] = os.environ.get("POSTGRES_PLAYBACK_DB_NAME", "postgres")
+
+    cfg["DB_PRODUCTION_USERNAME"] = os.environ.get("POSTGRES_USERNAME", "postgres")
+    cfg["DB_PRODUCTION_PASSWORD"] = os.environ.get("POSTGRES_PASSWORD", "postgres")
+    cfg["DB_PRODUCTION_HOST"] = os.environ.get("POSTGRES_HOST", "127.0.0.1")
+    cfg["DB_PRODUCTION_PORT"] = os.environ.get("POSTGRES_PORT", 5432)
+    cfg["DB_PRODUCTION_NAME"] = os.environ.get(
+        "POSTGRES_PRODUCTION_DB_NAME", "postgres_production"
     )
-    cfg["DB_PRODUCTION_URI"] = format_db_uri(
-        username=os.environ.get("POSTGRES_USERNAME", "postgres"),
-        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
-        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
-        port=os.environ.get("POSTGRES_PORT", 5432),
-        db_name=os.environ.get("POSTGRES_PRODUCTION_DB_NAME", "postgres_production"),
-    )
+
     cfg["TIMEZONE"] = TIMEZONE
     return cfg
 
