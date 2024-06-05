@@ -1,94 +1,18 @@
-# tests to check DB
+# Tests to check DB and data filling and fetching
 import os
 import sys
 import json
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-import pickle
 import pytest
 from truth_values import TEST_DB_7_TRUTH, TEST_DB_9_TRUTH
 from datetime import datetime
 from db import DQM2MirrorDB, DEFAULT_DATETIME
-from sqlalchemy import create_engine, text
-from sqlalchemy_utils import create_database, database_exists, drop_database
-from custom_logger import dummy_log
+from sqlalchemy import text
 from dqmsquare_cfg import TZ
 
-
-def format_entry_to_db_entry(graph_entry: list, datetime_cols: list):
-    return_value = ""
-    for i, col in enumerate(graph_entry):
-        if i in datetime_cols:
-            return_value += f"'{col.isoformat()}', "
-        else:
-            return_value += (
-                f"""{"'" + str(col).replace("'", "''") + "'" if col else 'NULL'}, """
-            )
-
-    return return_value[:-2]
-
-
-@pytest.fixture
-def testing_database():
-    db_uri = DQM2MirrorDB.format_db_uri(
-        username=os.environ.get("POSTGRES_USERNAME", "postgres"),
-        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
-        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
-        port=os.environ.get("POSTGRES_PORT", 5432),
-        db_name="postgres_test",
-    )
-    engine = create_engine(db_uri)
-    if not database_exists(engine.url):
-        create_database(db_uri)
-    db = DQM2MirrorDB(
-        log=dummy_log(),
-        username=os.environ.get("POSTGRES_USERNAME", "postgres"),
-        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
-        host=os.environ.get("POSTGRES_HOST", "127.0.0.1"),
-        port=os.environ.get("POSTGRES_PORT", 5432),
-        db_name="postgres_test",
-        server=False,
-    )
-
-    runs = []
-    graphs = []
-    with open(
-        os.path.join(os.path.dirname(os.path.realpath(__file__)), "runs_data.pkl"), "rb"
-    ) as f:
-        runs = pickle.load(f)
-    with open(
-        os.path.join(os.path.dirname(os.path.realpath(__file__)), "graphs_data.pkl"),
-        "rb",
-    ) as f:
-        graphs = pickle.load(f)
-
-    with db.engine.connect() as cur:
-        session = db.Session(bind=cur)
-        for run in runs:
-            try:
-                session.execute(
-                    text(
-                        f"""INSERT into runs ({str(db.TB_DESCRIPTION_RUNS_COLS).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(run, [13])})"""
-                    )
-                )
-                session.commit()
-            except Exception as e:
-                print("Error when creating run fixture:", e)
-                session.rollback()
-
-        for graph in graphs:
-            try:
-                session.execute(
-                    text(
-                        f"""INSERT into graphs ({str(db.TB_DESCRIPTION_GRAPHS_COLS).replace("[", "").replace("]", "").replace("'", "")}) VALUES ({format_entry_to_db_entry(graph, [3, 4])})"""
-                    )
-                )
-                session.commit()
-            except Exception as e:
-                print("Error when creating graph fixture:", e)
-                session.rollback()
-    yield db
-    drop_database(db_uri)
+# Needed to be passed as a fixture
+from fixtures import testing_database
 
 
 pytest.production = [
