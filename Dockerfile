@@ -12,9 +12,11 @@ ENV TZ="Europe/Zurich"
 RUN apt update \
     && apt upgrade -y \
     && apt-get update --fix-missing \
-    && apt install -y python3-psycopg2 python3-pip \
-    && python3 -m pip install -r requirements.txt \
-    && useradd dqm \
+    && apt install -y python3-psycopg2 python3-pip
+
+RUN python3 -m pip install -r requirements.txt
+
+RUN useradd dqm \
     && mkdir -p /dqmsquare_mirror/log \
     && mkdir -p /home/dqm/ \
     && chown -R dqm /home/dqm/ \

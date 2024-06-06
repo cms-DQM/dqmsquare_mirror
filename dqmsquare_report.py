@@ -20,11 +20,15 @@ if __name__ == "__main__":
     mode = ["p7"]
 
     ### DQM^2-MIRROR DB
-    DB_PLAYBACK_URI = DQM2MirrorDB(log, cfg["DB_PLAYBACK_URI"], server=True)
-    db_production = DQM2MirrorDB(log, cfg["DB_PRODUCTION_URI"], server=True)
-
-    ###
-    db = db_production
+    db = DQM2MirrorDB(
+        log=log,
+        host=cfg.get("DB_PRODUCTION_HOST"),
+        port=cfg.get("DB_PRODUCTION_PORT"),
+        username=cfg.get("DB_PRODUCTION_USERNAME"),
+        password=cfg.get("DB_PRODUCTION_PASSWORD"),
+        db_name=cfg.get("DB_PRODUCTION_NAME"),
+        server=True,
+    )
 
     start_date = "01/06/2022"
     end_date = "01/09/2022"

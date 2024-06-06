@@ -17,9 +17,10 @@ load_dotenv()  # Load environmental variables from .env file, if present
 log = logging.getLogger(__name__)
 
 log.info("start_server() call ... ")
+VALID_DATABASE_OPTIONS = ["playback", "production"]
 
 
-def create_app(cfg):
+def create_app(cfg: dict):
     app = Flask(
         __name__, static_url_path=os.path.join("/", cfg["SERVER_URL_PREFIX"], "static")
     )
@@ -56,8 +57,24 @@ def create_app(cfg):
         ).strip()
     }
 
-    db_playback = DQM2MirrorDB(log, cfg["DB_PLAYBACK_URI"], server=True)
-    db_production = DQM2MirrorDB(log, cfg["DB_PRODUCTION_URI"], server=True)
+    db_playback = DQM2MirrorDB(
+        log=log,
+        host=cfg.get("DB_PLAYBACK_HOST"),
+        port=cfg.get("DB_PLAYBACK_PORT"),
+        username=cfg.get("DB_PLAYBACK_USERNAME"),
+        password=cfg.get("DB_PLAYBACK_PASSWORD"),
+        db_name=cfg.get("DB_PLAYBACK_NAME"),
+        server=True,
+    )
+    db_production = DQM2MirrorDB(
+        log=log,
+        host=cfg.get("DB_PRODUCTION_HOST"),
+        port=cfg.get("DB_PRODUCTION_PORT"),
+        username=cfg.get("DB_PRODUCTION_USERNAME"),
+        password=cfg.get("DB_PRODUCTION_PASSWORD"),
+        db_name=cfg.get("DB_PRODUCTION_NAME"),
+        server=True,
+    )
     databases = {
         "playback": db_playback,
         "production": db_production,
@@ -138,28 +155,41 @@ def create_app(cfg):
         """
         Get data from DQM^2 Mirror's Databases.
         """
-        log.info(flask.request.base_url)
         what = flask.request.args.get("what")
-
         if what == "get_run":
-            run = flask.request.args.get("run", default=0)
-            db_name = flask.request.args.get("db", default="")
+            try:
+                run = int(flask.request.args.get("run", type=int))
+            except (ValueError, TypeError):
+                return f"run must be an integer", 400
+            db_name = flask.request.args.get("db", type=str)
+            if db_name not in VALID_DATABASE_OPTIONS:
+                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
             db_ = databases.get(db_name, db_playback)
             run_data = db_.get_mirror_data(run)
             runs_around = db_.get_runs_around(run)
             return json.dumps([runs_around, run_data])
         elif what == "get_graph":
-            run = flask.request.args.get("run", default=0)
-            db_name = flask.request.args.get("db", default="")
+            try:
+                run = int(flask.request.args.get("run", type=int))
+            except (ValueError, TypeError):
+                return f"run must be an integer", 400
+            db_name = flask.request.args.get("db", type=str)
+            if db_name not in VALID_DATABASE_OPTIONS:
+                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
             db_ = databases.get(db_name, db_playback)
             graph_data = db_.get_graphs_data(run)
             return json.dumps(graph_data)
         elif what == "get_runs":
-            run_from = flask.request.args.get("from", default=0)
-            run_to = flask.request.args.get("to", default=0)
-            bad_only = flask.request.args.get("bad_only", default=0)
-            with_ls_only = flask.request.args.get("ls", default=0)
-            db_name = flask.request.args.get("db", default="")
+            try:
+                run_from = int(flask.request.args.get("from", type=int))
+                run_to = int(flask.request.args.get("to", type=int))
+                bad_only = int(flask.request.args.get("bad_only", type=int))
+                with_ls_only = int(flask.request.args.get("ls", type=int))
+            except (ValueError, TypeError):
+                return (f"to, from, bad_only and ls must be integers", 400)
+            db_name = flask.request.args.get("db", default="", type=str)
+            if db_name not in VALID_DATABASE_OPTIONS:
+                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
             db_ = databases.get(db_name, db_playback)
             answer = db_.get_timeline_data(
                 min(run_from, run_to),
@@ -169,20 +199,32 @@ def create_app(cfg):
             )
             return json.dumps(answer)
         elif what == "get_clients":
-            run_from = flask.request.args.get("from", default=0)
-            run_to = flask.request.args.get("to", default=0)
-            db_name = flask.request.args.get("db", default="")
+            try:
+                run_from = int(flask.request.args.get("from", type=int))
+                run_to = int(flask.request.args.get("to", type=int))
+            except (ValueError, TypeError):
+                return (f"to, from must be integers", 400)
+            db_name = flask.request.args.get("db", type=str)
+            if db_name not in VALID_DATABASE_OPTIONS:
+                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
             db_ = databases.get(db_name, db_playback)
             answer = db_.get_clients(run_from, run_to)
             return json.dumps(answer)
         elif what == "get_info":
-            db_name = flask.request.args.get("db", default="")
+            db_name = flask.request.args.get("db", type=str)
+            if db_name not in VALID_DATABASE_OPTIONS:
+                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
             db_ = databases.get(db_name, db_playback)
             answer = db_.get_info()
             return json.dumps(answer)
         elif what == "get_logs":
-            client_id = flask.request.args.get("id", default=0)
-            db_name = flask.request.args.get("db", default="")
+            try:
+                client_id = int(flask.request.args.get("id", type=int))
+            except (ValueError, TypeError):
+                return (f"client_id must be an integer", 400)
+            db_name = flask.request.args.get("db", type=str)
+            if db_name not in VALID_DATABASE_OPTIONS:
+                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
             db_ = databases.get(db_name, db_playback)
             answer = db_.get_logs(client_id)
             a1 = a2 = ""
@@ -192,11 +234,14 @@ def create_app(cfg):
                 a2 = "".join(eval(answer[1]))
             return "<pre>" + a1 + "\n ... \n\n" + a2 + "</pre>"
         elif what == "get_cluster_status":
-            # WIP
-            cluster = flask.request.args.get("cluster", default="playback")
+            cluster = flask.request.args.get("cluster", default="playback", type=str)
+            if cluster not in VALID_DATABASE_OPTIONS:
+                return f"cluster must be one of {VALID_DATABASE_OPTIONS}", 400
             db_ = databases.get(cluster, db_playback)
             answer = db_.get_cluster_status()
             return json.dumps(answer)
+        else:
+            return f"{what} is not supported", 404
 
     ### TIMELINE ###
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "timeline/"))

@@ -145,6 +145,7 @@ def get_cluster_status(db: DQM2MirrorDB, cluster: str = "playback"):
     Function that queries the gateway playback machine periodically to get the status of the
     production or playback cluster machines.
     """
+    logger.debug(f"Requesting {cluster} cluster status.")
     url = urljoin(
         cfg["CMSWEB_FRONTEND_PROXY_URL"] + "/",
         "cr/exe?" + urlencode({"cluster": cluster, "what": "get_cluster_status"}),
@@ -163,6 +164,7 @@ def get_cluster_status(db: DQM2MirrorDB, cluster: str = "playback"):
         raise Exception(
             f"Failed to fetch {cluster} status. Got ({response.status_code}) {response.text}"
         )
+    logger.debug(f"Got {cluster} cluster status.")
 
     try:
         response = response.json()
@@ -184,9 +186,9 @@ def get_latest_info_from_hosts(hosts: list[str], db: DQM2MirrorDB) -> None:
 
 
 if __name__ == "__main__":
-    run_modes = ["playback", "production"]
-    playback_machines = cfg["FFF_PLAYBACK_MACHINES"]
-    production_machines = cfg["FFF_PRODUCTION_MACHINES"]
+    run_modes: list[str] = ["playback", "production"]
+    playback_machines: list[str] = cfg["FFF_PLAYBACK_MACHINES"]
+    production_machines: list[str] = cfg["FFF_PRODUCTION_MACHINES"]
 
     if len(sys.argv) > 1 and sys.argv[1] == "playback":
         set_log_handler(
@@ -224,10 +226,10 @@ if __name__ == "__main__":
         logger.info(f"Configured logger for grabber, level={level}")
 
     ### global variables and auth cookies
-    cmsweb_proxy_url = cfg["CMSWEB_FRONTEND_PROXY_URL"]
-    cert_path = [cfg["SERVER_GRID_CERT_PATH"], cfg["SERVER_GRID_KEY_PATH"]]
+    cmsweb_proxy_url: str = cfg["CMSWEB_FRONTEND_PROXY_URL"]
+    cert_path: list[str] = [cfg["SERVER_GRID_CERT_PATH"], cfg["SERVER_GRID_KEY_PATH"]]
 
-    env_secret = os.environ.get("DQM_FFF_SECRET")
+    env_secret: str = os.environ.get("DQM_FFF_SECRET")
     if env_secret:
         fff_secret = env_secret
         logger.debug("Found secret in environmental variables")
@@ -235,14 +237,30 @@ if __name__ == "__main__":
         logger.warning("No secret found in environmental variables")
 
     # Trailing whitespace in secret leads to crashes, strip it
-    cookies = {str(cfg["FFF_SECRET_NAME"]): env_secret.strip()}
+    cookies: dict[str, str] = {str(cfg["FFF_SECRET_NAME"]): env_secret.strip()}
 
     # DB CONNECTION
-    db_playback, db_production = None, None
+    db_playback: DQM2MirrorDB = None
+    db_production: DQM2MirrorDB = None
+
     if "playback" in run_modes:
-        db_playback = DQM2MirrorDB(logger, cfg["DB_PLAYBACK_URI"])
+        db_playback = DQM2MirrorDB(
+            log=logger,
+            host=cfg.get("DB_PLAYBACK_HOST"),
+            port=cfg.get("DB_PLAYBACK_PORT"),
+            username=cfg.get("DB_PLAYBACK_USERNAME"),
+            password=cfg.get("DB_PLAYBACK_PASSWORD"),
+            db_name=cfg.get("DB_PLAYBACK_NAME"),
+        )
     if "production" in run_modes:
-        db_production = DQM2MirrorDB(logger, cfg["DB_PRODUCTION_URI"])
+        db_production = DQM2MirrorDB(
+            log=logger,
+            host=cfg.get("DB_PRODUCTION_HOST"),
+            port=cfg.get("DB_PRODUCTION_PORT"),
+            username=cfg.get("DB_PRODUCTION_USERNAME"),
+            password=cfg.get("DB_PRODUCTION_PASSWORD"),
+            db_name=cfg.get("DB_PRODUCTION_NAME"),
+        )
 
     logger.info("Starting loop for modes " + str(run_modes))
 
