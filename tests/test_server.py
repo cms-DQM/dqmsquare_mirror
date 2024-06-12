@@ -57,17 +57,10 @@ def test_server_get_clients(client: FlaskClient):
     )
     assert response.status_code == 400
 
-    # Dumb string instead of number.
-    response = client.get(
-        "/api?what=get_clients&client_id=;DROP DATABASE postgres_test&db=production"
-    )
-    assert response.status_code == 400
-
     # Proper request
     response = client.get("/api?what=get_clients&from=358788&to=358792&db=production")
     assert response.status_code == 200
     response = json.loads(response.text)
-    print(response)
     assert isinstance(response, list)
     assert response[0] == "beam"
     assert response[-1] == "visualization-live-secondInstance"

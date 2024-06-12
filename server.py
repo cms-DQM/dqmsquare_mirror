@@ -36,7 +36,7 @@ def create_app(cfg: dict):
     cr_usernames = {}
     # Read in CR credentials from env var
     try:
-        username, password = os.environ.get("DQM_CR_USERNAMES").split(":")
+        username, password = os.environ.get("DQM_CR_USERNAMES", "").split(":")
         cr_usernames = {username: password}
     except Exception as e:
         log.error(
@@ -194,8 +194,8 @@ def create_app(cfg: dict):
             answer = db_.get_timeline_data(
                 min(run_from, run_to),
                 max(run_from, run_to),
-                int(bad_only),
-                int(with_ls_only),
+                bad_only,
+                with_ls_only,
             )
             return json.dumps(answer)
         elif what == "get_clients":
@@ -218,10 +218,7 @@ def create_app(cfg: dict):
             answer = db_.get_info()
             return json.dumps(answer)
         elif what == "get_logs":
-            try:
-                client_id = int(flask.request.args.get("id", type=int))
-            except (ValueError, TypeError):
-                return (f"client_id must be an integer", 400)
+            client_id = flask.request.args.get("id", type=str)
             db_name = flask.request.args.get("db", type=str)
             if db_name not in VALID_DATABASE_OPTIONS:
                 return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
