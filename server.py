@@ -160,7 +160,7 @@ def create_app(cfg: dict):
             try:
                 run = int(flask.request.args.get("run", type=int))
             except (ValueError, TypeError):
-                return f"run must be an integer", 400
+                return "run must be an integer", 400
             db_name = flask.request.args.get("db", type=str)
             if db_name not in VALID_DATABASE_OPTIONS:
                 return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
@@ -172,7 +172,7 @@ def create_app(cfg: dict):
             try:
                 run = int(flask.request.args.get("run", type=int))
             except (ValueError, TypeError):
-                return f"run must be an integer", 400
+                return "run must be an integer", 400
             db_name = flask.request.args.get("db", type=str)
             if db_name not in VALID_DATABASE_OPTIONS:
                 return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
@@ -186,7 +186,7 @@ def create_app(cfg: dict):
                 bad_only = int(flask.request.args.get("bad_only", type=int))
                 with_ls_only = int(flask.request.args.get("ls", type=int))
             except (ValueError, TypeError):
-                return (f"to, from, bad_only and ls must be integers", 400)
+                return ("to, from, bad_only and ls must be integers", 400)
             db_name = flask.request.args.get("db", default="", type=str)
             if db_name not in VALID_DATABASE_OPTIONS:
                 return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
@@ -203,7 +203,7 @@ def create_app(cfg: dict):
                 run_from = int(flask.request.args.get("from", type=int))
                 run_to = int(flask.request.args.get("to", type=int))
             except (ValueError, TypeError):
-                return (f"to, from must be integers", 400)
+                return ("to, from must be integers", 400)
             db_name = flask.request.args.get("db", type=str)
             if db_name not in VALID_DATABASE_OPTIONS:
                 return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
