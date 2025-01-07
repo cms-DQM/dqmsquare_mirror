@@ -183,8 +183,8 @@ def create_app(cfg: dict):
             try:
                 run_from = int(flask.request.args.get("from", type=int))
                 run_to = int(flask.request.args.get("to", type=int))
-                bad_only = int(flask.request.args.get("bad_only", type=int))
-                with_ls_only = int(flask.request.args.get("ls", type=int))
+                bad_only = bool(flask.request.args.get("bad_only", type=int))
+                with_ls_only = bool(flask.request.args.get("ls", type=int))
             except (ValueError, TypeError):
                 return ("to, from, bad_only and ls must be integers", 400)
             db_name = flask.request.args.get("db", default="", type=str)
