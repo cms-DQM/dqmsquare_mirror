@@ -2,7 +2,7 @@
 import os
 import sys
 import json
-import time, sys
+import time
 import requests
 import urllib3
 from urllib.parse import urljoin, urlencode
