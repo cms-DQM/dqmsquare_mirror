@@ -619,20 +619,24 @@ class DQM2MirrorDB:
         return dict(dic)
 
     def get_cluster_status(
-        self, timestamp_from: datetime = None, timestamp_to: datetime = None
+        self,
+        timestamp_from: datetime = datetime.now(),
+        timestamp_to: datetime = datetime.now(),
     ):
         self.log.debug("DQM2MirrorDB.get_cluster_status()")
         with self.engine.connect() as cur:
             answer = cur.execute(
                 text(
-                    "SELECT hostnames.name, hoststatuses.is_up, hoststatuses.message, max(hoststatuses.created_at) "
+                    "SELECT h.name, t.is_up, t.message, t.created_at "
+                    + f"FROM {self.TB_NAME_HOST_STATUS} t "
+                    + "JOIN "
+                    + "(SELECT host_id, MAX(created_at) AS max_created_at "
                     + f"FROM {self.TB_NAME_HOST_STATUS} "
-                    + f"INNER JOIN {self.TB_NAME_HOST_NAME} "
-                    + "ON hoststatuses.host_id = hostnames.id "
-                    + "GROUP BY hoststatuses.host_id, hostnames.id, hoststatuses.is_up, hoststatuses.message"
+                    + "GROUP BY host_id) "
+                    + "sub ON t.host_id = sub.host_id AND t.created_at = sub.max_created_at "
+                    + f"JOIN {self.TB_NAME_HOST_NAME} h ON t.host_id = h.id;"
                 )
             ).all()
-
         answer = [
             # hostname, is_up, message, timestamp
             (_censor_hostname(a[0]), a[1], a[2], datetime.timestamp(a[3]))
