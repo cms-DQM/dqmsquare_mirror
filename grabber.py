@@ -45,7 +45,9 @@ def _request_wrapper(
     return response
 
 
-def get_documents_from_fff(host: str, port: int = cfg["FFF_PORT"], runs_ids: list = []):
+def get_documents_from_fff(
+    host: str, port: int = cfg["FFF_PORT"], runs_ids: list = []
+) -> bytes | None:
     """
     Given a host and the port where fff_dqmtools is listenting to, request documents for runs
     supplied by runs_ids (which have been extracted from the headers previously).
@@ -62,7 +64,9 @@ def get_documents_from_fff(host: str, port: int = cfg["FFF_PORT"], runs_ids: lis
     jsn = {"event": "request_documents", "ids": runs_ids}
     data = json.dumps({"messages": [json.dumps(jsn)]})
     logger.debug(f"POSTing to '{url}' with data: {data}")
-    r = requests.post(
+
+    r = _request_wrapper(
+        requests.post,
         url,
         data=data,
         cert=cert_path,
@@ -71,8 +75,15 @@ def get_documents_from_fff(host: str, port: int = cfg["FFF_PORT"], runs_ids: lis
         cookies=_get_cookies(),
         timeout=30,
     )
-    logger.debug(f"Got {len(r.content)} byte response.")
-    return r.content
+    if r:
+        if r.status_code != 200:
+            logger.warning(
+                f"Got response {r.status_code} when POSTing to {url}: {r.content}."
+            )
+            return None
+        else:
+            return r.content
+    return None
 
 
 def process_headers_and_store_data(host: str, db: DQM2MirrorDB, headers: list[dict]):
@@ -89,6 +100,8 @@ def process_headers_and_store_data(host: str, db: DQM2MirrorDB, headers: list[di
             logger.debug("Skipping, no 'analyze_files' key found")
             continue
         document_answer = get_documents_from_fff(host, runs_ids=[id])
+        if not document_answer:
+            continue
         document = json.loads(json.loads(document_answer)["messages"][0])["documents"][
             0
         ]
