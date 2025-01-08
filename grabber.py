@@ -7,7 +7,6 @@ import requests
 import urllib3
 from urllib.parse import urljoin, urlencode
 import logging
-import traceback
 import dqmsquare_cfg
 from custom_logger import custom_formatter, set_log_handler
 from db import DQM2MirrorDB
@@ -264,7 +263,7 @@ if __name__ == "__main__":
 
     logger.info("Starting loop for modes " + str(run_modes))
 
-    # Main Loop.
+    # Loop for fetching job information from the cluster.
     # Fetches data for CMSSW jobs from DQM^2, and stores it into the database.
     # For each mode (production/playback), loop over each available host FU/BU machine.
     # For each one, request "headers" (TODO: what are they?). This will return at most 1000
@@ -282,10 +281,8 @@ if __name__ == "__main__":
         while True:
             try:
                 get_latest_info_from_hosts(machines, db)
-            except Exception as error:
-                logger.warning(f"Crashed in info loop with error: {repr(error)}")
-                logger.warning(f"Traceback: {traceback.format_exc()}")
-                continue
+            except Exception:
+                logger.warning("Unhandled exception in info loop", exc_info=True)
             logger.debug(f"Sleeping for {timeout}s")
             time.sleep(timeout)
 
@@ -298,10 +295,8 @@ if __name__ == "__main__":
         while True:
             try:
                 get_cluster_status(db, cluster)
-            except Exception as error:
-                logger.warning(f"Crashed in status loop with error: {repr(error)}")
-                logger.warning(f"Traceback: {traceback.format_exc()}")
-                continue
+            except Exception:
+                logger.warning("Unhandled exception in status loop", exc_info=True)
             logger.debug(f"Sleeping for {timeout}s")
             time.sleep(timeout)
 
