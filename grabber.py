@@ -48,7 +48,9 @@ def get_documents_from_fff(host: str, port: int = cfg["FFF_PORT"], runs_ids: lis
     return r.content
 
 
-def get_headers_from_fff(host: str, port: int = cfg["FFF_PORT"], revision: int = 0):
+def get_headers_from_fff(
+    host: str, port: int = cfg["FFF_PORT"], revision: int = 0
+) -> bytes | None:
     """
     Given a host and the port where fff_dqmtools is listening to, connect to the proxy
     (i.e. indirectly the SERVER_FFF_MACHINE) and request headers, starting from the
@@ -69,17 +71,27 @@ def get_headers_from_fff(host: str, port: int = cfg["FFF_PORT"], revision: int =
     jsn = {"event": "sync_request", "known_rev": str(revision)}
     data = json.dumps({"messages": [json.dumps(jsn)]})
     logger.debug(f"POSTing to '{url}' with data: {jsn}")
-    r = requests.post(
-        url,
-        data=data,
-        cert=cert_path,
-        verify=False,
-        headers={},
-        cookies=cookies,
-        timeout=30,
-    )
-    logger.debug(f"Got response of length {len(r.content)}.")
-
+    try:
+        r = requests.post(
+            url,
+            data=data,
+            cert=cert_path,
+            verify=False,
+            headers={},
+            cookies=cookies,
+            timeout=30,
+        )
+    except urllib3.exceptions.ReadTimeoutError:
+        logger.warning(f"Timeout when POSTing to {url}", exc_info=True)
+        return None
+    except requests.exceptions.ConnectionError:
+        logger.warning(f"Could not connect to {url}", exc_info=True)
+        return None
+    if r.status_code != 200:
+        logger.warning(
+            f"Got response {r.status_code} when POSTing to {url}: {r.content}."
+        )
+        return None
     return r.content
 
 
@@ -99,22 +111,22 @@ def get_latest_info_from_host(host: str, rev: int, db: DQM2MirrorDB) -> None:
     logger.info(f"Updating host {host}, starting from revision {str(rev)}")
     if not rev:
         rev = 0
-
+    headers = []
     headers_answer = get_headers_from_fff(host, revision=rev)
-    try:
-        headers_answer = json.loads(json.loads(headers_answer)["messages"][0])
-        headers = headers_answer["headers"]
-        rev = headers_answer["rev"]
-        logger.debug(
-            f"Got {headers_answer['total_sent']} headers, from {rev[0]} to {rev[1]}."
-        )
-    except Exception as e:
-        logger.warning(f"Error when getting headers: {repr(e)}")
-        logger.warning(f"Got response: {headers_answer}")
-        logger.warning(traceback.format_exc())
-        return
+    if headers_answer:
+        try:
+            headers_answer = json.loads(json.loads(headers_answer)["messages"][0])
+            headers = headers_answer["headers"]
+            rev = headers_answer["rev"]
+            logger.debug(
+                f"Got {headers_answer['total_sent']} headers, from {rev[0]} to {rev[1]}."
+            )
+        except Exception:
+            logger.warning("Error when getting headers: ", exc_info=True)
+            logger.warning(f"Got response: {headers_answer}")
+            return
 
-    if not len(headers):
+    if not headers:
         return
     for i, header in enumerate(headers):
         id = header["_id"]
