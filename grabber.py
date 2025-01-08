@@ -159,9 +159,9 @@ def process_cluster_status(cluster_status: requests.Response) -> dict | None:
     The response is expected to be a JSON like:
 
     {
-    'dqmrubu-c2a06-03-01.cms': {'up': True, 'msg': None},
-    'dqmfu-c2b01-45-01.cms': {'up': True, 'msg': None},
-    'dqmfu-c2b02-45-01.cms': {'up': True, 'msg': None}
+    'dqmrubu-c2a06-03...cms': {'up': True, 'msg': None},
+    'dqmfu-c2b01-45...cms': {'up': True, 'msg': None},
+    'dqmfu-c2b02-45...cms': {'up': True, 'msg': None}
     }
     """
     return_value = None
