@@ -13,10 +13,10 @@ PVC_DIR=/cinder/dqmsquare
 echo "Creating logs dir $LOGS_DIR ..."
 mkdir -p $LOGS_DIR
 
-echo "Changing permissions for PVC claim $PVC_DIR ..."
-if ! chown -R dqm $PVC_DIR >/dev/null 2>&1; then
-  echo "Failed to update permissions!"
-fi
+# echo "Changing permissions for PVC claim $PVC_DIR ..."
+# if ! chown -R dqm $PVC_DIR >/dev/null 2>&1; then
+#   echo "Failed to update permissions!"
+# fi
 
 if [[ $service ]] && [[ $service = "server" ]]; then
   python3 grabber.py production &
