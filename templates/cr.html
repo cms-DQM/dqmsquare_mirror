@@ -16,7 +16,7 @@
   <strong>Output:</strong>
 </div>
 <div class="row">
-  <pre id="console" class="techtext"> </pre>
+  <pre id="custom-console" class="techtext"> </pre>
 </div>
 <div class="row">
   <div class="progress custom-progress" id="myProgress">
@@ -158,6 +158,7 @@
 
   // console
   let MAX_CONSOLE_SIZE = 80
+  let custom_console = document.getElementById("custom-console")
 
   let console_content = [];
   for (let i = 0; i <= MAX_CONSOLE_SIZE; ++i) console_content.push(". . .\n");
@@ -179,9 +180,8 @@
     console_content.forEach(function (item, index, array) {
       content += item + "<br>";
     });
-    console = document.getElementById("console")
-    console.innerHTML = content;
-    console.scrollTop = console.scrollHeight - console.clientHeight;
+    custom_console.innerHTML = content;
+    custom_console.scrollTop = custom_console.scrollHeight - custom_console.clientHeight;
   }
   push_to_console(". . .");
 
@@ -237,7 +237,11 @@
   }
 
   function process_cr_button(xhttp, url, element_name, req = "GET") {
-    var element = document.getElementById(element_name);
+    let element = document.getElementById(element_name);
+    if (element === null){
+      console.error(`Could not get element with name ${element_name}`);
+      return
+    }
     if (element.style.color == "") {
       push_to_console("Processing ... " + url);
       xhttp.open(req, url, true);
