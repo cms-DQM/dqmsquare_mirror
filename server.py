@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from db import DQM2MirrorDB
 from decorators import check_login, check_auth
 from custom_logger import set_log_handler
+from datetime import datetime, date
 
 load_dotenv()  # Load environmental variables from .env file, if present
 
@@ -18,6 +19,17 @@ log = logging.getLogger(__name__)
 
 log.info("start_server() call ... ")
 VALID_DATABASE_OPTIONS = ["playback", "production"]
+
+
+def json_serializer(obj):
+    """
+    JSON serializer for objects not serializable by default json code
+    https://stackoverflow.com/a/22238613/6562491
+    """
+
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError("Type %s not serializable" % type(obj))
 
 
 def create_app(cfg: dict):
@@ -40,7 +52,8 @@ def create_app(cfg: dict):
         cr_usernames = {username: password}
     except Exception as e:
         log.error(
-            f"No Control Room credentials configured! Please set the DQM_CR_USERNAMES env var: {repr(e)}"
+            "No Control Room credentials configured! Please set the DQM_CR_USERNAMES env var",
+            exc_info=True,
         )
         raise e
 
@@ -126,6 +139,23 @@ def create_app(cfg: dict):
 
     @app.route(
         os.path.join(
+            "/",
+            cfg["SERVER_URL_PREFIX"],
+            SERVER_DATA_PATH,
+            "comparison_reports/<path:id>",
+        )
+    )
+    def get_comparison_report(id: str):
+        """
+        Route that fetches file from the tmp directory.
+        """
+        return flask.send_from_directory(
+            (cfg["CMSSW_COMPARISON_REPORTS_STORE_PATH"].joinpath(id)),
+            "dqm-histo-comparison-summary.html",
+        )
+
+    @app.route(
+        os.path.join(
             "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "log/<path:filename>"
         )
     )
@@ -144,13 +174,7 @@ def create_app(cfg: dict):
         )
         return content
 
-    @app.route(
-        os.path.join(
-            "/",
-            cfg["SERVER_URL_PREFIX"],
-            "api",
-        )
-    )
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api"))
     def dqm2_api():
         """
         Get data from DQM^2 Mirror's Databases.
@@ -237,6 +261,22 @@ def create_app(cfg: dict):
             db_ = databases.get(cluster, db_playback)
             answer = db_.get_cluster_status()
             return json.dumps(answer)
+        elif what == "get_cmssw_comparison_reports":
+            id = flask.request.args.get("id", type=str)
+            type = flask.request.args.get("type", type=str)
+            if not id:
+                return json.dumps(
+                    db_playback.get_cmssw_comparison_reports(), default=json_serializer
+                )
+            else:
+                if not type:
+                    return json.dumps(
+                        db_playback.get_cmssw_comparison_report(id=id),
+                        default=json_serializer,
+                    )
+                elif type == "html":
+                    return flask.redirect(flask.url_for("get_comparison_report", id=id))
+
         else:
             return f"{what} is not supported", 404
 
@@ -448,7 +488,17 @@ def create_app(cfg: dict):
 
         # default answer
         log.warning(f"cr_exe@{what} : No actions defined for request.")
-        return f"No actions defined for request {what}"
+        return f"No actions defined for request '{what}'", 400
+
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "release_comparisons/"))
+    def release_comparisons():
+        return render_template(
+            "release_comparisons.html",
+            PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"),
+            FRONTEND_API_QUERY_INTERVAL=cfg["FRONTEND_API_QUERY_INTERVAL"],
+            VERSION=cfg["VERSION"],
+            TIMEZONE=cfg["TIMEZONE"],
+        )
 
     return app
 

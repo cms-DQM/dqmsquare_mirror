@@ -1,6 +1,7 @@
 ### DQM^2 Mirror DB === >
 import os
 import sys
+import shutil
 import logging
 import psycopg2
 import sqlalchemy
@@ -14,7 +15,7 @@ from utils.common import _censor_hostname
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "."))
 
-from dqmsquare_cfg import TZ, TIMEZONE
+from dqmsquare_cfg import TZ, TIMEZONE, load_cfg
 from utils.common import (
     get_short_client_name,
     filter_clients,
@@ -23,6 +24,7 @@ from utils.common import (
 )
 
 DEFAULT_DATETIME = TZ.localize(datetime(2012, 3, 3, 10, 10, 10, 0))
+cfg = load_cfg()
 
 
 class DQM2MirrorDB:
@@ -99,6 +101,25 @@ class DQM2MirrorDB:
         "message VARCHAR)"
     )
     TB_DESCRIPTION_HOST_STATUS_COLS = ["host_id", "is_up"]
+
+    TB_NAME_CMSSW_COMPARISON_REPORTS = "cmsswcomparisonreports"
+    TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS = (
+        "( id VARCHAR(160) PRIMARY KEY, "
+        "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(), "
+        "comparison_ran_at TIMESTAMP WITH TIME ZONE NOT NULL, "
+        "base_cmssw_version VARCHAR(25) NOT NULL, "
+        "comp_cmssw_version VARCHAR(25) NOT NULL, "
+        "base_prs INT[], "
+        "comp_prs INT[])"
+    )
+    TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS = [
+        "id",
+        "comparison_ran_at",
+        "base_cmssw_version",
+        "comp_cmssw_version",
+        "base_prs",
+        "comp_prs",
+    ]
 
     def __str__(self):
         return f"{self.__class__.__name__}: {self.db_uri}"
@@ -246,8 +267,22 @@ class DQM2MirrorDB:
                 session.rollback()
 
             try:
+                self.log.info(f"Creating table {self.TB_NAME_CMSSW_COMPARISON_REPORTS}")
+                session.execute(
+                    text(
+                        "CREATE TABLE IF NOT EXISTS "
+                        + self.TB_NAME_CMSSW_COMPARISON_REPORTS
+                        + " "
+                        + self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS
+                    )
+                )
+            except psycopg2.IntegrityError as e:
+                self.log.error("Error occurred: ", e)
+                session.rollback()
+
+            try:
                 self.log.info(f'Running "migrations"')
-                with open("./sql/migrations/0001_indexes.sql") as f:
+                with open("./sql/migrations/add_indices.sql") as f:
                     session.execute(text(f.read()))
             except psycopg2.IntegrityError as e:
                 self.log.error(f"Error occurred: ", e)
@@ -540,6 +575,120 @@ class DQM2MirrorDB:
                     )
                 )
 
+    def get_cmssw_comparison_reports(self) -> list[dict]:
+        """
+        Check if comparison report exists in DB and return result
+        """
+        with self.engine.connect() as cur:
+            results = (
+                cur.execute(
+                    text(
+                        f"SET TIMEZONE = '{TIMEZONE}'; "
+                        + f"SELECT * FROM {self.TB_NAME_CMSSW_COMPARISON_REPORTS} ORDER BY comparison_ran_at DESC;"
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            if results:
+                return [dict(result) for result in results]
+        return []
+
+    def get_cmssw_comparison_report(self, id: str) -> dict:
+        """
+        Check if comparison report exists in DB and return result
+        """
+        with self.engine.connect() as cur:
+            result = (
+                cur.execute(
+                    text(
+                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT * FROM {self.TB_NAME_CMSSW_COMPARISON_REPORTS} WHERE id=:id"
+                    ),
+                    id=id,
+                )
+                .mappings()
+                .first()
+            )
+            if result:
+                return dict(result)
+        return {}
+
+    def _store_cmssw_comparison_report_html(
+        self, comparison_id: str, comparison_report_html: str
+    ) -> None:
+        """
+        Given a unique comparison id, and the contents of the HTML report, store
+        it into a unique directory under the SERVER_DATA_PATH.
+
+        This is preferred to storing the file as a blob inside the db, which
+        is generally advised against.
+        """
+        if not cfg["CMSSW_COMPARISON_REPORTS_STORE_PATH"].exists():
+            self.log.debug(f"Creating {cfg['CMSSW_COMPARISON_REPORTS_STORE_PATH']}")
+            cfg["CMSSW_COMPARISON_REPORTS_STORE_PATH"].mkdir()
+
+        comparison_report_dir = cfg["CMSSW_COMPARISON_REPORTS_STORE_PATH"].joinpath(
+            comparison_id
+        )
+        if comparison_report_dir.exists():
+            shutil.rmtree(comparison_report_dir)
+        self.log.info(f"Creating {comparison_report_dir}")
+        comparison_report_dir.mkdir()
+        self.log.info(
+            f"Storing {comparison_report_dir.joinpath('dqm-histo-comparison-summary.html')}"
+        )
+        with open(
+            comparison_report_dir.joinpath("dqm-histo-comparison-summary.html"),
+            "w+",
+        ) as f:
+            f.write(comparison_report_html)
+
+    def fill_cmssw_comparison_report(
+        self, comparison_report_metadata: dict, comparison_report_html: str
+    ) -> dict:
+        """
+        For the given report, check if it exists in the DB
+        and store it, if not.
+        """
+
+        assert isinstance(comparison_report_metadata, dict)
+        assert len(comparison_report_metadata.keys()) > 0
+        assert all(
+            key in comparison_report_metadata
+            for key in ["id", "base", "comp", "comp_prs", "base_prs"]
+        ), "Comparison report entry does not contain all the expected data"
+
+        self.log.debug(f"Filling data: {comparison_report_metadata}")
+        with self.engine.connect() as cur:
+            result = cur.execute(
+                sqlalchemy.insert(
+                    self.db_meta.tables[self.TB_NAME_CMSSW_COMPARISON_REPORTS]
+                ).values(
+                    dict(
+                        zip(
+                            self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS,
+                            [
+                                comparison_report_metadata[key]
+                                for key in [
+                                    "id",
+                                    "timestamp",
+                                    "base",
+                                    "comp",
+                                    "base_prs",
+                                    "comp_prs",
+                                ]
+                            ],
+                        )
+                    )
+                )
+            )
+            # Store the HTML in the appropriate directory
+            self._store_cmssw_comparison_report_html(
+                comparison_id=comparison_report_metadata["id"],
+                comparison_report_html=comparison_report_html,
+            )
+            return result
+
     def get_run(
         self,
         run_start: int,
@@ -774,3 +923,14 @@ class DQM2MirrorDB:
             ).all()
             answer = [item[0] for item in answer]
         return answer
+
+
+if __name__ == "__main__":
+    db_playback = DQM2MirrorDB(
+        log=logging.getLogger(__name__),
+        host=cfg.get("DB_PLAYBACK_HOST"),
+        port=cfg.get("DB_PLAYBACK_PORT"),
+        username=cfg.get("DB_PLAYBACK_USERNAME"),
+        password=cfg.get("DB_PLAYBACK_PASSWORD"),
+        db_name=cfg.get("DB_PLAYBACK_NAME"),
+    )

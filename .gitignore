@@ -1,7 +1,9 @@
 *.log
 *.db
 *.pyc
-tmp/*
+tmp/
+log/
+cmssw_comparison_reports/
 __pycache__/
 .vscode/
 dqm2m_production.db_test
