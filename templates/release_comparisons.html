@@ -1,0 +1,98 @@
+{% extends "base.html" %} {% block head %}
+<script src="{{ url_for('static', filename='index_utils.js') }}"></script>
+<title>DQM CMSSW Release comparison results browser</title>
+{% endblock %} {% block content %}
+<div class="row mt-5">
+  <div class="col-lg-4 col-md-12">
+    <div class="row mt-1">
+      <h5>Available comparisons</h5>
+    </div>
+    <div class="row">
+      <ul class="list-group" id="results-list"></ul>
+    </div>
+  </div>
+  <div class="col-lg-8 col-md-12 flex-column border">
+    <object
+      type="text/html"
+      id="comparison-frame"
+      style="min-height: 700px"
+      class="container-fluid"
+      data=""
+    >
+      <h2>Click an item from the list on the left.</h2>
+    </object>
+  </div>
+</div>
+{% endblock %} {% block script %}
+<script>
+  const TIMEZONE = "{{ TIMEZONE }}";
+  const PREFIX = "{{ PREFIX }}";
+
+  function initialize_results_list() {
+    document.getElementById("results-list").innerHTML = "";
+  }
+
+  // Remove the bootstrap 'active' class from all items
+  // in the available reports list.
+  function inactive_all_result_items() {
+    let results_list = document.getElementById("results-list");
+    results_list.childNodes.forEach((child) => {
+      child.classList.remove("active");
+    });
+  }
+
+  // Set (and hence load) the target comparison to show
+  // on the comparison frame.
+  function set_comparison_frame_contents(id) {
+    document
+      .getElementById("comparison-frame")
+      .setAttribute("data", `/comparison_reports/${id}`);
+  }
+
+  // Callback to run when clicking a single comparison item.
+  function onclick_specific_comparison(e) {
+    inactive_all_result_items();
+    e.target.classList.add("active");
+    let id = e.target.getAttribute("id");
+    set_comparison_frame_contents(id);
+  }
+
+  // Create a single li element for a single comparison report.
+  function create_result_list_element(data) {
+    let li = document.createElement("li");
+    li.classList.add("list-group-item", "list-group-item-action");
+    li.onclick = onclick_specific_comparison;
+    li.innerHTML = `${data.base_cmssw_version} (${data.base_prs}) vs ${data.comp_cmssw_version} (${data.comp_prs})`;
+    li.setAttribute("id", data.id);
+    li.setAttribute("title", `Comparison ran at ${data.comparison_ran_at}`);
+    return li;
+  }
+
+  // Given the list of available comparison reports, populate
+  // the results list.
+  function update_available_results_list(data) {
+    let results_list = document.getElementById("results-list");
+    data.forEach((element) => {
+      console.log(element);
+      let li = create_result_list_element(element);
+      results_list.append(li);
+    });
+  }
+
+  // Fetch the list of the available comparison reports from the API.
+  // Return the json response as a Promise.
+  function get_available_comparisons() {
+    return fetch(`${PREFIX}api?what=get_cmssw_comparison_reports`).then(
+      (response) => response.json()
+    );
+  }
+
+  // Attach to the load event of the window.
+  addEventListener("load", (event) => {
+    initialize_results_list();
+    get_available_comparisons().then((data) =>
+      update_available_results_list(data)
+    );
+  });
+</script>
+{% endblock %}
