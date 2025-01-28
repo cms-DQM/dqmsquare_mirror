@@ -16,27 +16,33 @@
 <body>
   <nav class="navbar navbar-expand-lg navbar-dark bg-theme">
     <div class="container-fluid">
-      <a class="navbar-brand custom-title hidden-link-light" href="{{ PREFIX }}" class="mlink">DQM<sup>2</sup>
-        Mirror</a>
+      <a class="navbar-brand custom-title hidden-link-light" href="{{ PREFIX }}" class="mlink">
+        DQM<sup>2</sup>Mirror
+      </a>
+      <a class="hidden-link-light">
+      {% block subtitle %}
+      {% endblock %}
+      </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
         aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          {% block extra_navbar_links %}
-          {% endblock %}
-          <li class="nav-item">
-            <a href="{{ PREFIX }}cr/" class="nav-link mlink" title="Control Room">
-              <i class="bi bi-pc-display-horizontal bi-navbar"><span class="p-2 d-sm-none">Control Room</span></i>
-            </a>
-          </li>
+
           <li class="nav-item">
             <a href="{{ PREFIX }}timeline/" class="nav-link mlink" title="Timeline">
               <i class="bi bi-clock-history bi-navbar"><span class="p-2 d-sm-none">Timeline</span></i>
             </a></i>
             </a>
           </li>
+          <li class="nav-item">
+            <a href="{{ PREFIX }}cr/" class="nav-link mlink" title="Control Room">
+              <i class="bi bi-pc-display-horizontal bi-navbar"><span class="p-2 d-sm-none">Control Room</span></i>
+            </a>
+          </li>
+          {% block extra_navbar_links %}
+          {% endblock %}
         </ul>
         <div class="d-flex">
           <a title="See release notes" class="version-string hidden-link-light"
