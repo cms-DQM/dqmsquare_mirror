@@ -3,7 +3,7 @@ import flask
 
 
 def check_login(
-    username: str, password: str, cr_usernames: dict[str:str], cookie=False
+    username: str, password: str, cr_usernames: dict[str, str], cookie=False
 ):
     if not username:
         return False
