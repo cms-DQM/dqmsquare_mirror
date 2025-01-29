@@ -264,9 +264,16 @@ def create_app(cfg: dict):
         elif what == "get_cmssw_comparison_reports":
             id = flask.request.args.get("id", type=str)
             type = flask.request.args.get("type", type=str)
+            page = flask.request.args.get("page", type=int, default=1)
+            items_per_page = flask.request.args.get(
+                "items_per_page", type=int, default=10
+            )
             if not id:
                 return json.dumps(
-                    db_playback.get_cmssw_comparison_reports(), default=json_serializer
+                    db_playback.get_cmssw_comparison_reports(
+                        items_per_page=items_per_page, page=page
+                    ),
+                    default=json_serializer,
                 )
             else:
                 if not type:

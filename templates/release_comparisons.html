@@ -1,5 +1,5 @@
 {% extends "base.html" %} {% block head %}
-<script src="{{ url_for('static', filename='index_utils.js') }}"></script>
+<script src="{{ url_for('static', filename='pagination_helper.js') }}"></script>
 <title>DQM CMSSW Release comparison results browser</title>
 {% endblock %} {% block content %}
 <div class="row mt-5">
@@ -27,10 +27,7 @@
 <script>
   const TIMEZONE = "{{ TIMEZONE }}";
   const PREFIX = "{{ PREFIX }}";
-
-  function initialize_results_list() {
-    document.getElementById("results-list").innerHTML = "";
-  }
+  const MAX_RESULTS_PER_PAGE = 10;
 
   // Remove the bootstrap 'active' class from all items
   // in the available reports list.
@@ -55,44 +52,84 @@
     e.target.classList.add("active");
     let id = e.target.getAttribute("id");
     set_comparison_frame_contents(id);
-  }
-
-  // Create a single li element for a single comparison report.
-  function create_result_list_element(data) {
-    let li = document.createElement("li");
-    li.classList.add("list-group-item", "list-group-item-action");
-    li.onclick = onclick_specific_comparison;
-    li.innerHTML = `${data.base_cmssw_version} (${data.base_prs}) vs ${data.comp_cmssw_version} (${data.comp_prs})`;
-    li.setAttribute("id", data.id);
-    li.setAttribute("title", `Comparison ran at ${data.comparison_ran_at}`);
-    return li;
-  }
-
-  // Given the list of available comparison reports, populate
-  // the results list.
-  function update_available_results_list(data) {
-    let results_list = document.getElementById("results-list");
-    data.forEach((element) => {
-      console.log(element);
-      let li = create_result_list_element(element);
-      results_list.append(li);
-    });
+    update_comparison_in_url(id);
   }
 
   // Fetch the list of the available comparison reports from the API.
   // Return the json response as a Promise.
-  function get_available_comparisons() {
-    return fetch(`${PREFIX}api?what=get_cmssw_comparison_reports`).then(
-      (response) => response.json()
+  function get_available_comparisons(
+    page = 1,
+    items_per_page = MAX_RESULTS_PER_PAGE
+  ) {
+    return fetch(
+      `${PREFIX}api?what=get_cmssw_comparison_reports${
+        page ? "&page=" + page : ""
+      }${items_per_page ? "&items_per_page=" + items_per_page : ""}`
+    ).then((response) => response.json());
+  }
+
+  function update_page_in_url(page) {
+    let url = new URL(window.location);
+    url.searchParams.set("page", page);
+    window.history.replaceState(null, null, url);
+  }
+
+  function update_comparison_in_url(comparison_id) {
+    let url = new URL(window.location);
+    url.searchParams.set("comparison_id", comparison_id);
+    window.history.replaceState(null, null, url);
+  }
+
+  function get_comparisons_and_update_data(page, pagination) {
+    return get_available_comparisons(page, MAX_RESULTS_PER_PAGE).then(
+      (data) => {
+        pagination.set_data(data.data, data.page, data.total_pages);
+        update_page_in_url(data.page);
+        // Return an empty response so that
+        // we can keep the then chain going.
+        return new Promise((resolve) => {
+          resolve();
+        });
+      }
     );
   }
 
   // Attach to the load event of the window.
   addEventListener("load", (event) => {
-    initialize_results_list();
-    get_available_comparisons().then((data) =>
-      update_available_results_list(data)
+    let paramString = window.location.href.split("?")[1];
+    let queryString = new URLSearchParams(paramString);
+    // URL params. Those control the state that the
+    // page will show. If page is set, we start querying
+    // the API starting from that page. If comparison_id
+    // is set, and it's listed in the currently shown page,
+    // it is automatically selected.
+    let page = queryString.get("page");
+    let comparison_id = queryString.get("comparison_id");
+
+    let pagination = pagination_helper(
+      "results-list" /* DOM element to attach to */,
+      /* On result creation callback. Gets the DOM element created (li)
+          and the data corresponding as arg. It must return the li. */
+      (li, data) => {
+        li.setAttribute("id", data.id);
+        li.setAttribute("title", `Comparison ran at ${data.comparison_ran_at}`);
+        li.innerHTML = `${data.base_cmssw_version} (${data.base_prs}) vs ${data.comp_cmssw_version} (${data.comp_prs})`;
+        li.classList.add("list-group-item", "list-group-item-action");
+        li.onclick = onclick_specific_comparison;
+        return li;
+      },
+      /* To be run on each page click */
+      (page) => {
+        get_comparisons_and_update_data(page, pagination);
+      },
+      MAX_RESULTS_PER_PAGE /* Items per page to show */
     );
+    // First call on page load.
+    get_comparisons_and_update_data(page, pagination).then(() => {
+      if (comparison_id && document.getElementById(comparison_id)) {
+        document.getElementById(comparison_id).click();
+      }
+    });
   });
 </script>
 {% endblock %}

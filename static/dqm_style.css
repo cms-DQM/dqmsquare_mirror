@@ -384,3 +384,26 @@ a:active {
   margin-right: 16px;
   margin-bottom: 6px;
 }
+
+/* Override pagination styles */
+.pagination > li.active > a{
+  background-color: #2471a3;
+  color: white
+}
+
+.pagination > li > a{
+  color: #2471a3
+}
+
+.list-group > li.active{
+  background-color: #2471a3;
+  color: white
+}
+
+.active > .page-link{
+  border-color: #2471a3;
+}
+
+.list-group-item.active {
+  border-color: #2471a3;
+}

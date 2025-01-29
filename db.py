@@ -1,6 +1,7 @@
 ### DQM^2 Mirror DB === >
 import os
 import sys
+import math
 import shutil
 import logging
 import psycopg2
@@ -575,42 +576,63 @@ class DQM2MirrorDB:
                     )
                 )
 
-    def get_cmssw_comparison_reports(self) -> list[dict]:
+    def get_cmssw_comparison_reports(self, items_per_page: int, page: int) -> dict:
         """
         Check if comparison report exists in DB and return result
         """
-        with self.engine.connect() as cur:
-            results = (
-                cur.execute(
-                    text(
-                        f"SET TIMEZONE = '{TIMEZONE}'; "
-                        + f"SELECT * FROM {self.TB_NAME_CMSSW_COMPARISON_REPORTS} ORDER BY comparison_ran_at DESC;"
-                    )
-                )
-                .mappings()
-                .all()
+        # TODO: This is awful, maybe use flask-sqlalchemy at some point, it comes
+        # with pagination.
+        cur = self.engine.connect()
+        num_total_reports = cur.execute(
+            text(f"SELECT COUNT (*) FROM {self.TB_NAME_CMSSW_COMPARISON_REPORTS};")
+        ).first()[0]
+        num_total_pages = math.ceil(num_total_reports / items_per_page)
+        if page < 0:
+            page = 1
+        elif page > num_total_pages:
+            page = num_total_pages
+        offset = (page - 1) * items_per_page
+
+        self.log.info(num_total_reports)
+        results = (
+            cur.execute(
+                text(
+                    f"SET TIMEZONE = '{TIMEZONE}'; "
+                    + f"SELECT * FROM {self.TB_NAME_CMSSW_COMPARISON_REPORTS} "
+                    + "ORDER BY comparison_ran_at DESC "
+                    + "LIMIT :limit OFFSET :offset ;"
+                ),
+                limit=items_per_page,
+                offset=offset,
             )
-            if results:
-                return [dict(result) for result in results]
-        return []
+            .mappings()
+            .all()
+        )
+        if results:
+            return {
+                "data": [dict(result) for result in results],
+                "page": page,
+                "total_pages": num_total_pages,
+            }
+        return {"data": [], "page": page, "total_pages": num_total_pages}
 
     def get_cmssw_comparison_report(self, id: str) -> dict:
         """
         Check if comparison report exists in DB and return result
         """
-        with self.engine.connect() as cur:
-            result = (
-                cur.execute(
-                    text(
-                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT * FROM {self.TB_NAME_CMSSW_COMPARISON_REPORTS} WHERE id=:id"
-                    ),
-                    id=id,
-                )
-                .mappings()
-                .first()
+        cur = self.engine.connect()
+        result = (
+            cur.execute(
+                text(
+                    f"SET TIMEZONE = '{TIMEZONE}'; SELECT * FROM {self.TB_NAME_CMSSW_COMPARISON_REPORTS} WHERE id=:id"
+                ),
+                id=id,
             )
-            if result:
-                return dict(result)
+            .mappings()
+            .first()
+        )
+        if result:
+            return dict(result)
         return {}
 
     def _store_cmssw_comparison_report_html(
