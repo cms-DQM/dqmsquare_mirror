@@ -142,9 +142,9 @@ def test_db_mirror_data(testing_database: DQM2MirrorDB):
     assert truth == answer
 
 
-def test_db_get_graphs_data(testing_database: DQM2MirrorDB):
+def test_db_get_graphs(testing_database: DQM2MirrorDB):
     truth = TEST_DB_9_TRUTH
-    answer = testing_database.get_graphs_data(358792)
+    answer = testing_database.get_graphs(358792)
     for i, item in enumerate(truth):
         if isinstance(item, float):  # timestamp
             assert TZ.localize(datetime.fromtimestamp(item)) == TZ.localize(
@@ -169,7 +169,7 @@ def test_db_graphs(testing_database: DQM2MirrorDB):
     header = {"_id": "id", "run": "123456", "extra": {}}
     document = {"extra": {None: None}}
     testing_database.fill_graph(header, document)
-    answer = testing_database.get_graphs_data(123456)
+    answer = testing_database.get_graphs(123456)
     assert all([c1 == c2 for c1, c2 in zip(truth, answer)])
 
 

@@ -1,6 +1,6 @@
 import math
 import flask
-import sqlalchemy
+from sqlalchemy import select, func as sql_func, sql
 
 
 def check_login(
@@ -55,26 +55,26 @@ def paginate(table):
     def paginate_decorator(func):
         def _paginate(*args, **kwargs):
             db = args[0]  # Passed as the "self" argument, hence the first of the args
-            # Remove pagination-specific kwargs, so that we don't
+            # Then, we remove pagination-specific kwargs, so that we don't
             # pass unknown kwargs to the downstream wrapped method.
             items_per_page = kwargs.pop("items_per_page", 1)
             page = kwargs.pop("page", 1)
             query = func(*args, **kwargs)
-            assert isinstance(query, sqlalchemy.sql.ClauseElement)
+            assert isinstance(query, sql.ClauseElement)
             order_by = kwargs.pop("order_by", None)
-            cur = db.engine.connect()
-            num_total_reports = cur.execute(
-                sqlalchemy.text(f"SELECT COUNT (*) FROM {table};")
-            ).first()[0]
+            with db.engine.connect() as cur:
+                num_total_rows = cur.execute(
+                    select(sql_func.count("*")).select_from(db.db_meta.tables[table])
+                ).scalar()
 
-            if num_total_reports <= 1:
+            if num_total_rows <= 1:
                 return {
                     "data": [],
                     "page": 1,
                     "total_pages": 1,
                 }
 
-            num_total_pages = math.ceil(num_total_reports / items_per_page)
+            num_total_pages = math.ceil(num_total_rows / items_per_page)
             if page < 0:
                 page = 1
             elif page > num_total_pages:

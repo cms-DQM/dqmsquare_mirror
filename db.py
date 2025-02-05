@@ -96,32 +96,20 @@ class DQM2MirrorDB:
     TB_DESCRIPTION_HOST_STATUS = (
         "( id SERIAL PRIMARY KEY, "
         "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(), "
-        "host_id INT NOT NULL, "
-        "CONSTRAINT fk_host FOREIGN KEY(host_id) REFERENCES hostnames(id) ON DELETE CASCADE, "
+        "host_id INT NOT NULL REFERENCES hostnames(id) ON DELETE CASCADE, "
         "is_up BOOLEAN NOT NULL, "
         "message VARCHAR)"
     )
     TB_DESCRIPTION_HOST_STATUS_COLS = ["host_id", "is_up", "message"]
 
-    TB_NAME_CMSSW_PRS = "cmsswprs"
-    TB_DESCRIPTION_CMSSW_PRS = "( pr_num INTEGER PRIMARY KEY )"
-    TB_DESCRIPTION_CMSSW_PRS_COLS = ["pr_num"]
-
-    TB_NAME_CMSSW_RELEASES = "cmsswreleases"
-    TB_DESCRIPTION_CMSSW_RELEASES = (
-        "( id SERIAL PRIMARY KEY, "
-        + "cmssw_version VARCHAR NOT NULL, "
-        + "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW())"
-    )
-    TB_DESCRIPTION_CMSSW_RELEASES_COLS = ["cmssw_version"]
-
-    TB_NAME_CMSSW_COMPARISON_REPORTS = "cmsswcomparisonreports"
+    # Table for storing info on CMSSW comparison reports.
+    TB_NAME_CMSSW_COMPARISON_REPORTS = "cmssw_comparison_reports"
     TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS = (
         "( id VARCHAR PRIMARY KEY, "
         "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(), "
         "comparison_ran_at TIMESTAMP WITH TIME ZONE NOT NULL, "
-        "base_cmssw_version INT REFERENCES cmsswreleases NOT NULL, "
-        "comp_cmssw_version INT REFERENCES cmsswreleases NOT NULL)"
+        "base_cmssw_version INT NOT NULL REFERENCES cmssw_release_with_prs ON DELETE CASCADE, "
+        "comp_cmssw_version INT NOT NULL REFERENCES cmssw_release_with_prs ON DELETE CASCADE)"
     )
     TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS = [
         "id",
@@ -130,20 +118,37 @@ class DQM2MirrorDB:
         "comp_cmssw_version",
     ]
 
-    TB_NAME_COMPARISON_TO_CMSSW_PRS = "cmsswreleasewithprs"
+    # Unique CMSSW releases mentioned in comparison reports received.
+    TB_NAME_CMSSW_RELEASES = "cmssw_releases"
+    TB_DESCRIPTION_CMSSW_RELEASES = (
+        "( id SERIAL PRIMARY KEY, "
+        + "cmssw_version VARCHAR NOT NULL, "
+        + "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW())"
+    )
+    TB_DESCRIPTION_CMSSW_RELEASES_COLS = ["cmssw_version"]
+
+    # Unique CMSSW PRs mentioned in comparison reports received.
+    TB_NAME_CMSSW_PRS = "cmssw_prs"
+    TB_DESCRIPTION_CMSSW_PRS = "( pr_num INTEGER PRIMARY KEY )"
+    TB_DESCRIPTION_CMSSW_PRS_COLS = ["pr_num"]
+
+    # Table that combines CMSSW base PR and PRs. The rows in this table are
+    # referenced by the cmsswreleasetoprs rows, to allow a Many to one relationship.
+    TB_NAME_COMPARISON_TO_CMSSW_PRS = "cmssw_release_with_prs"
     TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS = (
-        "( id SERIAL PRIMARY KEY, cmssw_release_id INT REFERENCES cmsswreleases, "
-        + "cmssw_pr_id INT REFERENCES cmsswprs )"
+        "( id SERIAL PRIMARY KEY, "
+        + "cmssw_release_id INT REFERENCES cmssw_releases ON DELETE CASCADE, "
+        + "cmssw_pr_id INT REFERENCES cmssw_prs ON DELETE CASCADE )"
     )
     TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS_COLS = ["cmssw_release_id", "cmssw_pr"]
 
-    # One to many
-    TB_NAME_COMPARISON_TO_CMSSW_PRS = "cmsswreleasetoprs"
-    TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS = (
-        "( cmssw_release_id INT REFERENCES cmsswreleases, "
-        + "cmssw_pr_id INT REFERENCES cmsswprs )"
+    # Intermediate table to link many PRs to a single entry in cmssw_release_with_prs
+    TB_NAME_RELEASE_WITH_PRS_TO_CMSSW_PRS = "cmssw_release_with_prs_to_cmssw_prs"
+    TB_DESCRIPTION_RELEASE_WITH_PRS_TO_CMSSW_PRS = (
+        "( cmssw_release_id INT REFERENCES cmssw_release_with_prs ON DELETE CASCADE, "
+        + "cmssw_pr_id INT REFERENCES cmssw_prs ON DELETE CASCADE )"
     )
-    TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS_COLS = ["cmssw_release_id", "cmssw_pr"]
+    TB_DESCRIPTION_RELEASE_WITH_PRS_TO_CMSSW_PRS_COLS = ["cmssw_release_id", "cmssw_pr"]
 
     def __str__(self):
         return f"{self.__class__.__name__}: {self.db_uri}"
@@ -232,12 +237,16 @@ class DQM2MirrorDB:
                 (self.TB_NAME_CMSSW_PRS, self.TB_DESCRIPTION_CMSSW_PRS),
                 (self.TB_NAME_CMSSW_RELEASES, self.TB_DESCRIPTION_CMSSW_RELEASES),
                 (
-                    self.TB_NAME_CMSSW_COMPARISON_REPORTS,
-                    self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS,
-                ),
-                (
                     self.TB_NAME_COMPARISON_TO_CMSSW_PRS,
                     self.TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS,
+                ),
+                (
+                    self.TB_NAME_RELEASE_WITH_PRS_TO_CMSSW_PRS,
+                    self.TB_DESCRIPTION_RELEASE_WITH_PRS_TO_CMSSW_PRS,
+                ),
+                (
+                    self.TB_NAME_CMSSW_COMPARISON_REPORTS,
+                    self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS,
                 ),
             ]:
 
@@ -260,6 +269,28 @@ class DQM2MirrorDB:
             except psycopg2.IntegrityError as e:
                 self.log.error(f"Error occurred: ", e)
                 session.rollback()
+
+    def get_graphs(self, run: int) -> list:
+        """
+        Load graph data for a specific run
+        """
+        self.log.debug(f"DQM2MirrorDB.get_graphs() - Run {run}")
+        with self.engine.connect() as cur:
+            answer = cur.execute(
+                text(
+                    f"SELECT * FROM {self.TB_NAME_GRAPHS} WHERE CAST(run as INTEGER)=:run;"
+                ),
+                run=run,
+            ).all()
+        if not len(answer):
+            return []
+        answer = list(answer[0])
+        if answer[-2]:
+            answer[-2] = eval(answer[-2])  # TODO: Not secure!!!!!!
+        answer[3] = answer[3].timestamp()
+        answer[4] = answer[4].timestamp()
+
+        return answer
 
     def fill_graph(self, header: dict, document: dict) -> None:
         """
@@ -356,26 +387,41 @@ class DQM2MirrorDB:
                 self.log.error(f"Error occurred: {repr(e)}")
                 session.rollback()
 
-    def get_graphs_data(self, run: int) -> list:
+    def get_run(
+        self,
+        run_start: int,
+        run_end: int,
+        bad_only: bool = False,
+        with_ls_only: bool = False,
+    ) -> list[tuple]:
         """
-        Load graph data for a specific run
+        Get data from 'runs' table.
         """
-        self.log.debug(f"DQM2MirrorDB.get_graphs_data() - Run {run}")
+        self.log.debug("DQM2MirrorDB.get() - " + str(run_start) + " " + str(run_end))
         with self.engine.connect() as cur:
-            answer = cur.execute(
-                text(
-                    f"SELECT * FROM {self.TB_NAME_GRAPHS} WHERE CAST(run as INTEGER)=:run;"
-                ),
-                run=run,
-            ).all()
-        if not len(answer):
-            return []
-        answer = list(answer[0])
-        if answer[-2]:
-            answer[-2] = eval(answer[-2])  # TODO: Not secure!!!!!!
-        answer[3] = answer[3].timestamp()
-        answer[4] = answer[4].timestamp()
-
+            postfix = ""
+            if bad_only:
+                postfix = " AND (exit_code <> 0 OR exit_code IS NULL) " + postfix
+            if with_ls_only:
+                postfix = " AND cmssw_lumi > 0 " + postfix
+            if run_start == run_end:
+                answer = cur.execute(
+                    text(
+                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT {self.TB_DESCRIPTION_RUNS_COLS_NOLOGS} FROM {self.TB_NAME_RUNS} "
+                        + f"WHERE run=:run_start {postfix} ORDER BY client, id;"
+                    ),
+                    run_start=run_start,
+                ).all()
+            else:
+                answer = cur.execute(
+                    text(
+                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT {self.TB_DESCRIPTION_RUNS_COLS_NOLOGS} FROM {self.TB_NAME_RUNS} "
+                        + f"WHERE run BETWEEN :run_start AND :run_end {postfix};"
+                    ),
+                    run_start=run_start,
+                    run_end=run_end,
+                ).all()
+        self.log.debug(f"Read DB for runs {run_start}-{run_end}: {answer}")
         return answer
 
     def fill_run(self, header: dict, document: dict) -> None:
@@ -719,10 +765,12 @@ class DQM2MirrorDB:
             f.write(comparison_report_html)
 
     def get_cmssw_release(self, cmssw_release: str) -> dict:
-        table = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]
+        table_cmssw_releases = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]
         with self.engine.connect() as cur:
             result = cur.execute(
-                sqlalchemy.select(table).where(table.c.cmssw_version == cmssw_release)
+                sqlalchemy.select(table_cmssw_releases).where(
+                    table_cmssw_releases.c.cmssw_version == cmssw_release
+                )
             )
         if result:
             return result.mappings().first()
@@ -771,43 +819,6 @@ class DQM2MirrorDB:
                 )
             )
 
-    def get_run(
-        self,
-        run_start: int,
-        run_end: int,
-        bad_only: bool = False,
-        with_ls_only: bool = False,
-    ) -> list[tuple]:
-        """
-        Get data from 'runs' table.
-        """
-        self.log.debug("DQM2MirrorDB.get() - " + str(run_start) + " " + str(run_end))
-        with self.engine.connect() as cur:
-            postfix = ""
-            if bad_only:
-                postfix = " AND (exit_code <> 0 OR exit_code IS NULL) " + postfix
-            if with_ls_only:
-                postfix = " AND cmssw_lumi > 0 " + postfix
-            if run_start == run_end:
-                answer = cur.execute(
-                    text(
-                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT {self.TB_DESCRIPTION_RUNS_COLS_NOLOGS} FROM {self.TB_NAME_RUNS} "
-                        + f"WHERE run=:run_start {postfix} ORDER BY client, id;"
-                    ),
-                    run_start=run_start,
-                ).all()
-            else:
-                answer = cur.execute(
-                    text(
-                        f"SET TIMEZONE = '{TIMEZONE}'; SELECT {self.TB_DESCRIPTION_RUNS_COLS_NOLOGS} FROM {self.TB_NAME_RUNS} "
-                        + f"WHERE run BETWEEN :run_start AND :run_end {postfix};"
-                    ),
-                    run_start=run_start,
-                    run_end=run_end,
-                ).all()
-        self.log.debug(f"Read DB for runs {run_start}-{run_end}: {answer}")
-        return answer
-
     def get_mirror_data(self, run_number: int) -> tuple:
         """
         Gets information for a specific run from the DB.
@@ -854,7 +865,8 @@ class DQM2MirrorDB:
         with self.engine.connect() as cur:
             answer = cur.execute(
                 text(
-                    f"SELECT DISTINCT client FROM {self.TB_NAME_RUNS} WHERE run BETWEEN :run_start AND :run_end ORDER BY client;"
+                    f"SELECT DISTINCT client FROM {self.TB_NAME_RUNS} "
+                    + "WHERE run BETWEEN :run_start AND :run_end ORDER BY client;"
                 ),
                 run_start=run_start,
                 run_end=run_end,

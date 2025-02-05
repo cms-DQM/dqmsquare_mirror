@@ -216,7 +216,7 @@ def create_app(cfg: dict):
         if db_name not in VALID_DATABASE_OPTIONS:
             return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
         db_ = databases.get(db_name, db_playback)
-        graph_data = db_.get_graphs_data(run)
+        graph_data = db_.get_graphs(run)
         return json.dumps(graph_data)
 
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_run"))

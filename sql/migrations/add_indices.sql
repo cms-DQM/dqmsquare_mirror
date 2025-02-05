@@ -9,4 +9,4 @@ CREATE INDEX IF NOT EXISTS hoststatuses_host_id_index ON hoststatuses (host_id);
 
 CREATE INDEX IF NOT EXISTS hoststatuses_host_id_created_at ON hoststatuses (host_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS cmsswcomparisonreports_id_comparison_ran_at ON cmsswcomparisonreports (id, comparison_ran_at DESC);
+CREATE INDEX IF NOT EXISTS cmsswcomparisonreports_id_comparison_ran_at ON cmssw_comparison_reports (id, comparison_ran_at DESC);

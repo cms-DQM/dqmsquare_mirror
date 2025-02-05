@@ -3,15 +3,16 @@ import os
 import sys
 import json
 import time
-import requests
-import urllib3
-from urllib.parse import urljoin, urlencode
 import logging
+import urllib3
+import requests
+import threading
+from datetime import datetime
+from collections.abc import Callable
+from urllib.parse import urljoin, urlencode
 import dqmsquare_cfg
 from custom_logger import custom_formatter, set_log_handler
 from db import DQM2MirrorDB
-import threading
-from collections.abc import Callable
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -108,12 +109,7 @@ def process_headers_and_store_data(host: str, db: DQM2MirrorDB, headers: list[di
         logger.debug("Filling info into DB ... ")
 
         # BU sends us file delivery graph info, FUs sends us logs and event processing rates.
-        answer = (
-            db.fill_graph(header, document) if is_bu else db.fill_run(header, document)
-        )
-        # TODO: Decide what kind of errors should be returned from the db fill functions.
-        # if answer:
-        #     bad_rvs += [answer]
+        db.fill_graph(header, document) if is_bu else db.fill_run(header, document)
 
 
 def get_headers_from_fff(
@@ -159,12 +155,6 @@ def get_headers_from_fff(
         else:
             return r.content
     return None
-
-
-# # Global list storing number of errors returned from fill/fill_graph(??)
-# # Those functions do not return a revision number, but a 0 if no error and 1
-# # otherwise, meaning that bad_rvs stores an array of ones.
-# bad_rvs = []
 
 
 def process_cluster_status(cluster_status: requests.Response) -> dict | None:
@@ -470,20 +460,20 @@ if __name__ == "__main__":
 
     active_threads = []
     if "playback" in run_modes:
-        active_threads.append(
-            threading.Thread(
-                target=loop_info,
-                args=[playback_machines, db_playback, cfg["GRABBER_SLEEP_TIME_INFO"]],
-                daemon=True,
-            )
-        )
-        active_threads.append(
-            threading.Thread(
-                target=loop_status,
-                args=[db_playback, "playback", cfg["GRABBER_SLEEP_TIME_STATUS"]],
-                daemon=True,
-            )
-        )
+        # active_threads.append(
+        #     threading.Thread(
+        #         target=loop_info,
+        #         args=[playback_machines, db_playback, cfg["GRABBER_SLEEP_TIME_INFO"]],
+        #         daemon=True,
+        #     )
+        # )
+        # active_threads.append(
+        #     threading.Thread(
+        #         target=loop_status,
+        #         args=[db_playback, "playback", cfg["GRABBER_SLEEP_TIME_STATUS"]],
+        #         daemon=True,
+        #     )
+        # )
         active_threads.append(
             threading.Thread(
                 target=loop_cmssw_comparison_reports,
