@@ -25,24 +25,22 @@ def test_server_cr(client: FlaskClient):
 
 def test_server_get_run(client: FlaskClient):
     # Wrong GET argument
-    response = client.get("/api?what=get_run&run=381574&db_name=production")
+    response = client.get("/api/get_run?run=381574&db_name=production")
     assert response.status_code == 400
 
     # Dumb string instead of number
-    response = client.get(
-        "/api?what=get_run&run=;DROP DATABASE postgres_test&db=production"
-    )
+    response = client.get("/api/get_run?run=;DROP DATABASE postgres_test&db=production")
     assert response.status_code == 400
 
     # Proper request
-    response = client.get("/api?what=get_run&run=381574&db=production")
+    response = client.get("/api/get_run?run=381574&db=production")
     assert response.status_code == 200
     response = json.loads(response.text)
     assert isinstance(response, list)
     assert response[0][0] == 358792
     assert response[0][1] == None
 
-    response = client.get("/api?what=get_run&run=358791&db=production")
+    response = client.get("/api/get_run?run=358791&db=production")
     assert response.status_code == 200
     response = json.loads(response.text)
     assert isinstance(response, list)
@@ -52,13 +50,11 @@ def test_server_get_run(client: FlaskClient):
 
 def test_server_get_clients(client: FlaskClient):
     # Wrong GET argument
-    response = client.get(
-        "/api?what=get_clients&from=377187&to=381574&db_name=production"
-    )
+    response = client.get("/api/get_clients?from=377187&to=381574&db_name=production")
     assert response.status_code == 400
 
     # Proper request
-    response = client.get("/api?what=get_clients&from=358788&to=358792&db=production")
+    response = client.get("/api/get_clients?from=358788&to=358792&db=production")
     assert response.status_code == 200
     response = json.loads(response.text)
     assert isinstance(response, list)

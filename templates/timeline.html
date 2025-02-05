@@ -1,37 +1,52 @@
-{% extends "base.html" %}
-
-{% block head %}
+{% extends "base.html" %} {% block head %}
 <script src="{{ url_for('static', filename='canvasslider.js') }}"></script>
 <title>DQM&sup2; Mirror — Timeline</title>
-{% endblock %}
-
-{% block content %}
-<br>
+{% endblock %} {% block content %}
+<br />
 <label>Runs range:</label>
-<input type="number" id="runMin" min="0" max="0" onchange="update_runs_range(this.id, this.value, -1)">
-<input type="number" id="runMax" min="0" max="0" onchange="update_runs_range(this.id, -1, this.value)">
+<input
+  type="number"
+  id="runMin"
+  min="0"
+  max="0"
+  onchange="update_runs_range(this.id, this.value, -1)"
+/>
+<input
+  type="number"
+  id="runMax"
+  min="0"
+  max="0"
+  onchange="update_runs_range(this.id, -1, this.value)"
+/>
 <button type="button" onclick="update_table()">Apply</button>
-<input type="checkbox" id="check_badonly" name="check_badonly" value=""><label for="check_badonly">exit_code !=
-  0</label>
-<input type="checkbox" id="check_ls" name="check_ls" value=""><label for="check_ls">N(LS) > 0</label>
+<input type="checkbox" id="check_badonly" name="check_badonly" value="" /><label
+  for="check_badonly"
+  >exit_code != 0</label
+>
+<input type="checkbox" id="check_ls" name="check_ls" value="" /><label
+  for="check_ls"
+  >N(LS) > 0</label
+>
 <a href="{{ PREFIX }}timeline/?db=production">Production-></a>
 <a href="{{ PREFIX }}timeline/?db=playback">Playback-></a>
-<br>
-<canvas id="runRangeSlider" title="Run range" width=800 height=80></canvas>
+<br />
+<canvas id="runRangeSlider" title="Run range" width="800" height="80"></canvas>
 <div id="timelineProgress">
   <div id="timelineBar"></div>
 </div>
-<table id="runTable" style="text-align:center;margin-top:1px;margin-bottom:10px" border=1 frame=hsides rules=rows>
-</table>
-{% endblock %}
-
-{% block script %}
+<table
+  id="runTable"
+  style="text-align: center; margin-top: 1px; margin-bottom: 10px"
+  border="1"
+  frame="hsides"
+  rules="rows"
+></table>
+{% endblock %} {% block script %}
 <script>
   // DQM TIMELINE PAGE //
   const url_param = new URLSearchParams(window.location.search);
-  let db = url_param.get('db');
+  let db = url_param.get("db");
   if (!db || db == "") db = "production";
-
 
   var static_headers = ["Run", "RunKey", "CMSSW"];
   var dqm_clients = [];
@@ -50,7 +65,8 @@
     if (done) bar_N_done += adds;
     else bar_N_req += adds;
     var elem = document.getElementById("timelineBar");
-    elem.style.width = Math.min(bar_N_done / Math.max(bar_N_req, 1) * 100, 100) + "%";
+    elem.style.width =
+      Math.min((bar_N_done / Math.max(bar_N_req, 1)) * 100, 100) + "%";
   }
 
   function update_runs_range(id, min_val, max_val) {
@@ -72,7 +88,7 @@
 
   function add_table_header(static_headers, clients) {
     let tb_main = document.getElementById("runTable");
-    tb_main.innerHTML = '';
+    tb_main.innerHTML = "";
 
     for (let j = 0; j < static_headers.length + clients.length; ++j) {
       let col = document.createElement("col");
@@ -87,7 +103,7 @@
       tr.appendChild(td);
     }
     for (let client of clients) {
-      let td = document.createElement("th")
+      let td = document.createElement("th");
       td.innerText = client;
       td.className = "tb_header";
       tr.appendChild(td);
@@ -98,15 +114,15 @@
 
   function wrap_events_number(labelValue) {
     // Nine Zeroes for Billions
-    return Math.abs(Number(labelValue)) >= 1.0e+9
-      ? (Math.abs(Number(labelValue)) / 1.0e+9).toFixed(0) + "B"
-      // Six Zeroes for Millions
-      : Math.abs(Number(labelValue)) >= 1.0e+6
-        ? (Math.abs(Number(labelValue)) / 1.0e+6).toFixed(0) + "M"
-        // Three Zeroes for Thousands
-        : Math.abs(Number(labelValue)) >= 1.0e+3
-          ? (Math.abs(Number(labelValue)) / 1.0e+3).toFixed(0) + "K"
-          : Math.abs(Number(labelValue));
+    return Math.abs(Number(labelValue)) >= 1.0e9
+      ? (Math.abs(Number(labelValue)) / 1.0e9).toFixed(0) + "B"
+      : // Six Zeroes for Millions
+      Math.abs(Number(labelValue)) >= 1.0e6
+      ? (Math.abs(Number(labelValue)) / 1.0e6).toFixed(0) + "M"
+      : // Three Zeroes for Thousands
+      Math.abs(Number(labelValue)) >= 1.0e3
+      ? (Math.abs(Number(labelValue)) / 1.0e3).toFixed(0) + "K"
+      : Math.abs(Number(labelValue));
   }
 
   function add_table_line(run, run_data, clients_data) {
@@ -120,10 +136,10 @@
       div.className = "ttip";
       // div.innerHTML = run;
 
-      let lnk = document.createElement("a")
+      let lnk = document.createElement("a");
       lnk.href = "{{ PREFIX }}?run=" + run + "&db=" + db;
       lnk.innerText = run;
-      lnk.target = target = "\"_blank\"";
+      lnk.target = target = '"_blank"';
       div.appendChild(lnk);
 
       let span = document.createElement("span");
@@ -135,15 +151,15 @@
       let div = document.createElement("div");
       div.className = "ttip";
 
-      let lnk = document.createElement("a")
+      let lnk = document.createElement("a");
       lnk.href = "{{ PREFIX }}?run=" + run + "&db=" + db;
       lnk.innerText = run;
-      lnk.target = target = "\"_blank\"";
+      lnk.target = target = '"_blank"';
       div.appendChild(lnk);
 
       td.appendChild(div);
     }
-    tr.appendChild(td)
+    tr.appendChild(td);
 
     // overall runs information
     for (let j = 1; j < run_data.length; ++j) {
@@ -174,35 +190,54 @@
 
         for (let jj = 0; jj < client_data.length; ++jj) {
           let ec = client_data[jj][4];
-          if ((ec === -1) || (ec === null) || (ec === undefined)) { g_runs += 1; }
-          else if ((ec === 0) || (ec === "0")) { y_runs += 1; }
-          else { r_runs += 1; }
+          if (ec === -1 || ec === null || ec === undefined) {
+            g_runs += 1;
+          } else if (ec === 0 || ec === "0") {
+            y_runs += 1;
+          } else {
+            r_runs += 1;
+          }
 
           let_max_events = Math.max(let_max_events, client_data[jj][1]);
-          let date = new Date(client_data[jj][5]).toLocaleString('en-GB', { hour12: false, timeZone: 'Europe/Zurich' });
+          let date = new Date(client_data[jj][5]).toLocaleString("en-GB", {
+            hour12: false,
+            timeZone: "Europe/Zurich",
+          });
           span_text += date + ", ";
           span_text += client_data[jj][1] + " events, ";
           span_text += client_data[jj][2] + " lumis, ";
           span_text += client_data[jj][4] + " exit code";
           span_text += "<br>";
         }
-        span_text += "</div>"
+        span_text += "</div>";
 
         // set color style of clients results
         let style = "rrun";
-        if (g_runs > 0) { style = "grun"; }
-        else if (y_runs > 0) { style = "yrun"; }
+        if (g_runs > 0) {
+          style = "grun";
+        } else if (y_runs > 0) {
+          style = "yrun";
+        }
         if (j % 2 == 0) {
           style = "rrunD";
-          if (g_runs > 0) { style = "grunD"; }
-          else if (y_runs > 0) { style = "yrunD"; }
+          if (g_runs > 0) {
+            style = "grunD";
+          } else if (y_runs > 0) {
+            style = "yrunD";
+          }
         }
 
-        if (r_runs > 0 || (g_runs + y_runs) > 1) {
+        if (r_runs > 0 || g_runs + y_runs > 1) {
           table_text += "j=";
-          if (g_runs > 0) { table_text += "<div class=gtext>" + g_runs + "</div>/"; }
-          if (y_runs > 0) { table_text += "<div class=ytext>" + y_runs + "</div>/"; }
-          if (r_runs > 0) { table_text += "<div class=rtext>" + r_runs + "</div> "; }
+          if (g_runs > 0) {
+            table_text += "<div class=gtext>" + g_runs + "</div>/";
+          }
+          if (y_runs > 0) {
+            table_text += "<div class=ytext>" + y_runs + "</div>/";
+          }
+          if (r_runs > 0) {
+            table_text += "<div class=rtext>" + r_runs + "</div> ";
+          }
         } else {
           table_text += wrap_events_number(client_data[0][1]);
         }
@@ -241,10 +276,11 @@
   }
 
   var xhttp_info = new XMLHttpRequest();
-  xhttp_info.open("GET", "{{ PREFIX }}api?what=get_info" + "&db=" + db, true);
+  xhttp_info.open("GET", "{{ PREFIX }}api/get_info?" + "&db=" + db, true);
   xhttp_info.send();
   xhttp_info.onreadystatechange = function () {
-    if (this.readyState == 4 && this.status != 200) { }
+    if (this.readyState == 4 && this.status != 200) {
+    }
     if (this.readyState == 4 && this.status == 200) {
       // console.log( xhttp_info.responseText );
       dqm_range = JSON.parse(xhttp_info.responseText);
@@ -285,15 +321,29 @@
         update_runs_range("runRangeSlider", mival, maval);
       };
     }
-  }
+  };
 
   function update_table_range(runMin, runMax, step, check_bad_only, check_ls) {
     let iMin = Math.max(runMax - step, runMin);
     let xhttp_def_pr = new XMLHttpRequest();
-    xhttp_def_pr.open("GET", "{{ PREFIX }}api?what=get_runs&from=" + iMin + "&to=" + runMax + "&db=" + db + "&bad_only=" + check_bad_only + "&ls=" + check_ls, true);
+    xhttp_def_pr.open(
+      "GET",
+      "{{ PREFIX }}api/get_runs?from=" +
+        iMin +
+        "&to=" +
+        runMax +
+        "&db=" +
+        db +
+        "&bad_only=" +
+        check_bad_only +
+        "&ls=" +
+        check_ls,
+      true
+    );
     xhttp_def_pr.send();
     xhttp_def_pr.onreadystatechange = function () {
-      if (this.readyState == 4 && this.status != 200) { }
+      if (this.readyState == 4 && this.status != 200) {
+      }
       if (this.readyState == 4 && this.status == 200) {
         var table_data = JSON.parse(xhttp_def_pr.responseText);
         for (const [key, value] of Object.entries(table_data).reverse()) {
@@ -303,36 +353,49 @@
           add_table_line(key, run_data, clients);
         }
         updateBar(true, runMax - iMin);
-        if (runMin != runMax) update_table_range(runMin, iMin, step, check_bad_only, check_ls);
+        if (runMin != runMax)
+          update_table_range(runMin, iMin, step, check_bad_only, check_ls);
       }
-    }
+    };
   }
 
   function update_table() {
     // console.log( "---------" );
     const tb_main = document.getElementById("runTable");
-    tb_main.innerHTML = '';
+    tb_main.innerHTML = "";
 
     resetBar();
     let runMin = document.getElementById("runMin").value;
     let runMax = document.getElementById("runMax").value;
     let step = 100;
 
-    let check_bad_only = Number(document.getElementById("check_badonly").checked);
+    let check_bad_only = Number(
+      document.getElementById("check_badonly").checked
+    );
     let check_ls = Number(document.getElementById("check_ls").checked);
 
     var xhttp_start = new XMLHttpRequest();
-    xhttp_start.open("GET", "{{ PREFIX }}api?what=get_clients&from=" + runMin + "&to=" + runMax + "&db=" + db, true);
+    xhttp_start.open(
+      "GET",
+      "{{ PREFIX }}api/get_clients?from=" +
+        runMin +
+        "&to=" +
+        runMax +
+        "&db=" +
+        db,
+      true
+    );
     xhttp_start.send();
     xhttp_start.onreadystatechange = function () {
-      if (this.readyState == 4 && this.status != 200) { }
+      if (this.readyState == 4 && this.status != 200) {
+      }
       if (this.readyState == 4 && this.status == 200) {
         dqm_clients = JSON.parse(xhttp_start.responseText);
         add_table_header(static_headers, dqm_clients);
         updateBar(false, runMax - runMin);
         update_table_range(runMin, runMax, step, check_bad_only, check_ls);
       }
-    }
+    };
   }
 
   updateBar(false);

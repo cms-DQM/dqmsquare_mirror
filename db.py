@@ -1,18 +1,18 @@
 ### DQM^2 Mirror DB === >
 import os
 import sys
-import math
 import shutil
 import logging
 import psycopg2
 import sqlalchemy
-from sqlalchemy import text
+from sqlalchemy import text, pool
 from sqlalchemy_utils import database_exists
 from sqlalchemy.orm import sessionmaker
 from collections import defaultdict
 from datetime import datetime
 from exceptions import DatabaseNotFoundError
 from utils.common import _censor_hostname
+from decorators import paginate
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "."))
 
@@ -101,26 +101,49 @@ class DQM2MirrorDB:
         "is_up BOOLEAN NOT NULL, "
         "message VARCHAR)"
     )
-    TB_DESCRIPTION_HOST_STATUS_COLS = ["host_id", "is_up"]
+    TB_DESCRIPTION_HOST_STATUS_COLS = ["host_id", "is_up", "message"]
+
+    TB_NAME_CMSSW_PRS = "cmsswprs"
+    TB_DESCRIPTION_CMSSW_PRS = "( pr_num INTEGER PRIMARY KEY )"
+    TB_DESCRIPTION_CMSSW_PRS_COLS = ["pr_num"]
+
+    TB_NAME_CMSSW_RELEASES = "cmsswreleases"
+    TB_DESCRIPTION_CMSSW_RELEASES = (
+        "( id SERIAL PRIMARY KEY, "
+        + "cmssw_version VARCHAR NOT NULL, "
+        + "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW())"
+    )
+    TB_DESCRIPTION_CMSSW_RELEASES_COLS = ["cmssw_version"]
 
     TB_NAME_CMSSW_COMPARISON_REPORTS = "cmsswcomparisonreports"
     TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS = (
-        "( id VARCHAR(160) PRIMARY KEY, "
+        "( id VARCHAR PRIMARY KEY, "
         "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(), "
         "comparison_ran_at TIMESTAMP WITH TIME ZONE NOT NULL, "
-        "base_cmssw_version VARCHAR(25) NOT NULL, "
-        "comp_cmssw_version VARCHAR(25) NOT NULL, "
-        "base_prs INT[], "
-        "comp_prs INT[])"
+        "base_cmssw_version INT REFERENCES cmsswreleases NOT NULL, "
+        "comp_cmssw_version INT REFERENCES cmsswreleases NOT NULL)"
     )
     TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS = [
         "id",
         "comparison_ran_at",
         "base_cmssw_version",
         "comp_cmssw_version",
-        "base_prs",
-        "comp_prs",
     ]
+
+    TB_NAME_COMPARISON_TO_CMSSW_PRS = "cmsswreleasewithprs"
+    TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS = (
+        "( id SERIAL PRIMARY KEY, cmssw_release_id INT REFERENCES cmsswreleases, "
+        + "cmssw_pr_id INT REFERENCES cmsswprs )"
+    )
+    TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS_COLS = ["cmssw_release_id", "cmssw_pr"]
+
+    # One to many
+    TB_NAME_COMPARISON_TO_CMSSW_PRS = "cmsswreleasetoprs"
+    TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS = (
+        "( cmssw_release_id INT REFERENCES cmsswreleases, "
+        + "cmssw_pr_id INT REFERENCES cmsswprs )"
+    )
+    TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS_COLS = ["cmssw_release_id", "cmssw_pr"]
 
     def __str__(self):
         return f"{self.__class__.__name__}: {self.db_uri}"
@@ -162,13 +185,14 @@ class DQM2MirrorDB:
             f"Connecting to database {self.db_name} on {self.username}@{self.host}:{self.port}"
         )
 
-        self.engine = sqlalchemy.create_engine(
+        self.engine: sqlalchemy.engine.base.Engine = sqlalchemy.create_engine(
             url=self.db_uri,
-            poolclass=sqlalchemy.pool.QueuePool,
+            poolclass=pool.QueuePool,
             pool_size=20,
             max_overflow=0,
         )
-        if not database_exists(self.engine.url):
+
+        if not self.engine or not database_exists(self.engine.url):
             raise DatabaseNotFoundError(
                 f"Database {self.db_name} was not found on '{self.host}:{self.port}'"
             )
@@ -199,103 +223,45 @@ class DQM2MirrorDB:
         self.log.debug("DQM2MirrorDB.create_tables()")
         with self.engine.connect() as cur:
             session = self.Session(bind=cur)
-            try:
-                self.log.info(f"Creating table {self.TB_NAME_RUNS}")
-                session.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS "
-                        + self.TB_NAME_RUNS
-                        + " "
-                        + self.TB_DESCRIPTION_RUNS
+            for name, description in [
+                (self.TB_NAME_RUNS, self.TB_DESCRIPTION_RUNS),
+                (self.TB_NAME_GRAPHS, self.TB_DESCRIPTION_GRAPHS),
+                (self.TB_NAME_HOST_NAME, self.TB_DESCRIPTION_HOST_NAME),
+                (self.TB_NAME_HOST_STATUS, self.TB_DESCRIPTION_HOST_STATUS),
+                (self.TB_NAME_META, self.TB_DESCRIPTION_META),
+                (self.TB_NAME_CMSSW_PRS, self.TB_DESCRIPTION_CMSSW_PRS),
+                (self.TB_NAME_CMSSW_RELEASES, self.TB_DESCRIPTION_CMSSW_RELEASES),
+                (
+                    self.TB_NAME_CMSSW_COMPARISON_REPORTS,
+                    self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS,
+                ),
+                (
+                    self.TB_NAME_COMPARISON_TO_CMSSW_PRS,
+                    self.TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS,
+                ),
+            ]:
+
+                try:
+                    self.log.info(f"Creating table {name}")
+                    session.execute(
+                        text("CREATE TABLE IF NOT EXISTS " + name + " " + description)
                     )
-                )
-            except psycopg2.IntegrityError as e:
-                self.log.error("Error occurred: ", e)
-                session.rollback()
-            try:
-                self.log.info(f"Creating table {self.TB_NAME_GRAPHS}")
-                session.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS "
-                        + self.TB_NAME_GRAPHS
-                        + " "
-                        + self.TB_DESCRIPTION_GRAPHS
-                    )
-                )
-            except psycopg2.IntegrityError as e:
-                self.log.error("Error occurred: ", e)
-                session.rollback()
+                    session.commit()
+                except psycopg2.IntegrityError as e:
+                    self.log.error("Error occurred: ", e)
+                    session.rollback()
 
             try:
-                self.log.info(f"Creating table {self.TB_NAME_HOST_NAME}")
-                session.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS "
-                        + self.TB_NAME_HOST_NAME
-                        + " "
-                        + self.TB_DESCRIPTION_HOST_NAME
-                    )
-                )
-            except psycopg2.IntegrityError as e:
-                self.log.error("Error occurred: ", e)
-                session.rollback()
-            try:
-                self.log.info(f"Creating table {self.TB_NAME_HOST_STATUS}")
-                session.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS "
-                        + self.TB_NAME_HOST_STATUS
-                        + " "
-                        + self.TB_DESCRIPTION_HOST_STATUS
-                    )
-                )
-            except psycopg2.IntegrityError as e:
-                self.log.error("Error occurred: ", e)
-                session.rollback()
-            try:
-                self.log.info(f"Creating table {self.TB_NAME_META}")
-                session.execute(text(f"DROP TABLE IF EXISTS {self.TB_NAME_META};"))
-                session.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS "
-                        + self.TB_NAME_META
-                        + " "
-                        + self.TB_DESCRIPTION_META
-                    )
-                )
-            except psycopg2.IntegrityError as e:
-                self.log.error("Error occurred: ", e)
-                session.rollback()
-
-            try:
-                self.log.info(f"Creating table {self.TB_NAME_CMSSW_COMPARISON_REPORTS}")
-                session.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS "
-                        + self.TB_NAME_CMSSW_COMPARISON_REPORTS
-                        + " "
-                        + self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS
-                    )
-                )
-            except psycopg2.IntegrityError as e:
-                self.log.error("Error occurred: ", e)
-                session.rollback()
-
-            try:
-                self.log.info(f'Running "migrations"')
+                self.log.info("Adding indices to DB")
                 with open("./sql/migrations/add_indices.sql") as f:
-                    session.execute(text(f.read()))
+                    sql = text(f.read())
+                session.execute(sql)
+                session.commit()
             except psycopg2.IntegrityError as e:
                 self.log.error(f"Error occurred: ", e)
                 session.rollback()
 
-            try:
-                session.commit()
-            except psycopg2.IntegrityError as e:
-                self.log.error("Error occurred: ", e)
-                session.rollback()
-
-    def fill_graph(self, header: dict, document: dict) -> int:
+    def fill_graph(self, header: dict, document: dict) -> None:
         """
         Fill DB graph data from an FFF document. Documents
         Example header:
@@ -377,10 +343,9 @@ class DQM2MirrorDB:
         with self.engine.connect() as cur:
             session = self.Session(bind=cur)
             try:
-                with self.engine.connect() as cur:
-                    cur.execute(
-                        text(f"DELETE FROM {self.TB_NAME_GRAPHS} WHERE id=:id;"), id=_id
-                    )
+                cur.execute(
+                    text(f"DELETE FROM {self.TB_NAME_GRAPHS} WHERE id=:id;"), id=_id
+                )
                 session.execute(
                     sqlalchemy.insert(self.db_meta.tables[self.TB_NAME_GRAPHS]).values(
                         values_dic
@@ -390,9 +355,6 @@ class DQM2MirrorDB:
             except Exception as e:
                 self.log.error(f"Error occurred: {repr(e)}")
                 session.rollback()
-                return 1
-
-        return 0
 
     def get_graphs_data(self, run: int) -> list:
         """
@@ -416,7 +378,7 @@ class DQM2MirrorDB:
 
         return answer
 
-    def fill_run(self, header: dict, document: dict) -> int:
+    def fill_run(self, header: dict, document: dict) -> None:
         """
         Fill 'runs' table with clients' data
         """
@@ -487,10 +449,9 @@ class DQM2MirrorDB:
         with self.engine.connect() as cur:
             session = self.Session(bind=cur)
             try:
-                with self.engine.connect() as cur:
-                    cur.execute(
-                        text(f"DELETE FROM {self.TB_NAME_RUNS} WHERE id=:id;"), id=id
-                    )
+                cur.execute(
+                    text(f"DELETE FROM {self.TB_NAME_RUNS} WHERE id=:id;"), id=id
+                )
                 session.execute(
                     sqlalchemy.insert(self.db_meta.tables[self.TB_NAME_RUNS]).values(
                         values_dic
@@ -502,11 +463,10 @@ class DQM2MirrorDB:
                     f"Error when inserting into '{self.engine.url}': {repr(e)}"
                 )
                 session.rollback()
-                return 1
+                return
 
-        ###
         if not run:
-            return 0
+            return
 
         old_min_max = [999999999, -1]
         with self.engine.connect() as cur:
@@ -522,51 +482,103 @@ class DQM2MirrorDB:
                 if answer:
                     old_min_max = answer[0]
 
-        # print( old_min_max )
         new_min = min(int(run), old_min_max[0])
         new_max = max(int(run), old_min_max[1])
         if new_min != old_min_max[0] or new_max != old_min_max[1]:
             self.update_min_max(new_min, new_max)
 
-        return 0
+        return
 
-    def fill_cluster_status(self, cluster_status: dict):
+    def fill_cluster_host(self, name: str) -> None:
+        assert isinstance(name, str)
+        table_hostnames = self.db_meta.tables[self.TB_NAME_HOST_NAME]
+        with self.engine.connect() as cur:
+            cur.execute(
+                sqlalchemy.insert(table_hostnames).values(
+                    dict(zip(self.TB_DESCRIPTION_HOST_NAME_COLS, [name]))
+                )
+            )
+
+    def get_cluster_host(self, name: str = "", censor: bool = True) -> dict:
+        assert isinstance(name, str)
+        table_hostnames = self.db_meta.tables[self.TB_NAME_HOST_NAME]
+        with self.engine.connect() as cur:
+            result = (
+                cur.execute(
+                    sqlalchemy.select(table_hostnames).where(
+                        (table_hostnames.c.name == name if name else True)
+                    )
+                )
+                .mappings()
+                .first()
+            )
+        if result and censor:
+            result = {
+                k: _censor_hostname(v) if k == "name" else v for k, v in result.items()
+            }
+
+        return result
+
+    def get_or_create_cluster_host(self, name: str = "", censor: bool = True) -> dict:
+        if result := self.get_cluster_host(name):
+            return result
+        self.fill_cluster_host(name)
+        return self.get_cluster_host(name)
+
+    def get_cluster_status(
+        self,
+        timestamp_from: datetime = datetime.now(),  # TODO
+        timestamp_to: datetime = datetime.now(),  # TODO
+    ) -> list:
+        """Returns the latest available status of all the unique hostnames stored in the database"""
+        self.log.debug("DQM2MirrorDB.get_cluster_status()")
+        with self.engine.connect() as cur:
+            results = (
+                cur.execute(
+                    text(
+                        "SELECT h.name, t.is_up, t.message, t.created_at "
+                        + f"FROM {self.TB_NAME_HOST_STATUS} t "
+                        + "JOIN "
+                        + "(SELECT host_id, MAX(created_at) AS max_created_at "
+                        + f"FROM {self.TB_NAME_HOST_STATUS} "
+                        + "GROUP BY host_id) "
+                        + "sub ON t.host_id = sub.host_id AND t.created_at = sub.max_created_at "
+                        + f"JOIN {self.TB_NAME_HOST_NAME} h ON t.host_id = h.id;"
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        results = [
+            {
+                k: (
+                    datetime.timestamp(v)
+                    if k == "created_at"
+                    else _censor_hostname(v) if k == "name" else v
+                )
+                for k, v in result.items()
+            }
+            for result in results
+        ]
+        return results
+
+    def fill_cluster_status(self, cluster_status: dict) -> None:
         """
         Function to store data received after running get_cluster_status into the DB.
         """
         assert isinstance(cluster_status, dict)
         assert len(cluster_status.keys()) > 0
         self.log.debug(f"Filling data: {cluster_status}")
+        table_host_statuses = self.db_meta.tables[self.TB_NAME_HOST_STATUS]
         with self.engine.connect() as cur:
             for hostname, status in cluster_status.items():
                 assert isinstance(status, dict)
-                assert "up" in status
-                assert "msg" in status
-                result = cur.execute(
-                    text(
-                        f"SELECT id FROM {self.TB_NAME_HOST_NAME} WHERE name=:hostname"
-                    ),
-                    hostname=hostname,
-                ).all()
+                assert all(key in status for key in ["up", "msg"])
+                result = self.get_or_create_cluster_host(name=hostname)
 
-                if len(result) == 0:
-                    cur.execute(
-                        sqlalchemy.insert(
-                            self.db_meta.tables[self.TB_NAME_HOST_NAME]
-                        ).values({self.TB_DESCRIPTION_HOST_NAME_COLS[0]: hostname})
-                    )
-                    result = cur.execute(
-                        text(
-                            f"SELECT id FROM {self.TB_NAME_HOST_NAME} WHERE name=:hostname"
-                        ),
-                        hostname=hostname,
-                    ).all()
-
-                host_id = result[0][0]  # id of host in db
+                host_id = result["id"]  # id of host in db
                 result = cur.execute(
-                    sqlalchemy.insert(
-                        self.db_meta.tables[self.TB_NAME_HOST_STATUS]
-                    ).values(
+                    sqlalchemy.insert(table_host_statuses).values(
                         dict(
                             zip(
                                 self.TB_DESCRIPTION_HOST_STATUS_COLS,
@@ -576,64 +588,105 @@ class DQM2MirrorDB:
                     )
                 )
 
-    def get_cmssw_comparison_reports(self, items_per_page: int, page: int) -> dict:
+    @paginate(table=TB_NAME_CMSSW_COMPARISON_REPORTS)
+    def get_cmssw_comparison_reports(
+        self,
+        id: str = "",
+        base_cmssw_version: str = "",
+        comp_cmssw_version: str = "",
+        base_prs: list[int] = [],
+        comp_prs: list[int] = [],
+    ) -> sqlalchemy.sql.Selectable:
         """
         Check if comparison report exists in DB and return result
         """
-        # TODO: This is awful, maybe use flask-sqlalchemy at some point, it comes
-        # with pagination.
-        cur = self.engine.connect()
-        num_total_reports = cur.execute(
-            text(f"SELECT COUNT (*) FROM {self.TB_NAME_CMSSW_COMPARISON_REPORTS};")
-        ).first()[0]
-        num_total_pages = math.ceil(num_total_reports / items_per_page)
-        if page < 0:
-            page = 1
-        elif page > num_total_pages:
-            page = num_total_pages
-        offset = (page - 1) * items_per_page
 
-        self.log.info(num_total_reports)
-        results = (
-            cur.execute(
-                text(
-                    f"SET TIMEZONE = '{TIMEZONE}'; "
-                    + f"SELECT * FROM {self.TB_NAME_CMSSW_COMPARISON_REPORTS} "
-                    + "ORDER BY comparison_ran_at DESC "
-                    + "LIMIT :limit OFFSET :offset ;"
-                ),
-                limit=items_per_page,
-                offset=offset,
+        table = self.db_meta.tables[self.TB_NAME_CMSSW_COMPARISON_REPORTS]
+        return sqlalchemy.select(table).where(
+            table.c.id == id
+            and (
+                table.c.comp_cmssw_version == comp_cmssw_version
+                if comp_cmssw_version
+                else True
             )
-            .mappings()
-            .all()
+            and (
+                table.c.base_cmssw_version == base_cmssw_version
+                if base_cmssw_version
+                else True
+            )
+            # + ("WHERE id=:id " if id else "")
+            # + (
+            #     "WHERE base_cmssw_version=:base_cmssw_version "
+            #     if base_cmssw_version
+            #     else ""
+            # )
+            # + (
+            #     "WHERE comp_cmssw_version=:comp_cmssw_version "
+            #     if comp_cmssw_version
+            #     else ""
+            # )
+            # + "ORDER BY comparison_ran_at DESC;"
+            # + "LIMIT :limit OFFSET :offset ;"
+            # ),
+            # base_cmssw_version=base_cmssw_version,
+            # comp_cmssw_version=comp_cmssw_version,
+            # id=id,
+            # # limit=items_per_page,
+            # # offset=offset,
+            # base_prs=base_prs,
         )
-        if results:
-            return {
-                "data": [dict(result) for result in results],
-                "page": page,
-                "total_pages": num_total_pages,
-            }
-        return {"data": [], "page": page, "total_pages": num_total_pages}
 
-    def get_cmssw_comparison_report(self, id: str) -> dict:
+    def fill_cmssw_comparison_report(
+        self,
+        id: str,
+        base: str,
+        comp: str,
+        base_prs: list[int],
+        comp_prs: list[int],
+        timestamp: datetime,
+        comparison_report_html: str,
+    ) -> dict:
         """
-        Check if comparison report exists in DB and return result
+        For the given report, check if it exists in the DB
+        and store it, if not.
         """
-        cur = self.engine.connect()
-        result = (
-            cur.execute(
-                text(
-                    f"SET TIMEZONE = '{TIMEZONE}'; SELECT * FROM {self.TB_NAME_CMSSW_COMPARISON_REPORTS} WHERE id=:id"
-                ),
-                id=id,
+        assert isinstance(id, str)
+        assert isinstance(base, str)
+        assert isinstance(comp, str)
+        assert isinstance(comp_prs, list)
+        assert isinstance(base_prs, list)
+        assert isinstance(timestamp, datetime)
+        assert isinstance(comparison_report_html, str)
+        self.log.debug(f"Filling data for comparison {id}")
+
+        # Insert PRs if they don't exist
+        pr_db_ids = []  # Ids from DB
+        for pr_num in set([*base_prs, *comp_prs]):
+            pr_db_ids.append(self.get_or_create_cmssw_pr(cmssw_pr=pr_num))
+
+        # Insert releases if they don't exist
+        base_rel_id = self.get_or_create_cmssw_release(cmssw_release=base)
+        comp_rel_id = self.get_or_create_cmssw_release(cmssw_release=comp)
+
+        with self.engine.connect() as cur:
+            result = cur.execute(
+                sqlalchemy.insert(
+                    self.db_meta.tables[self.TB_NAME_CMSSW_COMPARISON_REPORTS]
+                ).values(
+                    dict(
+                        zip(
+                            self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS,
+                            [id, timestamp, base_rel_id, comp_rel_id],
+                        )
+                    )
+                )
             )
-            .mappings()
-            .first()
+        # Store the HTML in the appropriate directory
+        self._store_cmssw_comparison_report_html(
+            comparison_id=id,
+            comparison_report_html=comparison_report_html,
         )
-        if result:
-            return dict(result)
-        return {}
+        return result
 
     def _store_cmssw_comparison_report_html(
         self, comparison_id: str, comparison_report_html: str
@@ -665,51 +718,58 @@ class DQM2MirrorDB:
         ) as f:
             f.write(comparison_report_html)
 
-    def fill_cmssw_comparison_report(
-        self, comparison_report_metadata: dict, comparison_report_html: str
-    ) -> dict:
-        """
-        For the given report, check if it exists in the DB
-        and store it, if not.
-        """
-
-        assert isinstance(comparison_report_metadata, dict)
-        assert len(comparison_report_metadata.keys()) > 0
-        assert all(
-            key in comparison_report_metadata
-            for key in ["id", "base", "comp", "comp_prs", "base_prs"]
-        ), "Comparison report entry does not contain all the expected data"
-
-        self.log.debug(f"Filling data: {comparison_report_metadata}")
+    def get_cmssw_release(self, cmssw_release: str) -> dict:
+        table = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]
         with self.engine.connect() as cur:
             result = cur.execute(
+                sqlalchemy.select(table).where(table.c.cmssw_version == cmssw_release)
+            )
+        if result:
+            return result.mappings().first()
+        return {}
+
+    def get_or_create_cmssw_release(self, cmssw_release: str) -> dict:
+        if result := self.get_cmssw_release(cmssw_release=cmssw_release):
+            return result
+        self.fill_cmssw_release(cmssw_release=cmssw_release)
+        return self.get_cmssw_release(cmssw_release=cmssw_release)
+
+    def fill_cmssw_release(self, cmssw_release: str) -> None:
+        assert isinstance(cmssw_release, str), "cmssw_release must be a str"
+        with self.engine.connect() as cur:
+            cur.execute(
                 sqlalchemy.insert(
-                    self.db_meta.tables[self.TB_NAME_CMSSW_COMPARISON_REPORTS]
+                    self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]
                 ).values(
-                    dict(
-                        zip(
-                            self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS,
-                            [
-                                comparison_report_metadata[key]
-                                for key in [
-                                    "id",
-                                    "timestamp",
-                                    "base",
-                                    "comp",
-                                    "base_prs",
-                                    "comp_prs",
-                                ]
-                            ],
-                        )
-                    )
+                    dict(zip(self.TB_DESCRIPTION_CMSSW_RELEASES_COLS, [cmssw_release]))
                 )
             )
-            # Store the HTML in the appropriate directory
-            self._store_cmssw_comparison_report_html(
-                comparison_id=comparison_report_metadata["id"],
-                comparison_report_html=comparison_report_html,
+
+    def get_cmssw_pr(self, cmssw_pr: int) -> dict:
+        with self.engine.connect() as cur:
+            result = cur.execute(
+                sqlalchemy.select(self.db_meta.tables[self.TB_NAME_CMSSW_PRS]).where(
+                    self.db_meta.tables[self.TB_NAME_CMSSW_PRS].c.pr_num == cmssw_pr
+                )
             )
+            if result:
+                return result.mappings().first()
+            return {}
+
+    def get_or_create_cmssw_pr(self, cmssw_pr: int) -> dict:
+        if result := self.get_cmssw_pr(cmssw_pr=cmssw_pr):
             return result
+        self.fill_cmssw_pr(cmssw_pr=cmssw_pr)
+        return self.get_cmssw_pr(cmssw_pr=cmssw_pr)
+
+    def fill_cmssw_pr(self, cmssw_pr: int) -> None:
+        assert isinstance(cmssw_pr, int), "cmssw_pr must be an int"
+        with self.engine.connect() as cur:
+            cur.execute(
+                sqlalchemy.insert(self.db_meta.tables[self.TB_NAME_CMSSW_PRS]).values(
+                    dict(zip(self.TB_DESCRIPTION_CMSSW_PRS_COLS, [cmssw_pr]))
+                )
+            )
 
     def get_run(
         self,
@@ -788,32 +848,6 @@ class DQM2MirrorDB:
                 clients_item[client_name].append(client_data)
 
         return dict(dic)
-
-    def get_cluster_status(
-        self,
-        timestamp_from: datetime = datetime.now(),
-        timestamp_to: datetime = datetime.now(),
-    ):
-        self.log.debug("DQM2MirrorDB.get_cluster_status()")
-        with self.engine.connect() as cur:
-            answer = cur.execute(
-                text(
-                    "SELECT h.name, t.is_up, t.message, t.created_at "
-                    + f"FROM {self.TB_NAME_HOST_STATUS} t "
-                    + "JOIN "
-                    + "(SELECT host_id, MAX(created_at) AS max_created_at "
-                    + f"FROM {self.TB_NAME_HOST_STATUS} "
-                    + "GROUP BY host_id) "
-                    + "sub ON t.host_id = sub.host_id AND t.created_at = sub.max_created_at "
-                    + f"JOIN {self.TB_NAME_HOST_NAME} h ON t.host_id = h.id;"
-                )
-            ).all()
-        answer = [
-            # hostname, is_up, message, timestamp
-            (_censor_hostname(a[0]), a[1], a[2], datetime.timestamp(a[3]))
-            for a in answer
-        ]
-        return answer
 
     def get_clients(self, run_start: int, run_end: int) -> list:
         self.log.debug("DQM2MirrorDB.get_clients()")

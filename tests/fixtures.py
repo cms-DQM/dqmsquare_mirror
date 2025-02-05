@@ -16,6 +16,17 @@ from dqmsquare_cfg import load_cfg
 
 DB_PROD_NAME = "postgres_production_test"
 DB_PLAY_NAME = "postgres_playback_test"
+MAGIC_NUMBER = 69420
+MAGIC_RELEASE = "CMSSW_6_6_6_patch6"
+MAGIC_HOSTNAME = "dqmfu-c9b99-99-99"
+MAGIC_HOSTNAME_CENSORED = "dqmfu-c9b99-.."
+PRODUCTION_MACHINES = [
+    "bu-c2f11-09-01",
+    "fu-c2f11-11-01",
+    "fu-c2f11-11-02",
+    "fu-c2f11-11-03",
+    "fu-c2f11-11-04",
+]
 
 
 def get_or_create_db(

@@ -8,24 +8,20 @@ import pytest
 from truth_values import TEST_DB_7_TRUTH, TEST_DB_9_TRUTH
 from datetime import datetime
 from db import DQM2MirrorDB, DEFAULT_DATETIME
-from sqlalchemy import text
 from dqmsquare_cfg import TZ
 
 # Needed to be passed as a fixture
-from fixtures import testing_database
+from fixtures import (
+    testing_database,
+    MAGIC_NUMBER,
+    MAGIC_RELEASE,
+    MAGIC_HOSTNAME,
+    MAGIC_HOSTNAME_CENSORED,
+    PRODUCTION_MACHINES,
+)
 
 
-pytest.production = [
-    "bu-c2f11-09-01",
-    "fu-c2f11-11-01",
-    "fu-c2f11-11-02",
-    "fu-c2f11-11-03",
-    "fu-c2f11-11-04",
-]
-
-
-def test_db_1(testing_database: DQM2MirrorDB):
-    print("Check DQM2MirrorDB.get_latest_revision()")
+def test_db_latest_revision(testing_database: DQM2MirrorDB):
     revs = [
         6001382,
         7912099,
@@ -33,24 +29,22 @@ def test_db_1(testing_database: DQM2MirrorDB):
         2762604,
         12811635,
     ]
-    revs = [testing_database.get_latest_revision(host) for host in pytest.production]
+    revs = [testing_database.get_latest_revision(host) for host in PRODUCTION_MACHINES]
     assert all(
         [
             testing_database.get_latest_revision(host) == rev
-            for host, rev in zip(pytest.production, revs)
+            for host, rev in zip(PRODUCTION_MACHINES, revs)
         ]
     )
 
 
-def test_db_2(testing_database: DQM2MirrorDB):
-    print("Check DQM2MirrorDB.get_runs_around()")
+def test_db_runs_around(testing_database: DQM2MirrorDB):
     test_runs = [358788, 358791, 358792]
     truth_answers = [
         [None, 358791],
         [358788, 358792],
         [None, 358791],
     ]
-    # answer = [ sorted(testing_database.get_runs_around( run ), key=lambda x: 0 if not x else x ) for run in pytest.test_runs  ]
     answers = []
 
     for truth, run in zip(truth_answers, test_runs):
@@ -61,7 +55,7 @@ def test_db_2(testing_database: DQM2MirrorDB):
     assert all(answers)
 
 
-def test_db_3(testing_database: DQM2MirrorDB):
+def test_db_logs(testing_database: DQM2MirrorDB):
     print("Check DQM2MirrorDB.get_logs()")
     test_ids = [
         "dqm-source-state-run358788-hostfu-c2f11-11-04-pid041551",
@@ -84,22 +78,19 @@ def test_db_3(testing_database: DQM2MirrorDB):
             assert logs[0] == truth and logs[1] == truth
 
 
-def test_db_4(testing_database: DQM2MirrorDB):
-    print("Check DQM2MirrorDB.get_info()")
+def test_db_info(testing_database: DQM2MirrorDB):
     minmax = testing_database.get_info()
     assert minmax[0] == 358788 and minmax[1] == 358792
 
 
-def test_db_5(testing_database: DQM2MirrorDB):
-    print("Check DQM2MirrorDB.update_min_max() & DQM2MirrorDB.get_info()")
+def test_db_update_min_max(testing_database: DQM2MirrorDB):
     testing_database.update_min_max(350000, 360000)
     minmax = testing_database.get_info()
     print(minmax)
     assert minmax[0] == 350000 and minmax[1] == 360000
 
 
-def test_db_6(testing_database: DQM2MirrorDB):
-    print("Check DQM2MirrorDB.get_clients()")
+def test_db_clients(testing_database: DQM2MirrorDB):
     clients_truth = [
         "beam",
         "beamhlt",
@@ -138,24 +129,20 @@ def test_db_6(testing_database: DQM2MirrorDB):
     assert all([c1 == c2 for c1, c2 in zip(clients, clients_truth)])
 
 
-def test_db_7(testing_database: DQM2MirrorDB):
-    print("Check DQM2MirrorDB.get_timeline_data()")
+def test_db_timeline_data(testing_database: DQM2MirrorDB):
     truth = TEST_DB_7_TRUTH
     answer = json.dumps(testing_database.get_timeline_data(358791, 358791))
-    print("ANSWER\n\n", answer)
     assert truth == answer
 
 
-def test_db_8(testing_database: DQM2MirrorDB):
-    print("Check DQM2MirrorDB.get_mirror_data()")
+def test_db_mirror_data(testing_database: DQM2MirrorDB):
     truth = "''''(),11112223333333334445566899999________ccimnorsu"  # Literally WTF
     answer = testing_database.get_mirror_data(358788)[0]
     answer = ("".join(sorted(str(answer)))).strip()
     assert truth == answer
 
 
-def test_db_9(testing_database: DQM2MirrorDB):
-    print("Check DQM2MirrorDB.get_graphs_data()")
+def test_db_get_graphs_data(testing_database: DQM2MirrorDB):
     truth = TEST_DB_9_TRUTH
     answer = testing_database.get_graphs_data(358792)
     for i, item in enumerate(truth):
@@ -169,8 +156,7 @@ def test_db_9(testing_database: DQM2MirrorDB):
             assert item == answer[i]
 
 
-def test_db_10(testing_database: DQM2MirrorDB):
-    print("Check DQM2MirrorDB.fill_graph()")
+def test_db_graphs(testing_database: DQM2MirrorDB):
     truth = [
         123456,
         -1,
@@ -187,8 +173,7 @@ def test_db_10(testing_database: DQM2MirrorDB):
     assert all([c1 == c2 for c1, c2 in zip(truth, answer)])
 
 
-def test_db_11(testing_database: DQM2MirrorDB):
-    print("Check DQM2MirrorDB.fill_run() & get()")
+def test_db_runs(testing_database: DQM2MirrorDB):
     truth = (
         "id",
         "",
@@ -210,17 +195,77 @@ def test_db_11(testing_database: DQM2MirrorDB):
     document = {}
     testing_database.fill_run(header, document)
     answer = testing_database.get_run(run_start=123456, run_end=123456)[0]
-    with testing_database.engine.connect() as cur:
-        session = testing_database.Session(bind=cur)
-        session.execute(
-            text(
-                "DELETE FROM "
-                + testing_database.TB_NAME_RUNS
-                + " WHERE run = "
-                + str(123456)
-                + ";"
-            )
-        )
-        session.commit()
 
     assert all([c1 == c2 for c1, c2 in zip(truth, answer)])
+
+
+def test_db_cluster_hosts(testing_database: DQM2MirrorDB):
+    testing_database.fill_cluster_host(MAGIC_HOSTNAME)
+    r = testing_database.get_cluster_host(name=MAGIC_HOSTNAME, censor=False)
+    assert r["name"] == MAGIC_HOSTNAME
+    r = testing_database.get_cluster_host(name=MAGIC_HOSTNAME)
+    assert r["name"] == MAGIC_HOSTNAME_CENSORED
+
+
+def test_db_cluster_status(testing_database: DQM2MirrorDB):
+    CLUSTER_STATUS = {MAGIC_HOSTNAME: {"up": False, "msg": "TEST"}}
+    CLUSTER_STATUS_RESULT = {
+        "name": MAGIC_HOSTNAME_CENSORED,
+        "is_up": False,
+        "message": "TEST",
+    }
+    testing_database.fill_cluster_status(CLUSTER_STATUS)
+    r = testing_database.get_cluster_status()
+    r[0].pop("created_at")
+    assert r[0] == CLUSTER_STATUS_RESULT
+
+
+def test_db_cmssw_pr(testing_database: DQM2MirrorDB):
+    r = testing_database.get_cmssw_pr(MAGIC_NUMBER)
+    assert not r
+    testing_database.fill_cmssw_pr(MAGIC_NUMBER)
+    r = testing_database.get_cmssw_pr(MAGIC_NUMBER)
+    assert r and "pr_num" in r and r["pr_num"] == MAGIC_NUMBER
+    with pytest.raises(AssertionError):
+        testing_database.fill_cmssw_pr(str(MAGIC_NUMBER))
+
+
+def test_db_cmssw_release(testing_database: DQM2MirrorDB):
+    r = testing_database.get_cmssw_release(MAGIC_RELEASE)
+    assert not r
+    testing_database.fill_cmssw_release(MAGIC_RELEASE)
+    r = testing_database.get_cmssw_release(MAGIC_RELEASE)
+    assert r and "cmssw_version" in r and r["cmssw_version"] == MAGIC_RELEASE
+    with pytest.raises(AssertionError):
+        testing_database.fill_cmssw_release(6565656565)
+    r2 = testing_database.get_or_create_cmssw_release(MAGIC_RELEASE)
+    assert r == r2
+
+
+def test_db_cmssw_comparison_reports(testing_database: DQM2MirrorDB):
+    INVALID_METADATA = {
+        "id": "20250113-145715_comparison_base_0113_CMSSW_14_2_0_pre3_46854_vs_comparison_comp_0113_CMSSW_14_2_0_pre3_46928",
+        "base": 1111,
+        "comp": ("hehehe"),
+        "comp_prs": None,
+        "base_prs": "hehe",
+        "comparison_report_html": "",
+        "timestamp": 99999,
+    }
+    VALID_METADATA = {
+        "id": f"{datetime.now().strftime(r'%Y%m%d')}-{datetime.now().strftime(r'%H%M%S')}_comparison_base_0113_{MAGIC_RELEASE}_{MAGIC_NUMBER}_vs_comparison_comp_0113_{MAGIC_RELEASE}_{MAGIC_NUMBER}",
+        "base": MAGIC_RELEASE,
+        "comp": MAGIC_RELEASE,
+        "comp_prs": [],
+        "base_prs": [MAGIC_NUMBER],
+        "timestamp": datetime.now(),
+        "comparison_report_html": "<h1>THIS IS VALID HTML</h1>",
+    }
+    with pytest.raises(AssertionError):
+        # Expects more metadata
+        testing_database.fill_cmssw_comparison_report(
+            **INVALID_METADATA,
+        )
+    testing_database.fill_cmssw_comparison_report(
+        **VALID_METADATA,
+    )

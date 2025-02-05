@@ -450,13 +450,17 @@ if __name__ == "__main__":
                     logger.debug(f"There are {len(results)} comparisons available.")
 
                     for report in results:
-                        if db.get_cmssw_comparison_report(report["id"]):
+                        if "timestamp" in report:
+                            report["timestamp"] = datetime.fromisoformat(
+                                report["timestamp"]
+                            )
+                        if db.get_cmssw_comparison_reports(id=report["id"])["data"]:
                             logger.debug(f"Report {report['id']} already in db")
                             continue
                         logger.debug(f"Requesting HTML report for {report['id']}")
                         html_report = get_single_comparison_report(report["id"])
                         db.fill_cmssw_comparison_report(
-                            comparison_report_metadata=report,
+                            **report,
                             comparison_report_html=html_report,
                         )
             except Exception:

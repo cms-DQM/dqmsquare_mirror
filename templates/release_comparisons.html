@@ -62,7 +62,7 @@
     items_per_page = MAX_RESULTS_PER_PAGE
   ) {
     return fetch(
-      `${PREFIX}api?what=get_cmssw_comparison_reports${
+      `${PREFIX}api/get_cmssw_comparison_reports?${
         page ? "&page=" + page : ""
       }${items_per_page ? "&items_per_page=" + items_per_page : ""}`
     ).then((response) => response.json());
