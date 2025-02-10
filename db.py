@@ -6,8 +6,10 @@ import logging
 import psycopg2
 import sqlalchemy
 from sqlalchemy import text, pool
+from sqlalchemy.sql import functions, sqltypes
 from sqlalchemy_utils import database_exists
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.dialects import postgresql
 from collections import defaultdict
 from datetime import datetime
 from exceptions import DatabaseNotFoundError
@@ -96,11 +98,50 @@ class DQM2MirrorDB:
     TB_DESCRIPTION_HOST_STATUS = (
         "( id SERIAL PRIMARY KEY, "
         "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(), "
-        "host_id INT NOT NULL REFERENCES hostnames(id) ON DELETE CASCADE, "
+        f"host_id INT NOT NULL REFERENCES {TB_NAME_HOST_NAME} ON DELETE CASCADE, "
         "is_up BOOLEAN NOT NULL, "
         "message VARCHAR)"
     )
     TB_DESCRIPTION_HOST_STATUS_COLS = ["host_id", "is_up", "message"]
+
+    # Unique CMSSW releases mentioned in comparison reports received.
+    TB_NAME_CMSSW_RELEASES = "cmssw_releases"
+    TB_DESCRIPTION_CMSSW_RELEASES = (
+        "( id SERIAL PRIMARY KEY, "
+        + "cmssw_version VARCHAR NOT NULL UNIQUE, "
+        + "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW())"
+    )
+    TB_DESCRIPTION_CMSSW_RELEASES_COLS = ["cmssw_version"]
+
+    # Unique CMSSW PRs mentioned in comparison reports received.
+    TB_NAME_CMSSW_PRS = "cmssw_prs"
+    TB_DESCRIPTION_CMSSW_PRS = (
+        "( pr_num INTEGER PRIMARY KEY NOT NULL, "
+        + "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW())"
+    )
+    TB_DESCRIPTION_CMSSW_PRS_COLS = ["pr_num"]
+
+    # Table that combines CMSSW base PR and PRs. The rows in this table are
+    # referenced by the cmsswreleasetoprs rows, to allow a Many to one relationship.
+    TB_NAME_CMSSW_RELEASES_WITH_PRS = "cmssw_release_with_prs"
+    TB_DESCRIPTION_CMSSW_RELEASES_WITH_PRS = (
+        "( id SERIAL PRIMARY KEY, "
+        + f"cmssw_release_id INT REFERENCES {TB_NAME_CMSSW_RELEASES} ON DELETE CASCADE, "
+        + "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW())"
+    )
+    TB_DESCRIPTION_CMSSW_RELEASES_WITH_PRS_COLS = ["cmssw_release_id"]
+
+    # Intermediate table to link many PRs to a single entry in cmssw_release_with_prs
+    TB_NAME_RELEASE_WITH_PRS_TO_PRS = "cmssw_release_with_prs_to_cmssw_prs"
+    TB_DESCRIPTION_RELEASE_WITH_PRS_TO_PRS = (
+        f"( cmssw_release_w_prs_id INT NOT NULL REFERENCES {TB_NAME_CMSSW_RELEASES_WITH_PRS} ON DELETE CASCADE, "
+        + f"cmssw_pr_id INT NOT NULL REFERENCES {TB_NAME_CMSSW_PRS} ON DELETE CASCADE, "
+        + "PRIMARY KEY (cmssw_release_w_prs_id, cmssw_pr_id) )"
+    )
+    TB_DESCRIPTION_RELEASE_WITH_PRS_TO_PRS_COLS = [
+        "cmssw_release_w_prs_id",
+        "cmssw_pr_id",
+    ]
 
     # Table for storing info on CMSSW comparison reports.
     TB_NAME_CMSSW_COMPARISON_REPORTS = "cmssw_comparison_reports"
@@ -108,8 +149,8 @@ class DQM2MirrorDB:
         "( id VARCHAR PRIMARY KEY, "
         "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(), "
         "comparison_ran_at TIMESTAMP WITH TIME ZONE NOT NULL, "
-        "base_cmssw_version INT NOT NULL REFERENCES cmssw_release_with_prs ON DELETE CASCADE, "
-        "comp_cmssw_version INT NOT NULL REFERENCES cmssw_release_with_prs ON DELETE CASCADE)"
+        f"base_cmssw_version INT NOT NULL REFERENCES {TB_NAME_CMSSW_RELEASES_WITH_PRS} ON DELETE CASCADE, "
+        f"comp_cmssw_version INT NOT NULL REFERENCES {TB_NAME_CMSSW_RELEASES_WITH_PRS} ON DELETE CASCADE)"
     )
     TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS = [
         "id",
@@ -117,38 +158,6 @@ class DQM2MirrorDB:
         "base_cmssw_version",
         "comp_cmssw_version",
     ]
-
-    # Unique CMSSW releases mentioned in comparison reports received.
-    TB_NAME_CMSSW_RELEASES = "cmssw_releases"
-    TB_DESCRIPTION_CMSSW_RELEASES = (
-        "( id SERIAL PRIMARY KEY, "
-        + "cmssw_version VARCHAR NOT NULL, "
-        + "created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW())"
-    )
-    TB_DESCRIPTION_CMSSW_RELEASES_COLS = ["cmssw_version"]
-
-    # Unique CMSSW PRs mentioned in comparison reports received.
-    TB_NAME_CMSSW_PRS = "cmssw_prs"
-    TB_DESCRIPTION_CMSSW_PRS = "( pr_num INTEGER PRIMARY KEY )"
-    TB_DESCRIPTION_CMSSW_PRS_COLS = ["pr_num"]
-
-    # Table that combines CMSSW base PR and PRs. The rows in this table are
-    # referenced by the cmsswreleasetoprs rows, to allow a Many to one relationship.
-    TB_NAME_COMPARISON_TO_CMSSW_PRS = "cmssw_release_with_prs"
-    TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS = (
-        "( id SERIAL PRIMARY KEY, "
-        + "cmssw_release_id INT REFERENCES cmssw_releases ON DELETE CASCADE, "
-        + "cmssw_pr_id INT REFERENCES cmssw_prs ON DELETE CASCADE )"
-    )
-    TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS_COLS = ["cmssw_release_id", "cmssw_pr"]
-
-    # Intermediate table to link many PRs to a single entry in cmssw_release_with_prs
-    TB_NAME_RELEASE_WITH_PRS_TO_CMSSW_PRS = "cmssw_release_with_prs_to_cmssw_prs"
-    TB_DESCRIPTION_RELEASE_WITH_PRS_TO_CMSSW_PRS = (
-        "( cmssw_release_id INT REFERENCES cmssw_release_with_prs ON DELETE CASCADE, "
-        + "cmssw_pr_id INT REFERENCES cmssw_prs ON DELETE CASCADE )"
-    )
-    TB_DESCRIPTION_RELEASE_WITH_PRS_TO_CMSSW_PRS_COLS = ["cmssw_release_id", "cmssw_pr"]
 
     def __str__(self):
         return f"{self.__class__.__name__}: {self.db_uri}"
@@ -237,12 +246,12 @@ class DQM2MirrorDB:
                 (self.TB_NAME_CMSSW_PRS, self.TB_DESCRIPTION_CMSSW_PRS),
                 (self.TB_NAME_CMSSW_RELEASES, self.TB_DESCRIPTION_CMSSW_RELEASES),
                 (
-                    self.TB_NAME_COMPARISON_TO_CMSSW_PRS,
-                    self.TB_DESCRIPTION_COMPARISON_TO_CMSSW_PRS,
+                    self.TB_NAME_CMSSW_RELEASES_WITH_PRS,
+                    self.TB_DESCRIPTION_CMSSW_RELEASES_WITH_PRS,
                 ),
                 (
-                    self.TB_NAME_RELEASE_WITH_PRS_TO_CMSSW_PRS,
-                    self.TB_DESCRIPTION_RELEASE_WITH_PRS_TO_CMSSW_PRS,
+                    self.TB_NAME_RELEASE_WITH_PRS_TO_PRS,
+                    self.TB_DESCRIPTION_RELEASE_WITH_PRS_TO_PRS,
                 ),
                 (
                     self.TB_NAME_CMSSW_COMPARISON_REPORTS,
@@ -535,16 +544,6 @@ class DQM2MirrorDB:
 
         return
 
-    def fill_cluster_host(self, name: str) -> None:
-        assert isinstance(name, str)
-        table_hostnames = self.db_meta.tables[self.TB_NAME_HOST_NAME]
-        with self.engine.connect() as cur:
-            cur.execute(
-                sqlalchemy.insert(table_hostnames).values(
-                    dict(zip(self.TB_DESCRIPTION_HOST_NAME_COLS, [name]))
-                )
-            )
-
     def get_cluster_host(self, name: str = "", censor: bool = True) -> dict:
         assert isinstance(name, str)
         table_hostnames = self.db_meta.tables[self.TB_NAME_HOST_NAME]
@@ -565,11 +564,23 @@ class DQM2MirrorDB:
 
         return result
 
-    def get_or_create_cluster_host(self, name: str = "", censor: bool = True) -> dict:
+    def fill_cluster_host(self, name: str) -> None:
+        assert isinstance(name, str)
+        table_hostnames = self.db_meta.tables[self.TB_NAME_HOST_NAME]
+        with self.engine.connect() as cur:
+            cur.execute(
+                sqlalchemy.insert(table_hostnames).values(
+                    dict(zip(self.TB_DESCRIPTION_HOST_NAME_COLS, [name]))
+                )
+            )
+
+    def get_or_create_cluster_host(
+        self, name: str = "", censor: bool = True
+    ) -> tuple[dict, bool]:
         if result := self.get_cluster_host(name):
-            return result
+            return result, False
         self.fill_cluster_host(name)
-        return self.get_cluster_host(name)
+        return self.get_cluster_host(name), True
 
     def get_cluster_status(
         self,
@@ -608,7 +619,7 @@ class DQM2MirrorDB:
         ]
         return results
 
-    def fill_cluster_status(self, cluster_status: dict) -> None:
+    def fill_cluster_status(self, cluster_status: dict) -> dict | None:
         """
         Function to store data received after running get_cluster_status into the DB.
         """
@@ -620,18 +631,23 @@ class DQM2MirrorDB:
             for hostname, status in cluster_status.items():
                 assert isinstance(status, dict)
                 assert all(key in status for key in ["up", "msg"])
-                result = self.get_or_create_cluster_host(name=hostname)
-
+                result, created = self.get_or_create_cluster_host(name=hostname)
                 host_id = result["id"]  # id of host in db
-                result = cur.execute(
-                    sqlalchemy.insert(table_host_statuses).values(
-                        dict(
-                            zip(
-                                self.TB_DESCRIPTION_HOST_STATUS_COLS,
-                                [host_id, status["up"], status["msg"]],
+                return (
+                    cur.execute(
+                        sqlalchemy.insert(table_host_statuses)
+                        .values(
+                            dict(
+                                zip(
+                                    self.TB_DESCRIPTION_HOST_STATUS_COLS,
+                                    [host_id, status["up"], status["msg"]],
+                                )
                             )
                         )
+                        .returning(table_host_statuses)
                     )
+                    .mappings()
+                    .first()
                 )
 
     @paginate(table=TB_NAME_CMSSW_COMPARISON_REPORTS)
@@ -708,11 +724,12 @@ class DQM2MirrorDB:
         # Insert PRs if they don't exist
         pr_db_ids = []  # Ids from DB
         for pr_num in set([*base_prs, *comp_prs]):
-            pr_db_ids.append(self.get_or_create_cmssw_pr(cmssw_pr=pr_num))
+            pr_id, _ = self.get_or_create_cmssw_pr(cmssw_pr=pr_num)
+            pr_db_ids.append(pr_id)
 
         # Insert releases if they don't exist
-        base_rel_id = self.get_or_create_cmssw_release(cmssw_release=base)
-        comp_rel_id = self.get_or_create_cmssw_release(cmssw_release=comp)
+        base_rel_id, _ = self.get_or_create_cmssw_release(cmssw_release=base)
+        comp_rel_id, _ = self.get_or_create_cmssw_release(cmssw_release=comp)
 
         with self.engine.connect() as cur:
             result = cur.execute(
@@ -776,22 +793,173 @@ class DQM2MirrorDB:
             return result.mappings().first()
         return {}
 
-    def get_or_create_cmssw_release(self, cmssw_release: str) -> dict:
-        if result := self.get_cmssw_release(cmssw_release=cmssw_release):
-            return result
-        self.fill_cmssw_release(cmssw_release=cmssw_release)
-        return self.get_cmssw_release(cmssw_release=cmssw_release)
-
-    def fill_cmssw_release(self, cmssw_release: str) -> None:
+    def fill_cmssw_release(self, cmssw_release: str) -> dict | None:
         assert isinstance(cmssw_release, str), "cmssw_release must be a str"
+        table = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]
         with self.engine.connect() as cur:
-            cur.execute(
-                sqlalchemy.insert(
-                    self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]
-                ).values(
-                    dict(zip(self.TB_DESCRIPTION_CMSSW_RELEASES_COLS, [cmssw_release]))
+            return (
+                cur.execute(
+                    sqlalchemy.insert(table)
+                    .values(
+                        dict(
+                            zip(
+                                self.TB_DESCRIPTION_CMSSW_RELEASES_COLS, [cmssw_release]
+                            )
+                        )
+                    )
+                    .returning(table)
+                )
+                .mappings()
+                .first()
+            )
+
+    def get_or_create_cmssw_release(self, cmssw_release: str) -> tuple[dict, bool]:
+        if result := self.get_cmssw_release(cmssw_release=cmssw_release):
+            return result, False
+        return self.fill_cmssw_release(cmssw_release=cmssw_release), True
+
+    def get_or_create_cmssw_release_with_prs(
+        self, id: int | None = None, cmssw_release: str = "", pr_nums: list = []
+    ) -> tuple[dict | None, bool]:
+        if result := self.get_cmssw_release_with_prs(
+            id=id, cmssw_release=cmssw_release, pr_nums=pr_nums
+        ):
+            return result[0], False
+        return (
+            self.fill_cmssw_release_with_prs(
+                cmssw_release=cmssw_release, pr_nums=pr_nums
+            ),
+            True,
+        )
+
+    def get_cmssw_release_with_prs(
+        self, id: int | None = None, cmssw_release: str = "", pr_nums: list = []
+    ) -> list[dict | None]:
+        assert isinstance(cmssw_release, str), "cmssw_release must be a str"
+        assert isinstance(pr_nums, list) and all(
+            isinstance(pr_num, int) for pr_num in pr_nums
+        )
+        table_rels = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]
+        table_rel_w_prs = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES_WITH_PRS]
+        table_rel_w_prs_to_prs = self.db_meta.tables[
+            self.TB_NAME_RELEASE_WITH_PRS_TO_PRS
+        ]
+        # table_prs = self.db_meta.tables[self.TB_NAME_CMSSW_PRS]
+
+        with self.engine.connect() as cur:
+            # Thanks Geovanny!
+
+            #
+            pr_agg_cte = (
+                sqlalchemy.select(
+                    table_rel_w_prs_to_prs.c.cmssw_release_w_prs_id,
+                    functions.array_agg(
+                        postgresql.aggregate_order_by(
+                            table_rel_w_prs_to_prs.c.cmssw_pr_id,
+                            table_rel_w_prs_to_prs.c.cmssw_pr_id.asc(),
+                        )
+                    ).label("pr_list"),
+                )
+                .group_by(table_rel_w_prs_to_prs.c.cmssw_release_w_prs_id)
+                .cte("pr_agg")
+            )
+            query = (
+                sqlalchemy.select(
+                    table_rel_w_prs.c.id,
+                    table_rel_w_prs.c.cmssw_release_id,
+                    table_rels.c.cmssw_version,
+                    pr_agg_cte.c.pr_list,
+                )
+                .join(
+                    pr_agg_cte,
+                    table_rel_w_prs.c.id == pr_agg_cte.c.cmssw_release_w_prs_id,
+                )
+                .join(
+                    table_rels,
+                    table_rel_w_prs.c.cmssw_release_id == table_rels.c.id,
                 )
             )
+            # Finally, filter by the passed arguments
+            if id:
+                query = query.where(table_rel_w_prs.c.id == id)
+            if pr_nums:
+                query = query.where(
+                    pr_agg_cte.c.pr_list
+                    == sqlalchemy.cast(
+                        text(
+                            f"ARRAY[{','.join([str(pr_num) for pr_num in sorted(pr_nums)])}]"
+                        ),
+                        sqltypes.ARRAY(sqltypes.Integer),
+                    )
+                )
+            if cmssw_release:
+                query = query.where(table_rels.c.cmssw_version == cmssw_release)
+
+            return cur.execute(query).mappings().all()
+
+    def fill_cmssw_release_with_prs(
+        self, cmssw_release: str, pr_nums: list = []
+    ) -> dict | None:
+        """ """
+        assert isinstance(cmssw_release, str), "cmssw_release must be a str"
+        assert isinstance(pr_nums, list) and all(
+            isinstance(pr_num, int) for pr_num in pr_nums
+        )
+        assert list(set(sorted(pr_nums))) == sorted(
+            pr_nums
+        ), "Duplicate PR given in list"
+        cmssw_release_db, _ = self.get_or_create_cmssw_release(
+            cmssw_release=cmssw_release
+        )
+        cmssw_release_id = cmssw_release_db["id"]
+        prs_in_db = []
+        for pr_num in pr_nums:
+            pr_id, _ = self.get_or_create_cmssw_pr(cmssw_pr=pr_num)
+            assert pr_id
+            prs_in_db.append(pr_id)
+
+        with self.engine.connect() as cur:
+            table_rel_w_prs = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES_WITH_PRS]
+            rel_w_prs = (
+                cur.execute(
+                    sqlalchemy.insert(table_rel_w_prs)
+                    .values(
+                        dict(
+                            zip(
+                                self.TB_DESCRIPTION_CMSSW_RELEASES_WITH_PRS_COLS,
+                                [cmssw_release_id],
+                            )
+                        )
+                    )
+                    .returning(table_rel_w_prs)
+                )
+                .mappings()
+                .first()
+            )
+            table_rel_w_prs_to_prs = self.db_meta.tables[
+                self.TB_NAME_RELEASE_WITH_PRS_TO_PRS
+            ]
+            if prs_in_db:
+                # Fill the Many to Many intermediate table
+                cur.execute(
+                    sqlalchemy.insert(table_rel_w_prs_to_prs)
+                    .values(
+                        [
+                            dict(
+                                zip(
+                                    self.TB_DESCRIPTION_RELEASE_WITH_PRS_TO_PRS_COLS,
+                                    [
+                                        rel_w_prs["id"],
+                                        pr_in_db["pr_num"],
+                                    ],
+                                )
+                            )
+                            for pr_in_db in prs_in_db
+                        ]
+                    )
+                    .returning(table_rel_w_prs_to_prs)
+                )
+            return self.get_cmssw_release_with_prs(id=rel_w_prs["id"])[0]
 
     def get_cmssw_pr(self, cmssw_pr: int) -> dict:
         with self.engine.connect() as cur:
@@ -804,20 +972,24 @@ class DQM2MirrorDB:
                 return result.mappings().first()
             return {}
 
-    def get_or_create_cmssw_pr(self, cmssw_pr: int) -> dict:
-        if result := self.get_cmssw_pr(cmssw_pr=cmssw_pr):
-            return result
-        self.fill_cmssw_pr(cmssw_pr=cmssw_pr)
-        return self.get_cmssw_pr(cmssw_pr=cmssw_pr)
-
-    def fill_cmssw_pr(self, cmssw_pr: int) -> None:
+    def fill_cmssw_pr(self, cmssw_pr: int) -> dict | None:
         assert isinstance(cmssw_pr, int), "cmssw_pr must be an int"
+        table = self.db_meta.tables[self.TB_NAME_CMSSW_PRS]
         with self.engine.connect() as cur:
-            cur.execute(
-                sqlalchemy.insert(self.db_meta.tables[self.TB_NAME_CMSSW_PRS]).values(
-                    dict(zip(self.TB_DESCRIPTION_CMSSW_PRS_COLS, [cmssw_pr]))
+            return (
+                cur.execute(
+                    sqlalchemy.insert(table)
+                    .values(dict(zip(self.TB_DESCRIPTION_CMSSW_PRS_COLS, [cmssw_pr])))
+                    .returning(table)
                 )
+                .mappings()
+                .first()
             )
+
+    def get_or_create_cmssw_pr(self, cmssw_pr: int) -> tuple[dict | None, bool]:
+        if result := self.get_cmssw_pr(cmssw_pr=cmssw_pr):
+            return result, False
+        return self.fill_cmssw_pr(cmssw_pr=cmssw_pr), True
 
     def get_mirror_data(self, run_number: int) -> tuple:
         """
@@ -994,6 +1166,8 @@ class DQM2MirrorDB:
 
 
 if __name__ == "__main__":
+    logging.basicConfig()
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.DEBUG)
     db_playback = DQM2MirrorDB(
         log=logging.getLogger(__name__),
         host=cfg.get("DB_PLAYBACK_HOST"),

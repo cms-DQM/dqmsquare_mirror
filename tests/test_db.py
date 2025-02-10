@@ -214,7 +214,8 @@ def test_db_cluster_status(testing_database: DQM2MirrorDB):
         "is_up": False,
         "message": "TEST",
     }
-    testing_database.fill_cluster_status(CLUSTER_STATUS)
+    r = testing_database.fill_cluster_status(CLUSTER_STATUS)
+    assert r and r["host_id"] == testing_database.get_cluster_host(MAGIC_HOSTNAME)["id"]
     r = testing_database.get_cluster_status()
     r[0].pop("created_at")
     assert r[0] == CLUSTER_STATUS_RESULT
@@ -230,16 +231,32 @@ def test_db_cmssw_pr(testing_database: DQM2MirrorDB):
         testing_database.fill_cmssw_pr(str(MAGIC_NUMBER))
 
 
-def test_db_cmssw_release(testing_database: DQM2MirrorDB):
+def test_db_cmssw_release_plain(testing_database: DQM2MirrorDB):
     r = testing_database.get_cmssw_release(MAGIC_RELEASE)
     assert not r
-    testing_database.fill_cmssw_release(MAGIC_RELEASE)
-    r = testing_database.get_cmssw_release(MAGIC_RELEASE)
+    r = testing_database.fill_cmssw_release(MAGIC_RELEASE)
     assert r and "cmssw_version" in r and r["cmssw_version"] == MAGIC_RELEASE
     with pytest.raises(AssertionError):
         testing_database.fill_cmssw_release(6565656565)
-    r2 = testing_database.get_or_create_cmssw_release(MAGIC_RELEASE)
+    r2, created = testing_database.get_or_create_cmssw_release(MAGIC_RELEASE)
     assert r == r2
+    assert not created
+
+
+def test_db_cmssw_release_with_prs(testing_database: DQM2MirrorDB):
+    with pytest.raises(AssertionError):  # Duplicate PR number
+        testing_database.fill_cmssw_release_with_prs(
+            cmssw_release=MAGIC_RELEASE, pr_nums=[MAGIC_NUMBER, MAGIC_NUMBER]
+        )
+
+    r1 = testing_database.fill_cmssw_release_with_prs(
+        cmssw_release=MAGIC_RELEASE, pr_nums=[MAGIC_NUMBER, MAGIC_NUMBER + 1]
+    )
+    r2, created = testing_database.get_or_create_cmssw_release_with_prs(
+        cmssw_release=MAGIC_RELEASE, pr_nums=[MAGIC_NUMBER, MAGIC_NUMBER + 1]
+    )
+    assert not created
+    assert r1 == r2
 
 
 def test_db_cmssw_comparison_reports(testing_database: DQM2MirrorDB):
@@ -266,6 +283,7 @@ def test_db_cmssw_comparison_reports(testing_database: DQM2MirrorDB):
         testing_database.fill_cmssw_comparison_report(
             **INVALID_METADATA,
         )
+    r = testing_database.get_cmssw_comparison_reports(paginate=False)
     testing_database.fill_cmssw_comparison_report(
         **VALID_METADATA,
     )
