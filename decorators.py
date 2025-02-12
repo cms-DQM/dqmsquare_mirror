@@ -54,7 +54,28 @@ def check_auth(redirect: bool = True, cr_usernames: dict = {}):
 
 
 def paginate(table) -> Callable:
-    # TODO: Make sure it works
+    """
+    Pagination decorator to wrap db calls.
+
+    There is definitely something similar that works out of the
+    box, but I didn't find it, especially given the structure
+    of the current project.
+
+    The function it wraps should return an sql.ClauseElement (e.g. select).
+    It then counts the results of the query, and splits into pages.
+
+    The page argument controls which page to return.
+    The paginate argument, if given, can control whether the pagination
+    is skipped or not.
+
+    Since pagination can be skipped, this function returns, in that case,
+    the result of running the query with the mappings, i.e., returns
+    a RowMapping.
+
+    If pagination is active, a dict is returned instead, with the
+    actual data in the 'data' key, and two extra keys: 'page' and 'total_pages'.
+    """
+
     # https://stackoverflow.com/a/5929165/6562491
     def paginate_decorator(func) -> Callable:
         def _paginate(*args, **kwargs) -> dict | RowMapping:
