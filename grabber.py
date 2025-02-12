@@ -440,14 +440,32 @@ if __name__ == "__main__":
                     logger.debug(f"There are {len(results)} comparisons available.")
 
                     for report in results:
-                        if "timestamp" in report:
-                            report["timestamp"] = datetime.fromisoformat(
-                                report["timestamp"]
-                            )
-                        if db.get_cmssw_comparison_reports(id=report["id"])["data"]:
+                        assert all(
+                            [
+                                key in report
+                                for key in [
+                                    "id",
+                                    "timestamp",
+                                    "comp",
+                                    "base",
+                                    "base_prs",
+                                    "comp_prs",
+                                ]
+                            ]
+                        )
+                        report["timestamp"] = datetime.fromisoformat(
+                            report["timestamp"]
+                        )
+                        report["base_prs"] = [int(pr) for pr in report["base_prs"]]
+                        report["comp_prs"] = [int(pr) for pr in report["comp_prs"]]
+
+                        if db.get_cmssw_comparison_reports(
+                            id=report["id"], paginate=False
+                        ):
                             logger.debug(f"Report {report['id']} already in db")
                             continue
                         logger.debug(f"Requesting HTML report for {report['id']}")
+                        print(report)
                         html_report = get_single_comparison_report(report["id"])
                         db.fill_cmssw_comparison_report(
                             **report,
