@@ -3,6 +3,7 @@ import sys
 import pickle
 import pytest
 import sqlalchemy
+from datetime import datetime
 from sqlalchemy import create_engine, text
 from sqlalchemy_utils import create_database, database_exists, drop_database
 from sqlalchemy.exc import IntegrityError
@@ -19,7 +20,9 @@ DB_PLAY_NAME = "postgres_playback_test"
 MAGIC_NUMBER = 69420
 MAGIC_RELEASE = "CMSSW_6_6_6_patch6"
 MAGIC_HOSTNAME = "dqmfu-c9b99-99-99"
+MAGIC_HOSTNAME_2 = "dqmfu-c0b00-00-00"
 MAGIC_HOSTNAME_CENSORED = "dqmfu-c9b99-.."
+MAGIC_HOSTNAME_2_CENSORED = "dqmfu-c0b00-.."
 PRODUCTION_MACHINES = [
     "bu-c2f11-09-01",
     "fu-c2f11-11-01",
@@ -27,6 +30,15 @@ PRODUCTION_MACHINES = [
     "fu-c2f11-11-03",
     "fu-c2f11-11-04",
 ]
+INVALID_METADATA = {
+    "id": "20250113-145715_comparison_base_0113_CMSSW_14_2_0_pre3_46854_vs_comparison_comp_0113_CMSSW_14_2_0_pre3_46928",
+    "base": 1111,
+    "comp": ("hehehe"),
+    "comp_prs": None,
+    "base_prs": "hehe",
+    "comparison_report_html": "",
+    "timestamp": 99999,
+}
 
 
 def get_or_create_db(
@@ -111,6 +123,21 @@ def fill_db(db: DQM2MirrorDB) -> None:
             except Exception as e:
                 print("Error when creating graph fixture:", e)
                 session.rollback()
+
+
+def get_valid_metadata(i: int = 0) -> dict:
+    return {
+        "id": f"{datetime.now().strftime(r'%Y%m%d')}-{datetime.now().strftime(r'%H%M%S')}_comparison_base_0113_vs_comparison_comp_0113_{MAGIC_RELEASE}_{MAGIC_NUMBER+i}",
+        "base": MAGIC_RELEASE,
+        "comp": MAGIC_RELEASE,
+        "comp_prs": [],
+        "base_prs": [MAGIC_NUMBER + i],
+        "timestamp": datetime.now(),
+        "comparison_report_html": "<h1>THIS IS VALID HTML</h1>",
+    }
+
+
+VALID_METADATA = get_valid_metadata()
 
 
 @pytest.fixture

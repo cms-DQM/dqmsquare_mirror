@@ -1,6 +1,10 @@
 import math
 import flask
+from collections.abc import Callable
 from sqlalchemy import select, func as sql_func, sql
+from sqlalchemy.engine.row import RowMapping
+
+PAGINATION_DEFAULT_ITEMS_PER_PAGE = 10
 
 
 def check_login(
@@ -49,20 +53,30 @@ def check_auth(redirect: bool = True, cr_usernames: dict = {}):
     return decorator
 
 
-def paginate(table):
+def paginate(table) -> Callable:
     # TODO: Make sure it works
     # https://stackoverflow.com/a/5929165/6562491
-    def paginate_decorator(func):
-        def _paginate(*args, **kwargs):
+    def paginate_decorator(func) -> Callable:
+        def _paginate(*args, **kwargs) -> dict | RowMapping:
             db = args[0]  # Passed as the "self" argument, hence the first of the args
             # Then, we remove pagination-specific kwargs, so that we don't
             # pass unknown kwargs to the downstream wrapped method.
-            items_per_page = kwargs.pop("items_per_page", 1)
+            items_per_page = kwargs.pop(
+                "items_per_page", PAGINATION_DEFAULT_ITEMS_PER_PAGE
+            )
             page = kwargs.pop("page", 1)
+            order_by = kwargs.pop("order_by", None)
+            paginate = kwargs.pop("paginate", True)
+
+            # Run the actual function, expect an SQL query.
             query = func(*args, **kwargs)
             assert isinstance(query, sql.ClauseElement)
-            order_by = kwargs.pop("order_by", None)
+
             with db.engine.connect() as cur:
+                # Allow bypassing pagination if needed
+                if not paginate:
+                    return cur.execute(query).mappings().all()
+
                 num_total_rows = cur.execute(
                     select(sql_func.count("*")).select_from(db.db_meta.tables[table])
                 ).scalar()
@@ -84,10 +98,13 @@ def paginate(table):
             query = query.offset(offset).limit(items_per_page)
             if order_by:
                 query = query.order_by(order_by)
+            data = []
+            with db.engine.connect() as cur:
+                data = cur.execute(query).mappings().all()
             return {
-                "data": cur.execute(query),
-                "page": 1,
-                "total_pages": 1,
+                "data": data,
+                "page": page,
+                "total_pages": num_total_pages,
             }
 
         return _paginate

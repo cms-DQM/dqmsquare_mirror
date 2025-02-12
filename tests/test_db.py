@@ -9,6 +9,7 @@ from truth_values import TEST_DB_7_TRUTH, TEST_DB_9_TRUTH
 from datetime import datetime
 from db import DQM2MirrorDB, DEFAULT_DATETIME
 from dqmsquare_cfg import TZ
+from sqlalchemy.exc import IntegrityError
 
 # Needed to be passed as a fixture
 from fixtures import (
@@ -17,7 +18,11 @@ from fixtures import (
     MAGIC_RELEASE,
     MAGIC_HOSTNAME,
     MAGIC_HOSTNAME_CENSORED,
+    MAGIC_HOSTNAME_2,
+    MAGIC_HOSTNAME_2_CENSORED,
     PRODUCTION_MACHINES,
+    VALID_METADATA,
+    INVALID_METADATA,
 )
 
 
@@ -202,23 +207,51 @@ def test_db_runs(testing_database: DQM2MirrorDB):
 def test_db_cluster_hosts(testing_database: DQM2MirrorDB):
     testing_database.fill_cluster_host(MAGIC_HOSTNAME)
     r = testing_database.get_cluster_host(name=MAGIC_HOSTNAME, censor=False)
-    assert r["name"] == MAGIC_HOSTNAME
+    assert (
+        r and r["name"] == MAGIC_HOSTNAME
+    )  # Non censoring the output results in the proper hostname
     r = testing_database.get_cluster_host(name=MAGIC_HOSTNAME)
-    assert r["name"] == MAGIC_HOSTNAME_CENSORED
+    assert r and r["name"] == MAGIC_HOSTNAME_CENSORED  # Censoring "hides" the hostname
+
+    r = testing_database.get_cluster_host(name=MAGIC_HOSTNAME_2)
+    assert not r  # This hostname has not been created yet
+
+    r, created = testing_database.get_or_create_cluster_host(name=MAGIC_HOSTNAME_2)
+    assert (
+        created
+        and r["name"] == MAGIC_HOSTNAME_2_CENSORED
+        and r["id"] == testing_database.get_cluster_host(name=MAGIC_HOSTNAME_2)["id"]
+    )
 
 
 def test_db_cluster_status(testing_database: DQM2MirrorDB):
-    CLUSTER_STATUS = {MAGIC_HOSTNAME: {"up": False, "msg": "TEST"}}
+    CLUSTER_STATUS = {
+        MAGIC_HOSTNAME: {"up": False, "msg": "TEST"},
+        MAGIC_HOSTNAME_2: {"up": False, "msg": "TEST"},
+    }  # Cluster status with many hosts in it
     CLUSTER_STATUS_RESULT = {
         "name": MAGIC_HOSTNAME_CENSORED,
         "is_up": False,
         "message": "TEST",
     }
+    CLUSTER_STATUS_RESULT_2 = {
+        "name": MAGIC_HOSTNAME_2_CENSORED,
+        "is_up": False,
+        "message": "TEST",
+    }
     r = testing_database.fill_cluster_status(CLUSTER_STATUS)
-    assert r and r["host_id"] == testing_database.get_cluster_host(MAGIC_HOSTNAME)["id"]
+    assert (
+        r[0] and r[0].host_id == testing_database.get_cluster_host(MAGIC_HOSTNAME)["id"]
+    )
+    assert (
+        r[1]
+        and r[1].host_id == testing_database.get_cluster_host(MAGIC_HOSTNAME_2)["id"]
+    )
     r = testing_database.get_cluster_status()
     r[0].pop("created_at")
+    r[1].pop("created_at")
     assert r[0] == CLUSTER_STATUS_RESULT
+    assert r[1] == CLUSTER_STATUS_RESULT_2
 
 
 def test_db_cmssw_pr(testing_database: DQM2MirrorDB):
@@ -260,30 +293,21 @@ def test_db_cmssw_release_with_prs(testing_database: DQM2MirrorDB):
 
 
 def test_db_cmssw_comparison_reports(testing_database: DQM2MirrorDB):
-    INVALID_METADATA = {
-        "id": "20250113-145715_comparison_base_0113_CMSSW_14_2_0_pre3_46854_vs_comparison_comp_0113_CMSSW_14_2_0_pre3_46928",
-        "base": 1111,
-        "comp": ("hehehe"),
-        "comp_prs": None,
-        "base_prs": "hehe",
-        "comparison_report_html": "",
-        "timestamp": 99999,
-    }
-    VALID_METADATA = {
-        "id": f"{datetime.now().strftime(r'%Y%m%d')}-{datetime.now().strftime(r'%H%M%S')}_comparison_base_0113_{MAGIC_RELEASE}_{MAGIC_NUMBER}_vs_comparison_comp_0113_{MAGIC_RELEASE}_{MAGIC_NUMBER}",
-        "base": MAGIC_RELEASE,
-        "comp": MAGIC_RELEASE,
-        "comp_prs": [],
-        "base_prs": [MAGIC_NUMBER],
-        "timestamp": datetime.now(),
-        "comparison_report_html": "<h1>THIS IS VALID HTML</h1>",
-    }
+
     with pytest.raises(AssertionError):
         # Expects more metadata
         testing_database.fill_cmssw_comparison_report(
             **INVALID_METADATA,
         )
+
     r = testing_database.get_cmssw_comparison_reports(paginate=False)
-    testing_database.fill_cmssw_comparison_report(
+    assert not r
+    r1 = testing_database.fill_cmssw_comparison_report(
         **VALID_METADATA,
     )
+    r2 = testing_database.get_cmssw_comparison_reports(id=r1.id, paginate=False)[0]
+    assert r1 == r2
+    with pytest.raises(IntegrityError):  # Try to reinsert the same id
+        testing_database.fill_cmssw_comparison_report(
+            **VALID_METADATA,
+        )

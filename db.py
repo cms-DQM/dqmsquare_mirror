@@ -10,6 +10,7 @@ from sqlalchemy.sql import functions, sqltypes
 from sqlalchemy_utils import database_exists
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.engine.row import RowMapping
 from collections import defaultdict
 from datetime import datetime
 from exceptions import DatabaseNotFoundError
@@ -544,7 +545,7 @@ class DQM2MirrorDB:
 
         return
 
-    def get_cluster_host(self, name: str = "", censor: bool = True) -> dict:
+    def get_cluster_host(self, name: str = "", censor: bool = True) -> dict | None:
         assert isinstance(name, str)
         table_hostnames = self.db_meta.tables[self.TB_NAME_HOST_NAME]
         with self.engine.connect() as cur:
@@ -619,7 +620,7 @@ class DQM2MirrorDB:
         ]
         return results
 
-    def fill_cluster_status(self, cluster_status: dict) -> dict | None:
+    def fill_cluster_status(self, cluster_status: dict) -> list[RowMapping]:
         """
         Function to store data received after running get_cluster_status into the DB.
         """
@@ -627,13 +628,14 @@ class DQM2MirrorDB:
         assert len(cluster_status.keys()) > 0
         self.log.debug(f"Filling data: {cluster_status}")
         table_host_statuses = self.db_meta.tables[self.TB_NAME_HOST_STATUS]
+        results = []
         with self.engine.connect() as cur:
             for hostname, status in cluster_status.items():
                 assert isinstance(status, dict)
                 assert all(key in status for key in ["up", "msg"])
                 result, created = self.get_or_create_cluster_host(name=hostname)
                 host_id = result["id"]  # id of host in db
-                return (
+                results.append(
                     cur.execute(
                         sqlalchemy.insert(table_host_statuses)
                         .values(
@@ -649,54 +651,43 @@ class DQM2MirrorDB:
                     .mappings()
                     .first()
                 )
+        return results
 
     @paginate(table=TB_NAME_CMSSW_COMPARISON_REPORTS)
     def get_cmssw_comparison_reports(
         self,
-        id: str = "",
         base_cmssw_version: str = "",
         comp_cmssw_version: str = "",
         base_prs: list[int] = [],
         comp_prs: list[int] = [],
+        id: int | None = None,
     ) -> sqlalchemy.sql.Selectable:
         """
         Check if comparison report exists in DB and return result
         """
 
-        table = self.db_meta.tables[self.TB_NAME_CMSSW_COMPARISON_REPORTS]
-        return sqlalchemy.select(table).where(
-            table.c.id == id
-            and (
-                table.c.comp_cmssw_version == comp_cmssw_version
-                if comp_cmssw_version
-                else True
+        table_reports = self.db_meta.tables[self.TB_NAME_CMSSW_COMPARISON_REPORTS]
+        query = sqlalchemy.select(table_reports)
+        if base_cmssw_version:
+            base_rel = self.get_cmssw_release_with_prs(
+                cmssw_release=base_cmssw_version, pr_nums=base_prs
             )
-            and (
-                table.c.base_cmssw_version == base_cmssw_version
-                if base_cmssw_version
-                else True
+            assert base_rel, f"{base_cmssw_version} with PRs {base_prs} not in DB"
+            base_rel = base_rel[0]
+            query = query.where(table_reports.base_cmssw_version == base_rel["id"])
+        if comp_cmssw_version:
+            comp_rel = self.get_cmssw_release_with_prs(
+                cmssw_release=comp_cmssw_version, pr_nums=comp_prs
             )
-            # + ("WHERE id=:id " if id else "")
-            # + (
-            #     "WHERE base_cmssw_version=:base_cmssw_version "
-            #     if base_cmssw_version
-            #     else ""
-            # )
-            # + (
-            #     "WHERE comp_cmssw_version=:comp_cmssw_version "
-            #     if comp_cmssw_version
-            #     else ""
-            # )
-            # + "ORDER BY comparison_ran_at DESC;"
-            # + "LIMIT :limit OFFSET :offset ;"
-            # ),
-            # base_cmssw_version=base_cmssw_version,
-            # comp_cmssw_version=comp_cmssw_version,
-            # id=id,
-            # # limit=items_per_page,
-            # # offset=offset,
-            # base_prs=base_prs,
-        )
+            assert comp_rel, f"{comp_cmssw_version} with PRs {comp_prs} not in DB"
+            comp_rel = comp_rel[0]
+
+            query = query.where(table_reports.c.comp_cmssw_version == comp_rel["id"])
+
+        if id:
+            query = query.where(table_reports.c.id == id)
+
+        return query
 
     def fill_cmssw_comparison_report(
         self,
@@ -707,7 +698,7 @@ class DQM2MirrorDB:
         comp_prs: list[int],
         timestamp: datetime,
         comparison_report_html: str,
-    ) -> dict:
+    ) -> RowMapping:
         """
         For the given report, check if it exists in the DB
         and store it, if not.
@@ -721,28 +712,29 @@ class DQM2MirrorDB:
         assert isinstance(comparison_report_html, str)
         self.log.debug(f"Filling data for comparison {id}")
 
-        # Insert PRs if they don't exist
-        pr_db_ids = []  # Ids from DB
-        for pr_num in set([*base_prs, *comp_prs]):
-            pr_id, _ = self.get_or_create_cmssw_pr(cmssw_pr=pr_num)
-            pr_db_ids.append(pr_id)
-
-        # Insert releases if they don't exist
-        base_rel_id, _ = self.get_or_create_cmssw_release(cmssw_release=base)
-        comp_rel_id, _ = self.get_or_create_cmssw_release(cmssw_release=comp)
-
+        base_rel, base_created = self.get_or_create_cmssw_release_with_prs(
+            cmssw_release=base, pr_nums=base_prs
+        )
+        comp_rel, comp_created = self.get_or_create_cmssw_release_with_prs(
+            cmssw_release=comp, pr_nums=comp_prs
+        )
+        table = self.db_meta.tables[self.TB_NAME_CMSSW_COMPARISON_REPORTS]
         with self.engine.connect() as cur:
-            result = cur.execute(
-                sqlalchemy.insert(
-                    self.db_meta.tables[self.TB_NAME_CMSSW_COMPARISON_REPORTS]
-                ).values(
-                    dict(
-                        zip(
-                            self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS,
-                            [id, timestamp, base_rel_id, comp_rel_id],
+            result = (
+                cur.execute(
+                    sqlalchemy.insert(table)
+                    .values(
+                        dict(
+                            zip(
+                                self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS,
+                                [id, timestamp, base_rel["id"], comp_rel["id"]],
+                            )
                         )
                     )
+                    .returning(table)
                 )
+                .mappings()
+                .first()
             )
         # Store the HTML in the appropriate directory
         self._store_cmssw_comparison_report_html(
