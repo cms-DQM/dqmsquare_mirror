@@ -9,6 +9,7 @@ from truth_values import TEST_DB_7_TRUTH, TEST_DB_9_TRUTH
 from datetime import datetime
 from db import DQM2MirrorDB, DEFAULT_DATETIME
 from dqmsquare_cfg import TZ
+from sqlalchemy.engine.row import RowMapping
 from sqlalchemy.exc import IntegrityError
 
 # Needed to be passed as a fixture
@@ -305,8 +306,14 @@ def test_db_cmssw_comparison_reports(testing_database: DQM2MirrorDB):
     r1 = testing_database.fill_cmssw_comparison_report(
         **VALID_METADATA,
     )
-    r2 = testing_database.get_cmssw_comparison_reports(id=r1.id, paginate=False)[0]
+    r = testing_database.get_cmssw_comparison_reports(id=r1.id, paginate=False)
+    r2 = r[0]
     assert r1 == r2
+    assert (
+        isinstance(r1, RowMapping)
+        and isinstance(r2, RowMapping)
+        and isinstance(r, list)
+    )
     with pytest.raises(IntegrityError):  # Try to reinsert the same id
         testing_database.fill_cmssw_comparison_report(
             **VALID_METADATA,

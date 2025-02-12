@@ -1,6 +1,7 @@
 # Tests to check DB and data filling and fetching
 import os
 import sys
+from sqlalchemy.engine.row import RowMapping
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from decorators import PAGINATION_DEFAULT_ITEMS_PER_PAGE
@@ -19,7 +20,12 @@ def test_utils_pagination(testing_database: DQM2MirrorDB):
         )
     r = testing_database.get_cmssw_comparison_reports(paginate=True)
     assert all([key in r for key in ["page", "total_pages"]])
-    assert r["page"] == 1 and r["total_pages"] == MULTIPLE_OF_ITEMS_PER_PAGE
+    assert (
+        r["page"] == 1
+        and r["total_pages"] == MULTIPLE_OF_ITEMS_PER_PAGE
+        and isinstance(r["data"], list)
+        and isinstance(r["data"][0], RowMapping)
+    )
     r2 = testing_database.get_cmssw_comparison_reports(paginate=True, page=1)
     assert r == r2
     r3 = testing_database.get_cmssw_comparison_reports(paginate=True, page=2)
