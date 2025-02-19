@@ -101,8 +101,7 @@ def paginate(table) -> Callable:
                 num_total_rows = cur.execute(
                     select(sql_func.count("*")).select_from(db.db_meta.tables[table])
                 ).scalar()
-
-            if num_total_rows <= 1:
+            if num_total_rows < 1:
                 return {
                     "data": [],
                     "page": 1,
