@@ -654,7 +654,10 @@ class DQM2MirrorDB:
         return results
 
     @paginate(table=TB_NAME_CMSSW_COMPARISON_REPORTS)
-    def get_cmssw_comparison_reports(
+    def get_cmssw_comparison_reports(self, *args, **kwargs) -> list[dict | RowMapping]:
+        return self._get_cmssw_comparison_reports(*args, **kwargs)
+
+    def _get_cmssw_comparison_reports(
         self,
         base_cmssw_version: str = "",
         comp_cmssw_version: str = "",
@@ -667,26 +670,56 @@ class DQM2MirrorDB:
         """
 
         table_reports = self.db_meta.tables[self.TB_NAME_CMSSW_COMPARISON_REPORTS]
-        query = sqlalchemy.select(table_reports)
+        # Create two aliases for base and comp releases. This is needed
+        # as we need to make two similar queries, one for the base
+        # release w/ PRs and one for the comp release w/ PRs.
+        # NGL, a bit of chatgpt was used here
+        base_alias = self._get_cmssw_release_with_prs().alias("base_release_w_prs")
+        comp_alias = self._get_cmssw_release_with_prs().alias("comp_release_w_prs")
+        # Query the reports table, and include the columns from
+        # the release w/ PRs queries.
+        query = (
+            sqlalchemy.select(
+                table_reports.c.id,
+                table_reports.c.created_at,
+                # Labels needed to prevent ambiguity
+                base_alias.c.cmssw_version.label("base_cmssw_release"),
+                comp_alias.c.cmssw_version.label("comp_cmssw_release"),
+                base_alias.c.pr_list.label("base_prs"),
+                comp_alias.c.pr_list.label("comp_prs"),
+            )
+            # Join the query on the FKs
+            .join(
+                base_alias, table_reports.c.base_cmssw_version == base_alias.c.id
+            ).join(comp_alias, table_reports.c.comp_cmssw_version == comp_alias.c.id)
+        )
+        # Now filter based on arguments.
         if base_cmssw_version:
-            base_rel = self.get_cmssw_release_with_prs(
-                cmssw_release=base_cmssw_version, pr_nums=base_prs
-            )
-            assert base_rel, f"{base_cmssw_version} with PRs {base_prs} not in DB"
-            base_rel = base_rel[0]
-            query = query.where(table_reports.base_cmssw_version == base_rel["id"])
+            query = query.where(base_alias.c.cmssw_version == base_cmssw_version)
         if comp_cmssw_version:
-            comp_rel = self.get_cmssw_release_with_prs(
-                cmssw_release=comp_cmssw_version, pr_nums=comp_prs
-            )
-            assert comp_rel, f"{comp_cmssw_version} with PRs {comp_prs} not in DB"
-            comp_rel = comp_rel[0]
-
-            query = query.where(table_reports.c.comp_cmssw_version == comp_rel["id"])
-
+            query = query.where(comp_alias.c.cmssw_version == comp_cmssw_version)
         if id:
             query = query.where(table_reports.c.id == id)
-
+        if base_prs:
+            query = query.where(
+                base_alias.c.pr_list
+                == sqlalchemy.cast(
+                    text(
+                        f"ARRAY[{','.join([str(pr_num) for pr_num in sorted(base_prs)])}]"
+                    ),
+                    sqltypes.ARRAY(sqltypes.Integer),
+                )
+            )
+        if comp_prs:
+            query = query.where(
+                comp_alias.c.pr_list
+                == sqlalchemy.cast(
+                    text(
+                        f"ARRAY[{','.join([str(pr_num) for pr_num in sorted(comp_prs)])}]"
+                    ),
+                    sqltypes.ARRAY(sqltypes.Integer),
+                )
+            )
         return query
 
     def fill_cmssw_comparison_report(
@@ -712,36 +745,38 @@ class DQM2MirrorDB:
         assert isinstance(comparison_report_html, str)
         self.log.debug(f"Filling data for comparison {id}")
 
-        base_rel, base_created = self.get_or_create_cmssw_release_with_prs(
+        base_rel, _ = self.get_or_create_cmssw_release_with_prs(
             cmssw_release=base, pr_nums=base_prs
         )
-        comp_rel, comp_created = self.get_or_create_cmssw_release_with_prs(
+        comp_rel, _ = self.get_or_create_cmssw_release_with_prs(
             cmssw_release=comp, pr_nums=comp_prs
         )
         table = self.db_meta.tables[self.TB_NAME_CMSSW_COMPARISON_REPORTS]
         with self.engine.connect() as cur:
-            result = (
-                cur.execute(
-                    sqlalchemy.insert(table)
-                    .values(
-                        dict(
-                            zip(
-                                self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS,
-                                [id, timestamp, base_rel["id"], comp_rel["id"]],
-                            )
+            result = cur.execute(
+                sqlalchemy.insert(table).values(
+                    dict(
+                        zip(
+                            self.TB_DESCRIPTION_CMSSW_COMPARISON_REPORTS_COLS,
+                            [id, timestamp, base_rel["id"], comp_rel["id"]],
                         )
                     )
-                    .returning(table)
                 )
-                .mappings()
-                .first()
             )
+        assert (
+            result
+        ), f"Release comparison with id {id} was not stored in the database!"
         # Store the HTML in the appropriate directory
         self._store_cmssw_comparison_report_html(
             comparison_id=id,
             comparison_report_html=comparison_report_html,
         )
-        return result
+        # Not using "returning()" because it would not return
+        # all the required joins. Instead, we reuse functionality that we have
+        # implemented for get_cmssw_comparison_reports.
+        return self.get_cmssw_comparison_reports(
+            id=result.inserted_primary_key[0], paginate=False
+        )[0]
 
     def _store_cmssw_comparison_report_html(
         self, comparison_id: str, comparison_report_html: str
@@ -773,7 +808,7 @@ class DQM2MirrorDB:
         ) as f:
             f.write(comparison_report_html)
 
-    def get_cmssw_release(self, cmssw_release: str) -> dict:
+    def get_cmssw_release(self, cmssw_release: str) -> RowMapping:
         table_cmssw_releases = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]
         with self.engine.connect() as cur:
             result = cur.execute(
@@ -783,7 +818,7 @@ class DQM2MirrorDB:
             )
         if result:
             return result.mappings().first()
-        return {}
+        return RowMapping({})
 
     def fill_cmssw_release(self, cmssw_release: str) -> dict | None:
         assert isinstance(cmssw_release, str), "cmssw_release must be a str"
@@ -824,9 +859,17 @@ class DQM2MirrorDB:
             True,
         )
 
-    def get_cmssw_release_with_prs(
+    def get_cmssw_release_with_prs(self, *args, **kwargs) -> list[RowMapping | None]:
+        with self.engine.connect() as cur:
+            return (
+                cur.execute(self._get_cmssw_release_with_prs(*args, **kwargs))
+                .mappings()
+                .all()
+            )
+
+    def _get_cmssw_release_with_prs(
         self, id: int | None = None, cmssw_release: str = "", pr_nums: list = []
-    ) -> list[dict | None]:
+    ) -> sqlalchemy.sql.Selectable:
         assert isinstance(cmssw_release, str), "cmssw_release must be a str"
         assert isinstance(pr_nums, list) and all(
             isinstance(pr_num, int) for pr_num in pr_nums
@@ -836,58 +879,53 @@ class DQM2MirrorDB:
         table_rel_w_prs_to_prs = self.db_meta.tables[
             self.TB_NAME_RELEASE_WITH_PRS_TO_PRS
         ]
-        # table_prs = self.db_meta.tables[self.TB_NAME_CMSSW_PRS]
 
-        with self.engine.connect() as cur:
-            # Thanks Geovanny!
-
-            #
-            pr_agg_cte = (
-                sqlalchemy.select(
-                    table_rel_w_prs_to_prs.c.cmssw_release_w_prs_id,
-                    functions.array_agg(
-                        postgresql.aggregate_order_by(
-                            table_rel_w_prs_to_prs.c.cmssw_pr_id,
-                            table_rel_w_prs_to_prs.c.cmssw_pr_id.asc(),
-                        )
-                    ).label("pr_list"),
-                )
-                .group_by(table_rel_w_prs_to_prs.c.cmssw_release_w_prs_id)
-                .cte("pr_agg")
-            )
-            query = (
-                sqlalchemy.select(
-                    table_rel_w_prs.c.id,
-                    table_rel_w_prs.c.cmssw_release_id,
-                    table_rels.c.cmssw_version,
-                    pr_agg_cte.c.pr_list,
-                )
-                .join(
-                    pr_agg_cte,
-                    table_rel_w_prs.c.id == pr_agg_cte.c.cmssw_release_w_prs_id,
-                )
-                .join(
-                    table_rels,
-                    table_rel_w_prs.c.cmssw_release_id == table_rels.c.id,
-                )
-            )
-            # Finally, filter by the passed arguments
-            if id:
-                query = query.where(table_rel_w_prs.c.id == id)
-            if pr_nums:
-                query = query.where(
-                    pr_agg_cte.c.pr_list
-                    == sqlalchemy.cast(
-                        text(
-                            f"ARRAY[{','.join([str(pr_num) for pr_num in sorted(pr_nums)])}]"
-                        ),
-                        sqltypes.ARRAY(sqltypes.Integer),
+        # Thanks Geovanny! (and chatgpt a bit)
+        pr_agg_cte = (
+            sqlalchemy.select(
+                table_rel_w_prs_to_prs.c.cmssw_release_w_prs_id,
+                functions.array_agg(
+                    postgresql.aggregate_order_by(
+                        table_rel_w_prs_to_prs.c.cmssw_pr_id,
+                        table_rel_w_prs_to_prs.c.cmssw_pr_id.asc(),
                     )
+                ).label("pr_list"),
+            )
+            .group_by(table_rel_w_prs_to_prs.c.cmssw_release_w_prs_id)
+            .cte()
+        )
+        query = (
+            sqlalchemy.select(
+                table_rel_w_prs.c.id,
+                table_rels.c.cmssw_version,
+                pr_agg_cte.c.pr_list,
+            )
+            .join(
+                pr_agg_cte,
+                table_rel_w_prs.c.id == pr_agg_cte.c.cmssw_release_w_prs_id,
+            )
+            .join(
+                table_rels,
+                table_rel_w_prs.c.cmssw_release_id == table_rels.c.id,
+            )
+        )
+        # Finally, filter by the passed arguments
+        if id:
+            query = query.where(table_rel_w_prs.c.id == id)
+        if pr_nums:
+            query = query.where(
+                pr_agg_cte.c.pr_list
+                == sqlalchemy.cast(
+                    text(
+                        f"ARRAY[{','.join([str(pr_num) for pr_num in sorted(pr_nums)])}]"
+                    ),
+                    sqltypes.ARRAY(sqltypes.Integer),
                 )
-            if cmssw_release:
-                query = query.where(table_rels.c.cmssw_version == cmssw_release)
+            )
+        if cmssw_release:
+            query = query.where(table_rels.c.cmssw_version == cmssw_release)
 
-            return cur.execute(query).mappings().all()
+        return query
 
     def fill_cmssw_release_with_prs(
         self, cmssw_release: str, pr_nums: list = []
