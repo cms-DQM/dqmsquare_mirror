@@ -102,7 +102,7 @@ def get_valid_metadata(i: int = 0) -> dict:
 VALID_METADATA = get_valid_metadata()
 
 
-def fill_db(db: DQM2MirrorDB) -> None:
+def fill_db(db: DQM2MirrorDB, extra: bool = False) -> None:
     runs = []
     graphs = []
     runs_file = os.path.join(
@@ -153,11 +153,12 @@ def fill_db(db: DQM2MirrorDB) -> None:
             except Exception as e:
                 print("Error when creating graph fixture:", e)
                 session.rollback()
-    # Add a comparison report
-    db.fill_cmssw_comparison_report(
-        **VALID_METADATA,
-    )
-    db.fill_cluster_status(CLUSTER_STATUS)
+    if extra:
+        # Add a comparison report
+        db.fill_cmssw_comparison_report(
+            **VALID_METADATA,
+        )
+        db.fill_cluster_status(CLUSTER_STATUS)
 
 
 @pytest.fixture(scope="session")
@@ -193,7 +194,7 @@ def db_test_db():
         db_name=db_name,
     )
 
-    fill_db(db)
+    fill_db(db, extra=False)
     yield db
     drop_database(db_uri)
 
@@ -232,8 +233,8 @@ def server_test_dbs():
         port=port,
         db_name=DB_PLAY_NAME,
     )
-    fill_db(db_prod)
-    fill_db(db_play)
+    fill_db(db_prod, extra=True)
+    fill_db(db_play, extra=True)
     yield db_prod, db_play
     drop_database(db_prod_uri)
     drop_database(db_play_uri)

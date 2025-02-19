@@ -261,7 +261,7 @@ class TestDBClusterStatus:
 
 
 class TestDBCMSSWPR:
-    def test_db_cmssw_pr(db_test_db: DQM2MirrorDB):
+    def test_db_cmssw_pr(self, db_test_db: DQM2MirrorDB):
         r = db_test_db.get_cmssw_pr(MAGIC_NUMBER)
         assert not r
         db_test_db.fill_cmssw_pr(MAGIC_NUMBER)
