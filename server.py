@@ -12,6 +12,7 @@ from db import DQM2MirrorDB
 from decorators import check_login, check_auth
 from custom_logger import set_log_handler
 from datetime import datetime, date
+from sqlalchemy.engine.row import RowMapping
 
 load_dotenv()  # Load environmental variables from .env file, if present
 
@@ -21,19 +22,39 @@ log.info("start_server() call ... ")
 VALID_DATABASE_OPTIONS = ["playback", "production"]
 
 
-def json_serializer(obj):
+class CustomJSONProvider(flask.json.provider.JSONProvider):
+    def dumps(self, obj, **kwargs):
+        return json.dumps(obj, **kwargs, cls=CustomJSONEncoder)
+
+    def loads(self, s: str | bytes, **kwargs):
+        return json.loads(s, **kwargs)
+
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        """
+        JSON serializer for objects not serializable by default json code
+        https://stackoverflow.com/a/22238613/6562491
+        """
+
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if isinstance(obj, RowMapping):
+            return dict(obj)
+        return super().default(obj)
+
+
+class CustomFlask(Flask):
     """
-    JSON serializer for objects not serializable by default json code
-    https://stackoverflow.com/a/22238613/6562491
+    Custom Flask class to override the JSON provider to make it
+    handle more types of data
     """
 
-    if isinstance(obj, (datetime, date)):
-        return obj.isoformat()
-    raise TypeError("Type %s not serializable" % type(obj))
+    json_provider_class = CustomJSONProvider
 
 
 def create_app(cfg: dict):
-    app = Flask(
+    app = CustomFlask(
         __name__, static_url_path=os.path.join("/", cfg["SERVER_URL_PREFIX"], "static")
     )
     set_log_handler(
@@ -193,15 +214,15 @@ def create_app(cfg: dict):
             "comp_cmssw_version", type=str, default=""
         )
         if not type:
-            return json.dumps(
+            return flask.jsonify(
                 db_playback.get_cmssw_comparison_reports(
                     items_per_page=items_per_page,
                     page=page,
                     id=id,
                     base_cmssw_version=base_cmssw_version,
                     comp_cmssw_version=comp_cmssw_version,
-                ),
-                default=json_serializer,
+                )
+                # default=json_serializer,
             )
         elif type == "html":
             return flask.redirect(flask.url_for("get_comparison_report", id=id))
@@ -217,7 +238,7 @@ def create_app(cfg: dict):
             return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
         db_ = databases.get(db_name, db_playback)
         graph_data = db_.get_graphs(run)
-        return json.dumps(graph_data)
+        return flask.jsonify(graph_data)
 
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_run"))
     def get_run():
@@ -231,7 +252,7 @@ def create_app(cfg: dict):
         db_ = databases.get(db_name, db_playback)
         run_data = db_.get_mirror_data(run)
         runs_around = db_.get_runs_around(run)
-        return json.dumps([runs_around, run_data])
+        return flask.jsonify([runs_around, run_data])
 
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_runs"))
     def get_runs():
@@ -252,16 +273,16 @@ def create_app(cfg: dict):
             bad_only,
             with_ls_only,
         )
-        return json.dumps(answer)
+        return flask.jsonify(answer)
 
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_info"))
-    def get_cliget_infoents():
+    def get_client_info():
         db_name = flask.request.args.get("db", type=str)
         if db_name not in VALID_DATABASE_OPTIONS:
             return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
         db_ = databases.get(db_name, db_playback)
         answer = db_.get_info()
-        return json.dumps(answer)
+        return flask.jsonify(answer)
 
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_logs"))
     def get_logs():
@@ -285,7 +306,7 @@ def create_app(cfg: dict):
             return f"cluster must be one of {VALID_DATABASE_OPTIONS}", 400
         db_ = databases.get(cluster, db_playback)
         answer = db_.get_cluster_status()
-        return json.dumps(answer)
+        return flask.jsonify(answer)
 
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_clients"))
     def get_clients():
@@ -299,7 +320,7 @@ def create_app(cfg: dict):
             return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
         db_ = databases.get(db_name, db_playback)
         answer = db_.get_clients(run_from, run_to)
-        return json.dumps(answer)
+        return flask.jsonify(answer)
 
     ### TIMELINE ###
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "timeline/"))
