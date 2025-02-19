@@ -39,6 +39,21 @@ INVALID_METADATA = {
     "comparison_report_html": "",
     "timestamp": 99999,
 }
+RUN_NUMBER_GRAPHS = 358792
+CLUSTER_STATUS = {
+    MAGIC_HOSTNAME: {"up": False, "msg": "TEST"},
+    MAGIC_HOSTNAME_2: {"up": False, "msg": "TEST"},
+}  # Cluster status with many hosts in it
+CLUSTER_STATUS_RESULT = {
+    "name": MAGIC_HOSTNAME_CENSORED,
+    "is_up": False,
+    "message": "TEST",
+}
+CLUSTER_STATUS_RESULT_2 = {
+    "name": MAGIC_HOSTNAME_2_CENSORED,
+    "is_up": False,
+    "message": "TEST",
+}
 
 
 def get_or_create_db(
@@ -72,6 +87,21 @@ def format_entry_to_db_entry(graph_entry: list, datetime_cols: list):
     return return_value[:-2]
 
 
+def get_valid_metadata(i: int = 0) -> dict:
+    return {
+        "id": f"{datetime.now().strftime(r'%Y%m%d')}-{datetime.now().strftime(r'%H%M%S')}_comparison_base_0113_vs_comparison_comp_0113_{MAGIC_RELEASE}_{MAGIC_NUMBER+i}",
+        "base": MAGIC_RELEASE,
+        "comp": MAGIC_RELEASE,
+        "comp_prs": [],
+        "base_prs": [MAGIC_NUMBER + i],
+        "timestamp": datetime.now(),
+        "comparison_report_html": "<h1>THIS IS VALID HTML</h1>",
+    }
+
+
+VALID_METADATA = get_valid_metadata()
+
+
 def fill_db(db: DQM2MirrorDB) -> None:
     runs = []
     graphs = []
@@ -101,7 +131,7 @@ def fill_db(db: DQM2MirrorDB) -> None:
                 )
                 session.commit()
             except IntegrityError as e:
-                print(f"Skipping already inserted data", e)
+                print("Skipping already inserted data", e)
                 continue
             except Exception as e:
                 print("Error when creating run fixture:", e)
@@ -123,24 +153,14 @@ def fill_db(db: DQM2MirrorDB) -> None:
             except Exception as e:
                 print("Error when creating graph fixture:", e)
                 session.rollback()
+    # Add a comparison report
+    db.fill_cmssw_comparison_report(
+        **VALID_METADATA,
+    )
+    db.fill_cluster_status(CLUSTER_STATUS)
 
 
-def get_valid_metadata(i: int = 0) -> dict:
-    return {
-        "id": f"{datetime.now().strftime(r'%Y%m%d')}-{datetime.now().strftime(r'%H%M%S')}_comparison_base_0113_vs_comparison_comp_0113_{MAGIC_RELEASE}_{MAGIC_NUMBER+i}",
-        "base": MAGIC_RELEASE,
-        "comp": MAGIC_RELEASE,
-        "comp_prs": [],
-        "base_prs": [MAGIC_NUMBER + i],
-        "timestamp": datetime.now(),
-        "comparison_report_html": "<h1>THIS IS VALID HTML</h1>",
-    }
-
-
-VALID_METADATA = get_valid_metadata()
-
-
-@pytest.fixture
+@pytest.fixture(scope="session")
 def dqm2_config():
     # If there's a local .env file, it will be used to override the environment vars
     config: dict = load_cfg()
@@ -149,13 +169,17 @@ def dqm2_config():
     yield config
 
 
-@pytest.fixture
-def testing_database():
+@pytest.fixture(scope="function")
+def db_test_db():
+    """
+    Test DB for dedicated db tests. This should be dropped after
+    each test.
+    """
     username = os.environ.get("POSTGRES_USERNAME", "postgres")
     password = os.environ.get("POSTGRES_PASSWORD", "postgres")
     host = os.environ.get("POSTGRES_HOST", "127.0.0.1")
     port = int(os.environ.get("POSTGRES_PORT", 5432))
-    db_name = "postgres_test"
+    db_name = DB_PLAY_NAME
     db_uri = DQM2MirrorDB.format_db_uri(
         username=username, password=password, host=host, port=port, db_name=db_name
     )
@@ -174,8 +198,13 @@ def testing_database():
     drop_database(db_uri)
 
 
-@pytest.fixture
-def testing_databases():
+@pytest.fixture(scope="module")
+def server_test_dbs():
+    """
+    Test DBs for server-related tests. They should persist for all
+    the server tests as most server tests rely on the same data
+    and they only need to read.
+    """
     username = os.environ.get("POSTGRES_USERNAME", "postgres")
     password = os.environ.get("POSTGRES_PASSWORD", "postgres")
     host = os.environ.get("POSTGRES_HOST", "127.0.0.1")
@@ -211,7 +240,7 @@ def testing_databases():
 
 
 @pytest.fixture
-def app(dqm2_config: dict, testing_databases: tuple[DQM2MirrorDB, DQM2MirrorDB]):
+def app(dqm2_config: dict, server_test_dbs: tuple[DQM2MirrorDB, DQM2MirrorDB]):
     app: Flask = server.create_app(dqm2_config)
     app.config.update(
         {
