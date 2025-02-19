@@ -113,7 +113,7 @@
       (li, data) => {
         li.setAttribute("id", data.id);
         li.setAttribute("title", `Comparison ran at ${data.comparison_ran_at}`);
-        li.innerHTML = `${data.base_cmssw_version} (${data.base_prs}) vs ${data.comp_cmssw_version} (${data.comp_prs})`;
+        li.innerHTML = `${data.base_cmssw_release} (${data.base_prs}) vs ${data.comp_cmssw_release} (${data.comp_prs})`;
         li.classList.add("list-group-item", "list-group-item-action");
         li.onclick = onclick_specific_comparison;
         return li;

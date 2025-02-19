@@ -461,7 +461,7 @@ function update_cluster_status(cluster_status) {
         let hostname = element.name;
         let is_up = element.is_up; //
         let msg = element.message; // Error messages, if any
-        let last_update = element.created_at; // Last status udpate, in seconds
+        let last_update = element.created_at; // Last status update, in seconds
         let tr = document.createElement("tr");
         let td = document.createElement("td");
         td.innerHTML = hostname;

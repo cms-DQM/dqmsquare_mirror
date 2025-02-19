@@ -681,7 +681,7 @@ class DQM2MirrorDB:
         query = (
             sqlalchemy.select(
                 table_reports.c.id,
-                table_reports.c.created_at,
+                table_reports.c.comparison_ran_at,
                 # Labels needed to prevent ambiguity
                 base_alias.c.cmssw_version.label("base_cmssw_release"),
                 comp_alias.c.cmssw_version.label("comp_cmssw_release"),
