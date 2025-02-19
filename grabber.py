@@ -478,20 +478,20 @@ if __name__ == "__main__":
 
     active_threads = []
     if "playback" in run_modes:
-        # active_threads.append(
-        #     threading.Thread(
-        #         target=loop_info,
-        #         args=[playback_machines, db_playback, cfg["GRABBER_SLEEP_TIME_INFO"]],
-        #         daemon=True,
-        #     )
-        # )
-        # active_threads.append(
-        #     threading.Thread(
-        #         target=loop_status,
-        #         args=[db_playback, "playback", cfg["GRABBER_SLEEP_TIME_STATUS"]],
-        #         daemon=True,
-        #     )
-        # )
+        active_threads.append(
+            threading.Thread(
+                target=loop_info,
+                args=[playback_machines, db_playback, cfg["GRABBER_SLEEP_TIME_INFO"]],
+                daemon=True,
+            )
+        )
+        active_threads.append(
+            threading.Thread(
+                target=loop_status,
+                args=[db_playback, "playback", cfg["GRABBER_SLEEP_TIME_STATUS"]],
+                daemon=True,
+            )
+        )
         active_threads.append(
             threading.Thread(
                 target=loop_cmssw_comparison_reports,
