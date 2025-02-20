@@ -308,6 +308,16 @@ class TestDBCMSSWReleaseWithPRs:
         assert not created
         assert r1 == r2
 
+    def test_fill_and_get_no_prs(self, db_test_db: DQM2MirrorDB):
+        r1 = db_test_db.fill_cmssw_release_with_prs(
+            cmssw_release=MAGIC_RELEASE, pr_nums=[]
+        )
+        r2, created = db_test_db.get_or_create_cmssw_release_with_prs(
+            cmssw_release=MAGIC_RELEASE, pr_nums=[]
+        )
+        assert not created
+        assert r1 == r2
+
 
 class TestDBComparisonReports:
     def test_fill_invalid(self, db_test_db: DQM2MirrorDB):
