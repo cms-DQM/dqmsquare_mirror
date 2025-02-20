@@ -820,6 +820,18 @@ class DQM2MirrorDB:
             return result.mappings().first()
         return RowMapping({})
 
+    def filter_cmssw_releases(self, filter: str) -> RowMapping:
+        table_cmssw_releases = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]
+        with self.engine.connect() as cur:
+            result = cur.execute(
+                sqlalchemy.select(table_cmssw_releases).where(
+                    table_cmssw_releases.c.cmssw_version.like(f"%{filter}%")
+                )
+            )
+        if result:
+            return result.mappings().all()
+        return RowMapping([{}])
+
     def fill_cmssw_release(self, cmssw_release: str) -> dict | None:
         assert isinstance(cmssw_release, str), "cmssw_release must be a str"
         table = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]

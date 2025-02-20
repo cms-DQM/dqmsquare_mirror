@@ -197,6 +197,17 @@ def create_app(cfg: dict):
 
     @app.route(
         os.path.join(
+            "/",
+            cfg["SERVER_URL_PREFIX"],
+            "api",
+            "filter_cmssw_comparison_releases/<filter>",
+        )
+    )
+    def filter_cmssw_comparison_releases(filter: str = ""):
+        return flask.jsonify(db_playback.filter_cmssw_releases(filter))
+
+    @app.route(
+        os.path.join(
             "/", cfg["SERVER_URL_PREFIX"], "api", "get_cmssw_comparison_reports"
         )
     )
