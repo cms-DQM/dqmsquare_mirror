@@ -896,7 +896,7 @@ class DQM2MirrorDB:
         pr_agg_cte = (
             sqlalchemy.select(
                 table_rel_w_prs_to_prs.c.cmssw_release_w_prs_id,
-                functions.array_agg(
+                postgresql.array_agg(
                     postgresql.aggregate_order_by(
                         table_rel_w_prs_to_prs.c.cmssw_pr_id,
                         table_rel_w_prs_to_prs.c.cmssw_pr_id.asc(),
@@ -906,45 +906,43 @@ class DQM2MirrorDB:
             .group_by(table_rel_w_prs_to_prs.c.cmssw_release_w_prs_id)
             .cte()
         )
-        if pr_nums:
-            query = (
-                sqlalchemy.select(
-                    table_rel_w_prs.c.id,
-                    table_rels.c.cmssw_version,
-                    pr_agg_cte.c.pr_list,
-                )
-                .join(
-                    pr_agg_cte,
-                    table_rel_w_prs.c.id == pr_agg_cte.c.cmssw_release_w_prs_id,
-                )
-                .where(
-                    pr_agg_cte.c.pr_list
-                    == sqlalchemy.cast(
-                        text(
-                            f"ARRAY[{','.join([str(pr_num) for pr_num in sorted(pr_nums)])}]"
-                        ),
-                        sqltypes.ARRAY(sqltypes.Integer),
-                    )
-                )
-            )
-        else:
-            query = sqlalchemy.select(
+        query = (
+            sqlalchemy.select(
                 table_rel_w_prs.c.id,
                 table_rels.c.cmssw_version,
-                sqlalchemy.cast(
-                    text("ARRAY[]"),
-                    sqltypes.ARRAY(sqltypes.Integer),
+                # Some releases do not have any PRs related
+                # to them, so we need to have a default empty
+                # array associated to them.
+                functions.coalesce(
+                    pr_agg_cte.c.pr_list,
+                    sqlalchemy.cast(
+                        text("ARRAY[]"),
+                        sqltypes.ARRAY(sqltypes.Integer),
+                    ),
                 ).label("pr_list"),
             )
-        query = query.join(
-            table_rels,
-            table_rel_w_prs.c.cmssw_release_id == table_rels.c.id,
+            .outerjoin(
+                pr_agg_cte,
+                table_rel_w_prs.c.id == pr_agg_cte.c.cmssw_release_w_prs_id,
+            )
+            .join(
+                table_rels,
+                table_rel_w_prs.c.cmssw_release_id == table_rels.c.id,
+            )
         )
-
         # Finally, filter by the passed arguments
         if id:
             query = query.where(table_rel_w_prs.c.id == id)
-
+        if pr_nums:
+            query = query.where(
+                pr_agg_cte.c.pr_list
+                == sqlalchemy.cast(
+                    text(
+                        f"ARRAY[{','.join([str(pr_num) for pr_num in sorted(pr_nums)])}]"
+                    ),
+                    sqltypes.ARRAY(sqltypes.Integer),
+                )
+            )
         if cmssw_release:
             query = query.where(table_rels.c.cmssw_version == cmssw_release)
 
