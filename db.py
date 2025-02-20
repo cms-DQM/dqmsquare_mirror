@@ -824,9 +824,9 @@ class DQM2MirrorDB:
         table_cmssw_releases = self.db_meta.tables[self.TB_NAME_CMSSW_RELEASES]
         with self.engine.connect() as cur:
             result = cur.execute(
-                sqlalchemy.select(table_cmssw_releases).where(
-                    table_cmssw_releases.c.cmssw_version.like(f"%{filter}%")
-                )
+                sqlalchemy.select(table_cmssw_releases)
+                .where(table_cmssw_releases.c.cmssw_version.like(f"%{filter}%"))
+                .order_by(table_cmssw_releases.c.cmssw_version)
             )
         if result:
             return result.mappings().all()
