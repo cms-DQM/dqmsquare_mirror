@@ -3,6 +3,80 @@
 <title>DQM CMSSW Release comparison results browser</title>
 {% endblock %} {% block content %}
 <div class="row mt-5">
+  <div class="container mt-4">
+    <button
+      class="btn btn-primary"
+      type="button"
+      data-bs-toggle="collapse"
+      data-bs-target="#cmsswFormCollapse"
+    >
+      Filter results
+    </button>
+    <div class="collapse mt-3" id="cmsswFormCollapse">
+      <div class="card card-body">
+        <form>
+          <div class="row">
+            <div class="col-6">
+              <div class="row"><h4>Base</h4></div>
+              <div class="row">
+                <div class="mb-3">
+                  <label for="base_cmssw_release_filter" class="form-label"
+                    >Release</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="base_cmssw_release_filter"
+                    placeholder="Enter release"
+                  />
+                </div>
+              </div>
+              <div class="row">
+                <div class="mb-3">
+                  <label for="comparisonPRs" class="form-label">PRs</label>
+                  <select class="form-select" id="comparisonPRs" multiple>
+                    <!-- <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option> -->
+                    <!-- Add more PRs as needed -->
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="row"><h4>Comparison</h4></div>
+              <div class="row">
+                <div class="mb-3">
+                  <label for="comp_cmssw_release_filter" class="form-label"
+                    >Release</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="comp_cmssw_release_filter"
+                    placeholder="Enter release"
+                  />
+                </div>
+              </div>
+              <div class="row">
+                <div class="mb-3">
+                  <label for="basePRs" class="form-label">PRs</label>
+                  <select class="form-select" id="basePRs" multiple>
+                    <!-- <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option> -->
+                    <!-- Add more PRs as needed -->
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row mt-5">
   <div class="col-lg-4 col-md-12">
     <div class="row mt-1">
       <h5>Available comparisons</h5>
@@ -25,7 +99,6 @@
 </div>
 {% endblock %} {% block script %}
 <script>
-  const TIMEZONE = "{{ TIMEZONE }}";
   const PREFIX = "{{ PREFIX }}";
   const MAX_RESULTS_PER_PAGE = 10;
 
@@ -52,7 +125,7 @@
     e.target.classList.add("active");
     let id = e.target.getAttribute("id");
     set_comparison_frame_contents(id);
-    update_comparison_in_url(id);
+    update_arg_in_url("comparison_id", id);
   }
 
   // Fetch the list of the available comparison reports from the API.
@@ -68,15 +141,17 @@
     ).then((response) => response.json());
   }
 
-  function update_page_in_url(page) {
-    let url = new URL(window.location);
-    url.searchParams.set("page", page);
-    window.history.replaceState(null, null, url);
+  function filter_cmssw_releases(filter) {
+    return fetch(
+      `${PREFIX}api/filter_cmssw_comparison_releases/${filter}`
+    ).then((response) => response.json());
   }
 
-  function update_comparison_in_url(comparison_id) {
+  // Function to update an argument (arg) to a new value (value)
+  // in the URL
+  function update_arg_in_url(arg, value) {
     let url = new URL(window.location);
-    url.searchParams.set("comparison_id", comparison_id);
+    url.searchParams.set(arg, value);
     window.history.replaceState(null, null, url);
   }
 
@@ -84,7 +159,7 @@
     return get_available_comparisons(page, MAX_RESULTS_PER_PAGE).then(
       (data) => {
         pagination.set_data(data.data, data.page, data.total_pages);
-        update_page_in_url(data.page);
+        update_arg_in_url("page", data.page);
         // Return an empty response so that
         // we can keep the then chain going.
         return new Promise((resolve) => {
@@ -105,6 +180,12 @@
     // it is automatically selected.
     let page = queryString.get("page");
     let comparison_id = queryString.get("comparison_id");
+    let base_cmssw_release_filter = queryString.get(
+      "base_cmssw_release_filter"
+    );
+    let comp_cmssw_release_filter = queryString.get(
+      "comp_cmssw_release_filter"
+    );
 
     let pagination = pagination_helper(
       "results-list" /* DOM element to attach to */,
@@ -130,6 +211,58 @@
         document.getElementById(comparison_id).click();
       }
     });
+
+    function hide_and_clear_autocomplete_dropdown(el) {
+      el.innerHTML = "";
+      el.classList.remove("show");
+    }
+    for (let el of ["base_cmssw_release_filter", "comp_cmssw_release_filter"]) {
+      for (let event of ["keyup", "keypress"]) {
+        document.getElementById(el).addEventListener(event, () => {
+          let filter_el = document.getElementById(el);
+          let filter = filter_el.value;
+          let parent = filter_el.parentElement;
+          let dropdown = null;
+
+          update_arg_in_url(el, filter);
+
+          if (!filter) {
+            if (parent.getElementsByTagName("ul").length > 0) {
+              dropdown = parent.getElementsByTagName("ul")[0];
+              hide_and_clear_autocomplete_dropdown(dropdown);
+            }
+            return;
+          }
+
+          // If a filter is passed, request the available releases
+          // that match.
+          filter_cmssw_releases(filter).then((data) => {
+            if (!data || data.length < 1) {
+              if (parent.getElementsByTagName("ul").length > 0) {
+                dropdown = parent.getElementsByTagName("ul")[0];
+                hide_and_clear_autocomplete_dropdown(dropdown);
+              }
+              return;
+            }
+            if (parent.getElementsByTagName("ul").length > 0) {
+              dropdown = parent.getElementsByTagName("ul")[0];
+              hide_and_clear_autocomplete_dropdown(dropdown);
+            } else {
+              dropdown = document.createElement("ul");
+            }
+            dropdown.classList.add("dropdown-menu", "show");
+            for (let datum of data) {
+              console.log(datum);
+              let li = document.createElement("li");
+              li.innerHTML = datum.cmssw_version;
+              li.classList.add("show");
+              dropdown.appendChild(li);
+            }
+            parent.appendChild(dropdown);
+          });
+        });
+      }
+    }
   });
 </script>
 {% endblock %}
