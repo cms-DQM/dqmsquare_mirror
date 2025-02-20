@@ -2,6 +2,7 @@ import os
 import sys
 import pickle
 import pytest
+import random
 import sqlalchemy
 from datetime import datetime
 from sqlalchemy import create_engine, text
@@ -56,6 +57,17 @@ CLUSTER_STATUS_RESULT_2 = {
 }
 
 
+def get_random_cmssw_release() -> str:
+    return (
+        f"CMSSW_{random.randint(7,17)}_{random.randint(0,10)}_{random.randint(0,15)}"
+        + (f"_patch{random.randint(1,5)}" if random.random() > 0.5 else "")
+    )
+
+
+def get_random_cmssw_pr() -> int:
+    return random.randint(40000, 45000)
+
+
 def get_or_create_db(
     db_uri: str, username: str, password: str, host: str, port: int, db_name: str
 ):
@@ -88,15 +100,22 @@ def format_entry_to_db_entry(graph_entry: list, datetime_cols: list):
 
 
 def get_valid_metadata(i: int = 0) -> dict:
-    return {
-        "id": f"{datetime.now().strftime(r'%Y%m%d')}-{datetime.now().strftime(r'%H%M%S')}_comparison_base_0113_vs_comparison_comp_0113_{MAGIC_RELEASE}_{MAGIC_NUMBER+i}",
-        "base": MAGIC_RELEASE,
-        "comp": MAGIC_RELEASE,
-        "comp_prs": [],
-        "base_prs": [MAGIC_NUMBER + i],
+    b = get_random_cmssw_release()
+    c = get_random_cmssw_release()
+    b_prs = list(set([get_random_cmssw_pr() for _ in range(random.randint(0, 5))]))
+    c_prs = list(set([get_random_cmssw_pr() for _ in range(random.randint(0, 5))]))
+    b_prs_str = "_" + "_".join([str(pr) for pr in b_prs]) if b_prs else ""
+    c_prs_str = "_" + "_".join([str(pr) for pr in c_prs]) if c_prs else ""
+    a = {
+        "id": f"{datetime.now().strftime(r'%Y%m%d')}-{datetime.now().strftime(r'%H%M%S')}_comparison_base_0113_{b}{b_prs_str}_vs_comparison_comp_0113_{c}{c_prs_str}",
+        "base": b,
+        "comp": c,
+        "base_prs": b_prs,
+        "comp_prs": c_prs,
         "timestamp": datetime.now(),
         "comparison_report_html": "<h1>THIS IS VALID HTML</h1>",
     }
+    return a
 
 
 VALID_METADATA = get_valid_metadata()
