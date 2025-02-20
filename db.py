@@ -947,9 +947,7 @@ class DQM2MirrorDB:
         assert isinstance(pr_nums, list) and all(
             isinstance(pr_num, int) for pr_num in pr_nums
         )
-        assert list(set(sorted(pr_nums))) == sorted(
-            pr_nums
-        ), "Duplicate PR given in list"
+        assert sorted(set(pr_nums)) == sorted(pr_nums), "Duplicate PR given in list"
         cmssw_release_db, _ = self.get_or_create_cmssw_release(
             cmssw_release=cmssw_release
         )
