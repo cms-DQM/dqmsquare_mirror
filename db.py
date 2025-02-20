@@ -906,34 +906,41 @@ class DQM2MirrorDB:
             .group_by(table_rel_w_prs_to_prs.c.cmssw_release_w_prs_id)
             .cte()
         )
-        query = (
-            sqlalchemy.select(
+        if pr_nums:
+            query = (
+                sqlalchemy.select(
+                    table_rel_w_prs.c.id,
+                    table_rels.c.cmssw_version,
+                    pr_agg_cte.c.pr_list,
+                )
+                .join(
+                    pr_agg_cte,
+                    table_rel_w_prs.c.id == pr_agg_cte.c.cmssw_release_w_prs_id,
+                )
+                .where(
+                    pr_agg_cte.c.pr_list
+                    == sqlalchemy.cast(
+                        text(
+                            f"ARRAY[{','.join([str(pr_num) for pr_num in sorted(pr_nums)])}]"
+                        ),
+                        sqltypes.ARRAY(sqltypes.Integer),
+                    )
+                )
+            )
+        else:
+            query = sqlalchemy.select(
                 table_rel_w_prs.c.id,
                 table_rels.c.cmssw_version,
-                pr_agg_cte.c.pr_list,
             )
-            .join(
-                pr_agg_cte,
-                table_rel_w_prs.c.id == pr_agg_cte.c.cmssw_release_w_prs_id,
-            )
-            .join(
-                table_rels,
-                table_rel_w_prs.c.cmssw_release_id == table_rels.c.id,
-            )
+        query = query.join(
+            table_rels,
+            table_rel_w_prs.c.cmssw_release_id == table_rels.c.id,
         )
+
         # Finally, filter by the passed arguments
         if id:
             query = query.where(table_rel_w_prs.c.id == id)
-        if pr_nums:
-            query = query.where(
-                pr_agg_cte.c.pr_list
-                == sqlalchemy.cast(
-                    text(
-                        f"ARRAY[{','.join([str(pr_num) for pr_num in sorted(pr_nums)])}]"
-                    ),
-                    sqltypes.ARRAY(sqltypes.Integer),
-                )
-            )
+
         if cmssw_release:
             query = query.where(table_rels.c.cmssw_version == cmssw_release)
 
@@ -942,7 +949,9 @@ class DQM2MirrorDB:
     def fill_cmssw_release_with_prs(
         self, cmssw_release: str, pr_nums: list = []
     ) -> dict | None:
-        """ """
+        """
+        Method for filling adding rows to the cmssw_release_with_prs table.
+        """
         assert isinstance(cmssw_release, str), "cmssw_release must be a str"
         assert isinstance(pr_nums, list) and all(
             isinstance(pr_num, int) for pr_num in pr_nums
@@ -997,6 +1006,7 @@ class DQM2MirrorDB:
                         ]
                     )
                 )
+
             return self.get_cmssw_release_with_prs(id=rel_w_prs["id"])[0]
 
     def get_cmssw_pr(self, cmssw_pr: int) -> dict:
