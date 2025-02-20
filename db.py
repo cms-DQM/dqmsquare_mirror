@@ -982,8 +982,7 @@ class DQM2MirrorDB:
             if prs_in_db:
                 # Fill the Many to Many intermediate table
                 cur.execute(
-                    sqlalchemy.insert(table_rel_w_prs_to_prs)
-                    .values(
+                    sqlalchemy.insert(table_rel_w_prs_to_prs).values(
                         [
                             dict(
                                 zip(
@@ -997,7 +996,6 @@ class DQM2MirrorDB:
                             for pr_in_db in prs_in_db
                         ]
                     )
-                    .returning(table_rel_w_prs_to_prs)
                 )
             return self.get_cmssw_release_with_prs(id=rel_w_prs["id"])[0]
 
