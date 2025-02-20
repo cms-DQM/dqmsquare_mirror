@@ -931,6 +931,10 @@ class DQM2MirrorDB:
             query = sqlalchemy.select(
                 table_rel_w_prs.c.id,
                 table_rels.c.cmssw_version,
+                sqlalchemy.cast(
+                    text("ARRAY[]"),
+                    sqltypes.ARRAY(sqltypes.Integer),
+                ).label("pr_list"),
             )
         query = query.join(
             table_rels,
