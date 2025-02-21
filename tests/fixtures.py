@@ -2,7 +2,9 @@ import os
 import sys
 import pickle
 import pytest
+import random
 import sqlalchemy
+from datetime import datetime
 from sqlalchemy import create_engine, text
 from sqlalchemy_utils import create_database, database_exists, drop_database
 from sqlalchemy.exc import IntegrityError
@@ -16,6 +18,54 @@ from dqmsquare_cfg import load_cfg
 
 DB_PROD_NAME = "postgres_production_test"
 DB_PLAY_NAME = "postgres_playback_test"
+MAGIC_NUMBER = 69420
+MAGIC_RELEASE = "CMSSW_6_6_6_patch6"
+MAGIC_HOSTNAME = "dqmfu-c9b99-99-99"
+MAGIC_HOSTNAME_2 = "dqmfu-c0b00-00-00"
+MAGIC_HOSTNAME_CENSORED = "dqmfu-c9b99-.."
+MAGIC_HOSTNAME_2_CENSORED = "dqmfu-c0b00-.."
+PRODUCTION_MACHINES = [
+    "bu-c2f11-09-01",
+    "fu-c2f11-11-01",
+    "fu-c2f11-11-02",
+    "fu-c2f11-11-03",
+    "fu-c2f11-11-04",
+]
+INVALID_METADATA = {
+    "id": "20250113-145715_comparison_base_0113_CMSSW_14_2_0_pre3_46854_vs_comparison_comp_0113_CMSSW_14_2_0_pre3_46928",
+    "base": 1111,
+    "comp": ("hehehe"),
+    "comp_prs": None,
+    "base_prs": "hehe",
+    "comparison_report_html": "",
+    "timestamp": 99999,
+}
+RUN_NUMBER_GRAPHS = 358792
+CLUSTER_STATUS = {
+    MAGIC_HOSTNAME: {"up": False, "msg": "TEST"},
+    MAGIC_HOSTNAME_2: {"up": False, "msg": "TEST"},
+}  # Cluster status with many hosts in it
+CLUSTER_STATUS_RESULT = {
+    "name": MAGIC_HOSTNAME_CENSORED,
+    "is_up": False,
+    "message": "TEST",
+}
+CLUSTER_STATUS_RESULT_2 = {
+    "name": MAGIC_HOSTNAME_2_CENSORED,
+    "is_up": False,
+    "message": "TEST",
+}
+
+
+def get_random_cmssw_release() -> str:
+    return (
+        f"CMSSW_{random.randint(7,17)}_{random.randint(0,10)}_{random.randint(0,15)}"
+        + (f"_patch{random.randint(1,5)}" if random.random() > 0.5 else "")
+    )
+
+
+def get_random_cmssw_pr() -> int:
+    return random.randint(40000, 45000)
 
 
 def get_or_create_db(
@@ -49,7 +99,29 @@ def format_entry_to_db_entry(graph_entry: list, datetime_cols: list):
     return return_value[:-2]
 
 
-def fill_db(db: DQM2MirrorDB) -> None:
+def get_valid_metadata(i: int = 0) -> dict:
+    b = get_random_cmssw_release()
+    c = get_random_cmssw_release()
+    b_prs = list(set([get_random_cmssw_pr() for _ in range(random.randint(0, 5))]))
+    c_prs = list(set([get_random_cmssw_pr() for _ in range(random.randint(0, 5))]))
+    b_prs_str = "_" + "_".join([str(pr) for pr in b_prs]) if b_prs else ""
+    c_prs_str = "_" + "_".join([str(pr) for pr in c_prs]) if c_prs else ""
+    a = {
+        "id": f"{datetime.now().strftime(r'%Y%m%d')}-{datetime.now().strftime(r'%H%M%S')}_comparison_base_0113_{b}{b_prs_str}_vs_comparison_comp_0113_{c}{c_prs_str}",
+        "base": b,
+        "comp": c,
+        "base_prs": b_prs,
+        "comp_prs": c_prs,
+        "timestamp": datetime.now(),
+        "comparison_report_html": "<h1>THIS IS VALID HTML</h1>",
+    }
+    return a
+
+
+VALID_METADATA = get_valid_metadata()
+
+
+def fill_db(db: DQM2MirrorDB, extra: bool = False) -> None:
     runs = []
     graphs = []
     runs_file = os.path.join(
@@ -78,7 +150,7 @@ def fill_db(db: DQM2MirrorDB) -> None:
                 )
                 session.commit()
             except IntegrityError as e:
-                print(f"Skipping already inserted data", e)
+                print("Skipping already inserted data", e)
                 continue
             except Exception as e:
                 print("Error when creating run fixture:", e)
@@ -100,9 +172,15 @@ def fill_db(db: DQM2MirrorDB) -> None:
             except Exception as e:
                 print("Error when creating graph fixture:", e)
                 session.rollback()
+    if extra:
+        # Add a comparison report
+        db.fill_cmssw_comparison_report(
+            **VALID_METADATA,
+        )
+        db.fill_cluster_status(CLUSTER_STATUS)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def dqm2_config():
     # If there's a local .env file, it will be used to override the environment vars
     config: dict = load_cfg()
@@ -111,13 +189,17 @@ def dqm2_config():
     yield config
 
 
-@pytest.fixture
-def testing_database():
+@pytest.fixture(scope="function")
+def db_test_db():
+    """
+    Test DB for dedicated db tests. This should be dropped after
+    each test.
+    """
     username = os.environ.get("POSTGRES_USERNAME", "postgres")
     password = os.environ.get("POSTGRES_PASSWORD", "postgres")
     host = os.environ.get("POSTGRES_HOST", "127.0.0.1")
     port = int(os.environ.get("POSTGRES_PORT", 5432))
-    db_name = "postgres_test"
+    db_name = DB_PLAY_NAME
     db_uri = DQM2MirrorDB.format_db_uri(
         username=username, password=password, host=host, port=port, db_name=db_name
     )
@@ -131,13 +213,18 @@ def testing_database():
         db_name=db_name,
     )
 
-    fill_db(db)
+    fill_db(db, extra=False)
     yield db
     drop_database(db_uri)
 
 
-@pytest.fixture
-def testing_databases():
+@pytest.fixture(scope="module")
+def server_test_dbs():
+    """
+    Test DBs for server-related tests. They should persist for all
+    the server tests as most server tests rely on the same data
+    and they only need to read.
+    """
     username = os.environ.get("POSTGRES_USERNAME", "postgres")
     password = os.environ.get("POSTGRES_PASSWORD", "postgres")
     host = os.environ.get("POSTGRES_HOST", "127.0.0.1")
@@ -165,15 +252,15 @@ def testing_databases():
         port=port,
         db_name=DB_PLAY_NAME,
     )
-    fill_db(db_prod)
-    fill_db(db_play)
+    fill_db(db_prod, extra=True)
+    fill_db(db_play, extra=True)
     yield db_prod, db_play
     drop_database(db_prod_uri)
     drop_database(db_play_uri)
 
 
 @pytest.fixture
-def app(dqm2_config: dict, testing_databases: tuple[DQM2MirrorDB, DQM2MirrorDB]):
+def app(dqm2_config: dict, server_test_dbs: tuple[DQM2MirrorDB, DQM2MirrorDB]):
     app: Flask = server.create_app(dqm2_config)
     app.config.update(
         {

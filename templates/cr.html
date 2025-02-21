@@ -1,13 +1,12 @@
 {% extends "base.html" %}
 
 {% block head%}
-<link rel="stylesheet" href="{{ url_for('static', filename='dqm_style.css') }}">
 <title>DQM&sup2; Mirror — Control Room</title>
 {% endblock %}
 
 {% block extra_navbar_links %}
 <li class="nav-item">
-  <a class="nav-link mlink" href="{{ PREFIX }}cr/logout/">Logout</a>
+  <a class="nav-link mlink" href="{{ PREFIX }}cr/logout/" title="Logout"><i class="bi bi-box-arrow-right"></i></a>
 </li>
 {% endblock %}
 

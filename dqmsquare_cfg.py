@@ -8,6 +8,7 @@ environment specified in environmental vars (or an .env file)
 import os
 import pytz
 import tempfile
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Important for converting datetime objects (from the database)
@@ -42,6 +43,10 @@ def load_cfg() -> dict:
     cfg["GRABBER_SLEEP_TIME_STATUS"] = int(
         os.environ.get("GRABBER_SLEEP_TIME_STATUS", 30)
     )
+    # How often to ask the playback machines for new CMSSW comparison
+    # reports. Keep it above 30 secs.
+    # sec, int
+    cfg["GRABBER_SLEEP_TIME_COMP"] = int(os.environ.get("GRABBER_SLEEP_TIME_COMP", 30))
 
     cfg["LOGGER_ROTATION_TIME"] = 24  # h, int
     cfg["LOGGER_MAX_N_LOG_FILES"] = 10  # int
@@ -67,6 +72,9 @@ def load_cfg() -> dict:
 
     # This is used both as part of URLs and local filenames, so it must not start with a "/"
     cfg["SERVER_DATA_PATH"] = mount_path if cfg["ENV"] != "development" else ""
+    cfg["CMSSW_COMPARISON_REPORTS_STORE_PATH"] = Path(cfg["SERVER_DATA_PATH"]).joinpath(
+        "cmssw_comparison_reports"
+    )
     # The prefix is appended to the base URL, to create relative URLs.
     # Since the k8s deployment is served at /dqm/dqm-square, we always need to append
     # to the base URL (cmsweb.cern.ch) to have relative URLs.

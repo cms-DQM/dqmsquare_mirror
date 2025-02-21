@@ -3,15 +3,16 @@ import os
 import sys
 import json
 import time
-import requests
-import urllib3
-from urllib.parse import urljoin, urlencode
 import logging
+import urllib3
+import requests
+import threading
+from datetime import datetime
+from collections.abc import Callable
+from urllib.parse import urljoin, urlencode
 import dqmsquare_cfg
 from custom_logger import custom_formatter, set_log_handler
 from db import DQM2MirrorDB
-import threading
-from collections.abc import Callable
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -108,12 +109,7 @@ def process_headers_and_store_data(host: str, db: DQM2MirrorDB, headers: list[di
         logger.debug("Filling info into DB ... ")
 
         # BU sends us file delivery graph info, FUs sends us logs and event processing rates.
-        answer = (
-            db.fill_graph(header, document) if is_bu else db.fill_run(header, document)
-        )
-        # TODO: Decide what kind of errors should be returned from the db fill functions.
-        # if answer:
-        #     bad_rvs += [answer]
+        db.fill_graph(header, document) if is_bu else db.fill_run(header, document)
 
 
 def get_headers_from_fff(
@@ -159,12 +155,6 @@ def get_headers_from_fff(
         else:
             return r.content
     return None
-
-
-# # Global list storing number of errors returned from fill/fill_graph(??)
-# # Those functions do not return a revision number, but a 0 if no error and 1
-# # otherwise, meaning that bad_rvs stores an array of ones.
-# bad_rvs = []
 
 
 def process_cluster_status(cluster_status: requests.Response) -> dict | None:
@@ -224,6 +214,61 @@ def get_cluster_status(cluster: str = "playback") -> dict | None:
         logger.debug(f"Got {cluster} cluster status.")
         return process_cluster_status(cluster_status=response)
     return None
+
+
+def get_list_of_comparison_reports() -> list[dict]:
+    url = urljoin(
+        cfg["CMSWEB_FRONTEND_PROXY_URL"] + "/",
+        "cr/exe?" + urlencode({"what": "cmssw_comparison_reports"}),
+    )
+    response = _request_wrapper(
+        requests.get,
+        url,
+        cookies=_get_cookies(),
+        verify=False,
+        cert=([cfg["SERVER_GRID_CERT_PATH"], cfg["SERVER_GRID_KEY_PATH"]]),
+    )
+    if response:
+        if response.status_code != 200:
+            logger.error(
+                f"fff_dqmtools ({url}) returned {response.status_code}. Response: "
+                f"{response.text}"
+            )
+            raise Exception(
+                f"Failed to fetch list of CMSSW comparison reports. Got ({response.status_code}) {response.text}"
+            )
+        logger.debug("Got list of CMSSW comparison reports")
+        return response.json()
+
+    return []
+
+
+def get_single_comparison_report(comparison_id: str) -> str:
+    url = urljoin(
+        cfg["CMSWEB_FRONTEND_PROXY_URL"] + "/",
+        "cr/exe?"
+        + urlencode({"what": "cmssw_comparison_reports", "id": comparison_id}),
+    )
+    response = _request_wrapper(
+        requests.get,
+        url,
+        cookies=_get_cookies(),
+        verify=False,
+        cert=([cfg["SERVER_GRID_CERT_PATH"], cfg["SERVER_GRID_KEY_PATH"]]),
+    )
+    if response:
+        if response.status_code != 200:
+            logger.error(
+                f"fff_dqmtools ({url}) returned {response.status_code}. Response: "
+                f"{response.text}"
+            )
+            raise Exception(
+                f"Failed to fetch list of CMSSW comparison reports. Got ({response.status_code}) {response.text}"
+            )
+        logger.debug("Got list of CMSSW comparison reports")
+        return response.text
+
+    return ""
 
 
 def get_latest_info_from_host(host: str, rev: int) -> list[dict]:
@@ -384,6 +429,53 @@ if __name__ == "__main__":
             logger.debug(f"Sleeping for {timeout}s")
             time.sleep(timeout)
 
+    def loop_cmssw_comparison_reports(
+        db: DQM2MirrorDB,
+        timeout: int = cfg["GRABBER_SLEEP_TIME_COMP"],
+    ):
+        while True:
+            try:
+                results = get_list_of_comparison_reports()
+                if results:
+                    logger.debug(f"There are {len(results)} comparisons available.")
+
+                    for report in results:
+                        assert all(
+                            [
+                                key in report
+                                for key in [
+                                    "id",
+                                    "timestamp",
+                                    "comp",
+                                    "base",
+                                    "base_prs",
+                                    "comp_prs",
+                                ]
+                            ]
+                        )
+                        report["timestamp"] = datetime.fromisoformat(
+                            report["timestamp"]
+                        )
+                        report["base_prs"] = [int(pr) for pr in report["base_prs"]]
+                        report["comp_prs"] = [int(pr) for pr in report["comp_prs"]]
+
+                        if db.get_cmssw_comparison_reports(
+                            id=report["id"], paginate=False
+                        ):
+                            logger.debug(f"Report {report['id']} already in db")
+                            continue
+                        logger.debug(f"Requesting HTML report for {report['id']}")
+                        print(report)
+                        html_report = get_single_comparison_report(report["id"])
+                        db.fill_cmssw_comparison_report(
+                            **report,
+                            comparison_report_html=html_report,
+                        )
+            except Exception:
+                logger.warning("Unhandled exception in status loop", exc_info=True)
+            logger.debug(f"Sleeping for {timeout}s")
+            time.sleep(timeout)
+
     active_threads = []
     if "playback" in run_modes:
         active_threads.append(
@@ -397,6 +489,13 @@ if __name__ == "__main__":
             threading.Thread(
                 target=loop_status,
                 args=[db_playback, "playback", cfg["GRABBER_SLEEP_TIME_STATUS"]],
+                daemon=True,
+            )
+        )
+        active_threads.append(
+            threading.Thread(
+                target=loop_cmssw_comparison_reports,
+                args=[db_playback, cfg["GRABBER_SLEEP_TIME_COMP"]],
                 daemon=True,
             )
         )

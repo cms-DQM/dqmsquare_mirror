@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from db import DQM2MirrorDB
 from decorators import check_login, check_auth
 from custom_logger import set_log_handler
+from datetime import datetime, date
+from sqlalchemy.engine.row import RowMapping
 
 load_dotenv()  # Load environmental variables from .env file, if present
 
@@ -20,8 +22,39 @@ log.info("start_server() call ... ")
 VALID_DATABASE_OPTIONS = ["playback", "production"]
 
 
+class CustomJSONProvider(flask.json.provider.JSONProvider):
+    def dumps(self, obj, **kwargs):
+        return json.dumps(obj, **kwargs, cls=CustomJSONEncoder)
+
+    def loads(self, s: str | bytes, **kwargs):
+        return json.loads(s, **kwargs)
+
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        """
+        JSON serializer for objects not serializable by default json code
+        https://stackoverflow.com/a/22238613/6562491
+        """
+
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if isinstance(obj, RowMapping):
+            return dict(obj)
+        return super().default(obj)
+
+
+class CustomFlask(Flask):
+    """
+    Custom Flask class to override the JSON provider to make it
+    handle more types of data
+    """
+
+    json_provider_class = CustomJSONProvider
+
+
 def create_app(cfg: dict):
-    app = Flask(
+    app = CustomFlask(
         __name__, static_url_path=os.path.join("/", cfg["SERVER_URL_PREFIX"], "static")
     )
     set_log_handler(
@@ -40,7 +73,8 @@ def create_app(cfg: dict):
         cr_usernames = {username: password}
     except Exception as e:
         log.error(
-            f"No Control Room credentials configured! Please set the DQM_CR_USERNAMES env var: {repr(e)}"
+            "No Control Room credentials configured! Please set the DQM_CR_USERNAMES env var",
+            exc_info=True,
         )
         raise e
 
@@ -126,6 +160,23 @@ def create_app(cfg: dict):
 
     @app.route(
         os.path.join(
+            "/",
+            cfg["SERVER_URL_PREFIX"],
+            SERVER_DATA_PATH,
+            "comparison_reports/<path:id>",
+        )
+    )
+    def get_comparison_report(id: str):
+        """
+        Route that fetches file from the tmp directory.
+        """
+        return flask.send_from_directory(
+            (cfg["CMSSW_COMPARISON_REPORTS_STORE_PATH"].joinpath(id)),
+            "dqm-histo-comparison-summary.html",
+        )
+
+    @app.route(
+        os.path.join(
             "/", cfg["SERVER_URL_PREFIX"], SERVER_DATA_PATH, "log/<path:filename>"
         )
     )
@@ -149,96 +200,138 @@ def create_app(cfg: dict):
             "/",
             cfg["SERVER_URL_PREFIX"],
             "api",
+            "filter_cmssw_comparison_releases/<filter>",
         )
     )
-    def dqm2_api():
-        """
-        Get data from DQM^2 Mirror's Databases.
-        """
-        what = flask.request.args.get("what")
-        if what == "get_run":
-            try:
-                run = int(flask.request.args.get("run", type=int))
-            except (ValueError, TypeError):
-                return "run must be an integer", 400
-            db_name = flask.request.args.get("db", type=str)
-            if db_name not in VALID_DATABASE_OPTIONS:
-                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
-            db_ = databases.get(db_name, db_playback)
-            run_data = db_.get_mirror_data(run)
-            runs_around = db_.get_runs_around(run)
-            return json.dumps([runs_around, run_data])
-        elif what == "get_graph":
-            try:
-                run = int(flask.request.args.get("run", type=int))
-            except (ValueError, TypeError):
-                return "run must be an integer", 400
-            db_name = flask.request.args.get("db", type=str)
-            if db_name not in VALID_DATABASE_OPTIONS:
-                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
-            db_ = databases.get(db_name, db_playback)
-            graph_data = db_.get_graphs_data(run)
-            return json.dumps(graph_data)
-        elif what == "get_runs":
-            try:
-                run_from = int(flask.request.args.get("from", type=int))
-                run_to = int(flask.request.args.get("to", type=int))
-                bad_only = bool(flask.request.args.get("bad_only", type=int))
-                with_ls_only = bool(flask.request.args.get("ls", type=int))
-            except (ValueError, TypeError):
-                return ("to, from, bad_only and ls must be integers", 400)
-            db_name = flask.request.args.get("db", default="", type=str)
-            if db_name not in VALID_DATABASE_OPTIONS:
-                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
-            db_ = databases.get(db_name, db_playback)
-            answer = db_.get_timeline_data(
-                min(run_from, run_to),
-                max(run_from, run_to),
-                bad_only,
-                with_ls_only,
+    def filter_cmssw_comparison_releases(filter: str = ""):
+        return flask.jsonify(db_playback.filter_cmssw_releases(filter))
+
+    @app.route(
+        os.path.join(
+            "/", cfg["SERVER_URL_PREFIX"], "api", "get_cmssw_comparison_reports"
+        )
+    )
+    def get_cmssw_comparison_reports():
+        id = flask.request.args.get("id", type=str, default="")
+        type = flask.request.args.get("type", type=str)
+        page = flask.request.args.get("page", type=int, default=1)
+        items_per_page = flask.request.args.get("items_per_page", type=int, default=10)
+        base_cmssw_version = flask.request.args.get(
+            "base_cmssw_version", type=str, default=""
+        )
+        base_prs = flask.request.args.get("base_prs", type=list, default=[])
+        log.debug(base_prs)
+        comp_cmssw_version = flask.request.args.get(
+            "comp_cmssw_version", type=str, default=""
+        )
+        if not type:
+            return flask.jsonify(
+                db_playback.get_cmssw_comparison_reports(
+                    items_per_page=items_per_page,
+                    page=page,
+                    id=id,
+                    base_cmssw_version=base_cmssw_version,
+                    comp_cmssw_version=comp_cmssw_version,
+                )
+                # default=json_serializer,
             )
-            return json.dumps(answer)
-        elif what == "get_clients":
-            try:
-                run_from = int(flask.request.args.get("from", type=int))
-                run_to = int(flask.request.args.get("to", type=int))
-            except (ValueError, TypeError):
-                return ("to, from must be integers", 400)
-            db_name = flask.request.args.get("db", type=str)
-            if db_name not in VALID_DATABASE_OPTIONS:
-                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
-            db_ = databases.get(db_name, db_playback)
-            answer = db_.get_clients(run_from, run_to)
-            return json.dumps(answer)
-        elif what == "get_info":
-            db_name = flask.request.args.get("db", type=str)
-            if db_name not in VALID_DATABASE_OPTIONS:
-                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
-            db_ = databases.get(db_name, db_playback)
-            answer = db_.get_info()
-            return json.dumps(answer)
-        elif what == "get_logs":
-            client_id = flask.request.args.get("id", type=str)
-            db_name = flask.request.args.get("db", type=str)
-            if db_name not in VALID_DATABASE_OPTIONS:
-                return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
-            db_ = databases.get(db_name, db_playback)
-            answer = db_.get_logs(client_id)
-            a1 = a2 = ""
-            if answer[0]:
-                a1 = "".join(eval(answer[0]))
-            if answer[1]:
-                a2 = "".join(eval(answer[1]))
-            return "<pre>" + a1 + "\n ... \n\n" + a2 + "</pre>"
-        elif what == "get_cluster_status":
-            cluster = flask.request.args.get("cluster", default="playback", type=str)
-            if cluster not in VALID_DATABASE_OPTIONS:
-                return f"cluster must be one of {VALID_DATABASE_OPTIONS}", 400
-            db_ = databases.get(cluster, db_playback)
-            answer = db_.get_cluster_status()
-            return json.dumps(answer)
-        else:
-            return f"{what} is not supported", 404
+        elif type == "html":
+            return flask.redirect(flask.url_for("get_comparison_report", id=id))
+
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_graph"))
+    def get_graph():
+        try:
+            run = int(flask.request.args.get("run", type=int))
+        except (ValueError, TypeError):
+            return "run must be an integer", 400
+        db_name = flask.request.args.get("db", type=str)
+        if db_name not in VALID_DATABASE_OPTIONS:
+            return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
+        db_ = databases.get(db_name, db_playback)
+        graph_data = db_.get_graphs(run)
+        return flask.jsonify(graph_data)
+
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_run"))
+    def get_run():
+        try:
+            run = int(flask.request.args.get("run", type=int))
+        except (ValueError, TypeError):
+            return "run must be an integer", 400
+        db_name = flask.request.args.get("db", type=str)
+        if db_name not in VALID_DATABASE_OPTIONS:
+            return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
+        db_ = databases.get(db_name, db_playback)
+        run_data = db_.get_mirror_data(run)
+        runs_around = db_.get_runs_around(run)
+        return flask.jsonify([runs_around, run_data])
+
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_runs"))
+    def get_runs():
+        try:
+            run_from = int(flask.request.args.get("from", type=int))
+            run_to = int(flask.request.args.get("to", type=int))
+            bad_only = bool(flask.request.args.get("bad_only", type=int))
+            with_ls_only = bool(flask.request.args.get("ls", type=int))
+        except (ValueError, TypeError):
+            return ("to, from, bad_only and ls must be integers", 400)
+        db_name = flask.request.args.get("db", default="", type=str)
+        if db_name not in VALID_DATABASE_OPTIONS:
+            return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
+        db_ = databases.get(db_name, db_playback)
+        answer = db_.get_timeline_data(
+            min(run_from, run_to),
+            max(run_from, run_to),
+            bad_only,
+            with_ls_only,
+        )
+        return flask.jsonify(answer)
+
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_info"))
+    def get_client_info():
+        db_name = flask.request.args.get("db", type=str)
+        if db_name not in VALID_DATABASE_OPTIONS:
+            return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
+        db_ = databases.get(db_name, db_playback)
+        answer = db_.get_info()
+        return flask.jsonify(answer)
+
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_logs"))
+    def get_logs():
+        client_id = flask.request.args.get("id", type=str)
+        db_name = flask.request.args.get("db", type=str)
+        if db_name not in VALID_DATABASE_OPTIONS:
+            return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
+        db_ = databases.get(db_name, db_playback)
+        answer = db_.get_logs(client_id)
+        a1 = a2 = ""
+        if answer[0]:
+            a1 = "".join(eval(answer[0]))
+        if answer[1]:
+            a2 = "".join(eval(answer[1]))
+        return "<pre>" + a1 + "\n ... \n\n" + a2 + "</pre>"
+
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_cluster_status"))
+    def get_cluster_status():
+        cluster = flask.request.args.get("cluster", default="playback", type=str)
+        if cluster not in VALID_DATABASE_OPTIONS:
+            return f"cluster must be one of {VALID_DATABASE_OPTIONS}", 400
+        db_ = databases.get(cluster, db_playback)
+        answer = db_.get_cluster_status()
+        return flask.jsonify(answer)
+
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "api", "get_clients"))
+    def get_clients():
+        try:
+            run_from = int(flask.request.args.get("from", type=int))
+            run_to = int(flask.request.args.get("to", type=int))
+        except (ValueError, TypeError):
+            return ("to, from must be integers", 400)
+        db_name = flask.request.args.get("db", type=str)
+        if db_name not in VALID_DATABASE_OPTIONS:
+            return f"db must be one of {VALID_DATABASE_OPTIONS}", 400
+        db_ = databases.get(db_name, db_playback)
+        answer = db_.get_clients(run_from, run_to)
+        return flask.jsonify(answer)
 
     ### TIMELINE ###
     @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "timeline/"))
@@ -448,7 +541,17 @@ def create_app(cfg: dict):
 
         # default answer
         log.warning(f"cr_exe@{what} : No actions defined for request.")
-        return f"No actions defined for request {what}"
+        return f"No actions defined for request '{what}'", 400
+
+    @app.route(os.path.join("/", cfg["SERVER_URL_PREFIX"], "release_comparisons/"))
+    def release_comparisons():
+        return render_template(
+            "release_comparisons.html",
+            PREFIX=os.path.join("/", cfg["SERVER_URL_PREFIX"] + "/"),
+            FRONTEND_API_QUERY_INTERVAL=cfg["FRONTEND_API_QUERY_INTERVAL"],
+            VERSION=cfg["VERSION"],
+            TIMEZONE=cfg["TIMEZONE"],
+        )
 
     return app
 

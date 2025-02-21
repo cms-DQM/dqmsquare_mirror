@@ -123,7 +123,7 @@ function update_table(run_id, data) {
             num_clients_crashed += 1; // Count failed processes
             client_data[3] = state;
         }
-        
+
         tr.classList.add(base_css_class);
         tr.classList.add(custom_css_class);
 
@@ -162,7 +162,7 @@ function update_table(run_id, data) {
 
         // Link to logs
         let td = document.createElement("td");
-        let log_link = `${PREFIX}api?what=get_logs&id=${id}&db=${db}`;
+        let log_link = `${PREFIX}api/get_logs?id=${id}&db=${db}`;
         let a = document.createElement("a");
         a.classList.add("hidden-link-dark");
         a.setAttribute("href", log_link);
@@ -192,7 +192,7 @@ function update_table(run_id, data) {
 
     let el_jobs_crashed = document.getElementById("jobs-crashed-badge");
     el_jobs_crashed.innerHTML = num_clients_crashed;
-    
+
     let el_jobs_stuck = document.getElementById("jobs-stuck-badge");
     el_jobs_stuck.innerHTML = num_clients_stuck;
 
@@ -362,7 +362,7 @@ function update_graph(data) {
 Get run data for a run, from specific db
 */
 function fetch_and_update_table_data(run_id, db) {
-    fetch(`${PREFIX}api?what=get_run&run=${run_id}&db=${db}`)
+    fetch(`${PREFIX}api/get_run?run=${run_id}&db=${db}`)
         .then(data => data.json())
         .then(data => { update_table(run_id, data) })
         .catch(error => console.log(`Error when getting table data: ${error}`));
@@ -372,7 +372,7 @@ function fetch_and_update_table_data(run_id, db) {
 Get graph data for a run, from specific db
 */
 function fetch_and_update_graph_data(run_id, db) {
-    fetch(`${PREFIX}api?what=get_graph&run=${run_id}&db=${db}`)
+    fetch(`${PREFIX}api/get_graph?run=${run_id}&db=${db}`)
         .then(data => data.json())
         .then(data => update_graph(data))
         .catch(error => console.log(`Error when getting graph data: ${error}`));
@@ -402,7 +402,7 @@ function start_live(start) {
 async function load_production() {
     db = "production";
     await fetch(
-        `${PREFIX}api?what=get_info&db=${db}`,
+        `${PREFIX}api/get_info?db=${db}`,
         { method: 'GET' })
         .then(
             response => response.json())
@@ -418,7 +418,7 @@ async function load_production() {
 async function load_playback() {
     db = "playback";
     await fetch(
-        `${PREFIX}api?what=get_info&db=${db}`,
+        `${PREFIX}api/get_info?db=${db}`,
         { method: 'GET' })
         .then(
             response => response.json()
@@ -442,7 +442,7 @@ function init_load_production(PREFIX) {
 }
 
 async function get_cluster_status(cluster) {
-    return fetch(`${PREFIX}api?what=get_cluster_status&cluster=${cluster}`).then(response => {
+    return fetch(`${PREFIX}api/get_cluster_status?cluster=${cluster}`).then(response => {
         return response.json()
     }).then(data => {
         return data
@@ -458,10 +458,10 @@ function update_cluster_status(cluster_status) {
     let table_cluster = document.getElementById("clusterStatus");
     table_cluster.innerHTML = "";
     cluster_status.forEach(element => {
-        let hostname = element[0];
-        let is_up = element[1]; //
-        let msg = element[2]; // Error messages, if any
-        let last_update = element[3]; // Last status udpate, in seconds
+        let hostname = element.name;
+        let is_up = element.is_up; //
+        let msg = element.message; // Error messages, if any
+        let last_update = element.created_at; // Last status update, in seconds
         let tr = document.createElement("tr");
         let td = document.createElement("td");
         td.innerHTML = hostname;
