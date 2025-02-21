@@ -1,5 +1,8 @@
 # DQM<sup>2</sup> Mirror
 
+> [!WARNING]
+> This repository has moved [here](https://gitlab.cern.ch/cms-dqmdc/services/dqmsquare_mirror).
+
 > [!NOTE]
 > More detailed information can be found in the [Wiki](https://github.com/cms-DQM/dqmsquare_mirror/wiki).
 
